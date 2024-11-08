@@ -467,10 +467,10 @@ function initScene(tilesheet, playerTexture, bgTexture) {
         playerGroup.getWorldPosition(worldPos);
 
         let visibleWidth = visibleWidthAtZDepth(0, camera)/2;
-        let visibleHeight = visibleHeightAtZDepth(0, camera);
+        let visibleHeight = visibleHeightAtZDepth(0, camera)/2;
 
         camera.position.x = THREE.MathUtils.damp(camera.position.x, Math.min(Math.max(Math.round(worldPos.x), visibleWidth - 25), mapWidth - visibleWidth - 25), 10, delta);
-        camera.position.y = THREE.MathUtils.damp(camera.position.y, Math.min(Math.max(Math.round(worldPos.y), -(mapHeight - visibleHeight/2) + 25), -visibleHeight/2 + 25), 10, delta);
+        camera.position.y = THREE.MathUtils.damp(camera.position.y, Math.min(Math.max(Math.round(worldPos.y), -(mapHeight - visibleHeight) + 25), -visibleHeight + 25), 10, delta);
     }
 
     // Game loop
