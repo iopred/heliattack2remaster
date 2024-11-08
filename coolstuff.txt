@@ -1,0 +1,2 @@
+Put cube at position of click: https://jsfiddle.net/8kfp2oha/
+Find visible width/height for a zdepth: https://discourse.threejs.org/t/functions-to-calculate-the-visible-width-height-at-a-given-z-depth-from-a-perspective-camera/269/7
