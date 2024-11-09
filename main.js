@@ -28,26 +28,26 @@ const material = new THREE.MeshPhongMaterial( { color: 0xffffff, flatShading: tr
 const cube = new THREE.Mesh(geometry, material);
 scene.add(cube);
 
-function createBlueLine() {
+function createBlueLine(x, y, object) {
     //create a blue LineBasicMaterial
     const material2 = new THREE.LineBasicMaterial( { color: 0x0000ff } );
 
     const points = [];
-    points.push( new THREE.Vector3( -10, 0, 0 ) );
-    points.push( new THREE.Vector3( 0, 10, 0 ) );
-    points.push( new THREE.Vector3( 10, 0, 0 ) );
+    points.push( new THREE.Vector3( x - 10, y - 10, -0 ) );
+    points.push( new THREE.Vector3( x, y, -0 ) );
+    points.push( new THREE.Vector3( x + 10, y - 10, -0 ) );
 
     const geometry2 = new THREE.BufferGeometry().setFromPoints( points );
     const line = new THREE.Line( geometry2, material2 );
-    scene.add(line);
+    object.add(line);
 }
 
-const loader = new FontLoader();
+const fontLoader = new FontLoader();
 
 let textGeometry;
 let textMesh;
 
-loader.load( 'fonts/helvetiker_regular.typeface.json', function ( font ) {
+fontLoader.load( 'fonts/helvetiker_regular.typeface.json', function ( font ) {
 
 	textGeometry = new TextGeometry( 'Heli Attack', {
 		font: font,
@@ -147,11 +147,9 @@ function init() {
         document.getElementById('container').appendChild(warning);
     }
 
-    // Load the spritesheet
-    const loader = new THREE.TextureLoader();
     // Start loading assets
-    loadAssets(loader).then((images) => {
-        initScene(...images);
+    loadAssets().then((textures) => {
+        initScene(textures);
     }).catch(error => console.error('Error loading assets:', error));
 }
 
@@ -187,24 +185,79 @@ const bg1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 
 [[0, 12], [0, 0], [0, 0], [0, 11], [0, 11], [0, 0], [0, 0], [0, 0],[0, 0],[0, 11], [0, 12], [0, 0], [0, 0], [0, 11], [0, 11], [0, 0], [0, 0], [0, 0],[0, 0],[0, 11]],
 [[0, 12], [0, 11], [0, 11], [0, 12], [0, 12], [0, 11], [0, 0], [0, 0],[0, 11],[0, 12], [0, 12], [0, 11], [0, 11], [0, 12], [0, 12], [0, 11], [0, 0], [0, 0],[0, 11],[0, 12]]];
 
+
+class Weapon {
+    constructor(name, textureUrl, origin /* {THREE.Vector2} */, barrel /* {THREE.Vector2} */, reloadTime, bulletSpeed, damage) {
+        this.name = name;
+        this.textureUrl = textureUrl;
+        this.origin = origin;
+        this.barrel = barrel;
+        this.reloadTime = reloadTime;
+        this.bulletSpeed = bulletSpeed;
+        this.damage = damage;
+    }
+
+    init(texture) {
+        this.geometry = new THREE.PlaneGeometry(texture.image.width, texture.image.height);
+        this.material = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+        });
+        this.geometry.translate(texture.image.width / 2, -texture.image.height / 2, 0); 
+        this.mesh = new THREE.Mesh(this.geometry, this.material);
+    }
+}
+
+const weapons = [
+    new Weapon("Machine Gun", 'images/weapons/machinegun.png', new THREE.Vector2(5, 12), new THREE.Vector2(23, -7.5), 5, 8, 10),
+    new Weapon("Akimbo Mac10's", 'images/weapons/mac10s.png', new THREE.Vector2(-2, 21), new THREE.Vector2(28, -8.5), 4, 8, 9),
+    new Weapon("Shotgun", 'images/weapons/shotgun.png', new THREE.Vector2(5, 12), new THREE.Vector2(30, -7), 25, 8, 15),
+    new Weapon("Shotgun Rockets", 'images/weapons/shotgunrockets.png', new THREE.Vector2(7, 19), new THREE.Vector2(34, -8), 40, 7, 40),
+    new Weapon("Grenade Launcher", 'images/weapons/grenadelauncher.png', new THREE.Vector2(13, 18), new THREE.Vector2(29, -7), 30, 15, 75),
+    new Weapon("RPG", 'images/weapons/rpg.png', new THREE.Vector2(18, 20), new THREE.Vector2(32, -7), 40, 4, 75),
+    new Weapon("Rocket Launcher", 'images/weapons/rocketlauncher.png', new THREE.Vector2(19, 23), new THREE.Vector2(25, -9.5), 50, 7, 100),
+    new Weapon("Seeker Launcher", 'images/weapons/seekerlauncher.png', new THREE.Vector2(24, 28), new THREE.Vector2(24, -9.5), 55, 7, 100),
+    new Weapon("Flame Thrower", 'images/weapons/flamethrower.png', new THREE.Vector2(9, 16), new THREE.Vector2(29, -7), 1, 8, 2),
+    new Weapon("Fire Mines", 'images/weapons/mine.png', new THREE.Vector2(-9, 15), new THREE.Vector2(20, -5.5), 100, 3, 5),
+    new Weapon("A-Bomb Launcher", 'images/weapons/abomb.png', new THREE.Vector2(22, 30), new THREE.Vector2(36, -13), 150, 3, 300),
+    new Weapon("Rail Gun", 'images/weapons/railgun.png', new THREE.Vector2(23, 27), new THREE.Vector2(32, -8), 75, 20, 150),
+    new Weapon("Grapple Cannon", 'images/weapons/grapplecannon.png', new THREE.Vector2(18, 23), new THREE.Vector2(33, -11), 250, 20, 300),
+    new Weapon("Shoulder Cannon", 'images/weapons/shouldercannon.png', new THREE.Vector2(0, 0), new THREE.Vector2(16, 0), 100, 20, 300),
+];
+
 // Helper to load a texture as a promise
-function loadTexture(loader, url) {
+function loadTexture(loader, textures, url) {
     return new Promise((resolve, reject) => {
         loader.load(url, (texture) => {
             texture.magFilter = THREE.NearestFilter;
             texture.minFilter = THREE.NearestFilter;
             texture.colorSpace = THREE.SRGBColorSpace;
+            textures[url] = texture;
             resolve(texture);
-        }, undefined, reject);
+        }, undefined, (error) => {
+            console.log(url)
+            reject(url, error);
+        });
     });
 }
 
-async function loadAssets(loader) {
-    return Promise.all([
-        loadTexture(loader, 'images/tilesheet.png'),
-        loadTexture(loader, 'images/player.png'),
-        loadTexture(loader, 'images/bg.png')
-    ]);
+async function loadAssets() {
+    const textureMap = {};
+    // Load the spritesheet
+    const loader = new THREE.TextureLoader();
+    const textures = [
+        loadTexture(loader, textureMap, 'images/tilesheet.png'),
+        loadTexture(loader, textureMap, 'images/player.png'),
+        loadTexture(loader, textureMap, 'images/bg.png'),
+    ];
+    for (const weapon of weapons) {
+        textures.push(loadTexture(loader, textureMap, weapon.textureUrl));
+    }
+    await Promise.all(textures);
+    for (const weapon of weapons) {
+        weapon.init(textureMap[weapon.textureUrl]);
+    }
+    return textureMap;
 }
 
 function setUV(geometry, index, size, width, height) {
@@ -270,7 +323,29 @@ function resolveAxisCollision(entity, delta, axis, tilemap, tileSize) {
     return false;
 }
 
-function initScene(tilesheet, playerTexture, bgTexture) {
+function visibleHeightAtZDepth(depth, camera) {
+    // compensate for cameras not positioned at z=0
+    const cameraOffset = camera.position.z;
+    if ( depth < cameraOffset ) depth -= cameraOffset;
+    else depth += cameraOffset;
+  
+    // vertical fov in radians
+    const vFOV = camera.fov * Math.PI / 180; 
+  
+    // Math.abs to ensure the result is always positive
+    return 2 * Math.tan( vFOV / 2 ) * Math.abs( depth );
+};
+
+function visibleWidthAtZDepth(depth, camera) {
+    const height = visibleHeightAtZDepth( depth, camera );
+    return height * camera.aspect;
+};
+
+function initScene(textures) {
+    const tilesheet = textures['images/tilesheet.png'];
+    const playerTexture = textures['images/player.png'];
+    const bgTexture = textures['images/bg.png'];
+
     const tileSize = 50;
     const sheetWidth = tilesheet.image.width;
     const sheetHeight = tilesheet.image.height;
@@ -304,11 +379,15 @@ function initScene(tilesheet, playerTexture, bgTexture) {
                 });
 
                 setUV(geometry, index, tileSize, sheetWidth, sheetHeight);
+
+                geometry.translate(tileSize / 2, -tileSize / 2, 0);
                 
                 // Create the tile mesh and position it in the grid
                 const tile = new THREE.Mesh(geometry, material);
                 tile.position.set(x * tileSize, -y * tileSize, 0);
                 group.add(tile);
+
+                // createBlueLine(x * tileSize, -y * tileSize, group)
             }
         }
         
@@ -348,10 +427,12 @@ function initScene(tilesheet, playerTexture, bgTexture) {
         transparent: true,
     });
     const playerBody = new THREE.Mesh(playerGeometry, playerMaterial);
-    playerBody.position.set(-playerSize/2, playerSize);
+    playerBody.position.set(0, playerSize/2, -1);
     setUV(playerGeometry, 1, playerSize, playerWidth, playerHeight);
-
     playerGroup.add(playerBody);
+    playerGroup.add(weapons[0].mesh);
+
+    // createBlueLine(0, 19, playerGroup);
 
     world.add(playerGroup);
 
@@ -369,6 +450,17 @@ function initScene(tilesheet, playerTexture, bgTexture) {
         },
         jumps: 2,
         jumping: 0,
+        weapon: 0,
+        hand: new THREE.Vector2(0, 19),
+    }
+
+    function selectWeapon(weaponIndex) {
+        playerGroup.remove(weapons[player.weapon].mesh);
+        player.weapon = weaponIndex;
+        const weapon = weapons[weaponIndex];
+        playerGroup.add(weapon.mesh);
+
+        updateWeaponPosition();
     }
 
     function updatePlayerGroup() {
@@ -376,7 +468,14 @@ function initScene(tilesheet, playerTexture, bgTexture) {
         playerGroup.position.set(player.position.x, Math.round(-player.position.y), 1);
     }
 
+    function updateWeaponPosition() {
+        const weapon = weapons[player.weapon];
+        weapon.mesh.position.x = player.hand.x - weapon.origin.x;
+        weapon.mesh.position.y = player.hand.y + weapon.origin.y;
+    }
+
     updatePlayerGroup();
+    selectWeapon(6);
 
     // Player movement logic
     function updatePlayerPosition(delta) {
@@ -385,7 +484,11 @@ function initScene(tilesheet, playerTexture, bgTexture) {
             player.tick -= 1;
         
             if (keyIsPressed['ArrowLeft'] == keyIsPressed['ArrowRight']) {
-                player.velocity.x = THREE.MathUtils.damp(player.velocity.x, 0, 10, delta);
+                if (player.velocity.x > 0)  {
+                    player.velocity.x = Math.max(0, player.velocity.x - 1);
+                } else if (player.velocity.x < 0) {
+                    player.velocity.x = Math.min(0, player.velocity.x + 1);
+                }
             } else if (keyIsPressed['ArrowLeft']) {
                 player.velocity.x = -3;
             } else if (keyIsPressed['ArrowRight']) {
@@ -410,9 +513,7 @@ function initScene(tilesheet, playerTexture, bgTexture) {
             player.velocity.y = Math.min(player.velocity.y + 0.5, tileSize);
         }
         
-        //player.position.addScaledVector(player.velocity, delta);
         let [xCol, yCol] = checkTileCollisions(player, delta, map1, tileSize);
-
 
         if (player.position.x + player.bounds.min.x <= 0) {
             player.position.x = -player.bounds.min.x;
@@ -440,28 +541,6 @@ function initScene(tilesheet, playerTexture, bgTexture) {
         updatePlayerGroup();
     }
 
-    
-
-    //camera.position.y = -210;
-
-    const visibleHeightAtZDepth = ( depth, camera ) => {
-        // compensate for cameras not positioned at z=0
-        const cameraOffset = camera.position.z;
-        if ( depth < cameraOffset ) depth -= cameraOffset;
-        else depth += cameraOffset;
-      
-        // vertical fov in radians
-        const vFOV = camera.fov * Math.PI / 180; 
-      
-        // Math.abs to ensure the result is always positive
-        return 2 * Math.tan( vFOV / 2 ) * Math.abs( depth );
-    };
-    
-    const visibleWidthAtZDepth = ( depth, camera ) => {
-        const height = visibleHeightAtZDepth( depth, camera );
-        return height * camera.aspect;
-    };
-
     function updateCameraPosition(delta) {
         let worldPos = new THREE.Vector3();
         playerGroup.getWorldPosition(worldPos);
@@ -469,8 +548,8 @@ function initScene(tilesheet, playerTexture, bgTexture) {
         let visibleWidth = visibleWidthAtZDepth(0, camera)/2;
         let visibleHeight = visibleHeightAtZDepth(0, camera)/2;
 
-        camera.position.x = THREE.MathUtils.damp(camera.position.x, Math.min(Math.max(Math.round(worldPos.x), visibleWidth - 25), mapWidth - visibleWidth - 25), 10, delta);
-        camera.position.y = THREE.MathUtils.damp(camera.position.y, Math.min(Math.max(Math.round(worldPos.y), -(mapHeight - visibleHeight) + 25), -visibleHeight + 25), 10, delta);
+        camera.position.x = THREE.MathUtils.damp(camera.position.x, Math.min(Math.max(Math.round(worldPos.x), visibleWidth), mapWidth - visibleWidth), 10, delta);
+        camera.position.y = THREE.MathUtils.damp(camera.position.y, Math.min(Math.max(Math.round(worldPos.y), -(mapHeight - visibleHeight)), -visibleHeight), 10, delta);
     }
 
     // Game loop
@@ -479,17 +558,9 @@ function initScene(tilesheet, playerTexture, bgTexture) {
 
         accumulator += delta;
 
-
-        
-
-
         if (accumulator > 1/60) {
             updatePlayerPosition(timeScale);
             updateCameraPosition(timeScale);
-   
-
-           // }
-
             accumulator %= 1/60;
         };
         
