@@ -2,8 +2,11 @@ import * as THREE from 'three';
 import WebGL from 'three/addons/capabilities/WebGL.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { Vector2 } from 'three';
 import { Vector3 } from 'three';
+import {Tween, Easing} from '@tweenjs/tween.js'
+import { mx_bilerp_0 } from 'three/src/nodes/materialx/lib/mx_noise.js';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
@@ -28,7 +31,7 @@ scene.add( dirLight );
 const geometry = new THREE.BoxGeometry(50, 50, 50);
 const material = new THREE.MeshPhongMaterial( { color: 0xffffff, flatShading: true } );
 const cube = new THREE.Mesh(geometry, material);
-scene.add(cube);
+// scene.add(cube);
 
 function createBlueLine(x, y, object) {
     //create a blue LineBasicMaterial
@@ -72,8 +75,6 @@ fontLoader.load( 'fonts/helvetiker_regular.typeface.json', function ( font ) {
     // scene.add( textMesh );
 } );
 
-let gameLoop = null;
-
 function animate() {
     cube.rotation.x += 0.01;
     cube.rotation.y += 0.01;
@@ -82,8 +83,8 @@ function animate() {
         textMesh.rotation.y += 0.01;
     }
 
-    if (gameLoop) {
-        gameLoop();
+    if (game) {
+        game.update();
     }
 
 	renderer.render(scene, camera);
@@ -174,6 +175,8 @@ function onMouseWheel(event){
     }
 };
 
+let game;
+
 function init() {
     window.addEventListener('resize', onWindowResize);
     
@@ -196,7 +199,8 @@ function init() {
 
     // Start loading assets
     loadAssets().then((textures) => {
-        initScene(textures);
+        game = new Game();
+        game.init(textures);
     }).catch(error => console.error('Error loading assets:', error));
 }
 
@@ -239,8 +243,9 @@ class Weapon {
         this.textureUrl = textureUrl;
         this.origin = origin;
         this.barrel = barrel;
-        this.reloadTime = reloadTime;
-        this.bulletSpeed = bulletSpeed;
+        // 30fps -> 60fps
+        this.reloadTime = reloadTime * 2;
+        this.bulletSpeed = bulletSpeed / 2;
         this.damage = damage;
         this.bulletTextureUrl = bulletTextureUrl;
         this.reloading = Number.POSITIVE_INFINITY;
@@ -261,26 +266,34 @@ class Weapon {
     }
 
     init(textures) {
-        const texture = textures[this.textureUrl];
-        this.geometry = new THREE.PlaneGeometry(texture.image.width, texture.image.height);
-        this.material = new THREE.MeshBasicMaterial({
-            map: texture,
-            transparent: true,
-        });
-        this.geometry.translate(texture.image.width / 2, -texture.image.height / 2, 0); 
-        this.mesh = new THREE.Mesh(this.geometry, this.material);
+        this.texture = textures[this.textureUrl];
         if (this.bulletTextureUrl) {
             this.bulletTexture = textures[this.bulletTextureUrl];
         }
+        this.mesh = this.createMesh();
     }
 
-    createBullet(createBulletFunc) {
+    createMesh() {
+        const texture = this.texture;
+        const geometry = new THREE.PlaneGeometry(texture.image.width, texture.image.height);
+        const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+        });
+        geometry.translate(texture.image.width / 2, -texture.image.height / 2, 0); 
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.x = -this.origin.x;
+        mesh.position.y = this.origin.y;
+        return mesh;
+    }
+
+    createBullet(game) {
         let rot = 0;
         if (this.bullets > 1) {
             rot = -this.bulletsSpread * this.bullets / 2;
         }
         for (var i = 0; i < this.bullets; i++) {
-            createBulletFunc(this, rot + THREE.MathUtils.randFloat(-this.spread, this.spread));
+            game.createBullet(this, rot + THREE.MathUtils.randFloat(-this.spread, this.spread));
             rot += this.bulletsSpread;
         }
     }
@@ -328,6 +341,15 @@ async function loadAssets() {
         loadTexture(loader, textureMap, 'images/player.png'),
         loadTexture(loader, textureMap, 'images/bg.png'),
         loadTexture(loader, textureMap, 'images/bullet.png'),
+        loadTexture(loader, textureMap, 'images/enemybullet.png'),
+        loadTexture(loader, textureMap, 'images/heli/heli.png'),
+        loadTexture(loader, textureMap, 'images/heli/helidestroyed.png'),
+        loadTexture(loader, textureMap, 'images/heli/enemy.png'),
+        loadTexture(loader, textureMap, 'images/guyburned.png'),
+        loadTexture(loader, textureMap, 'images/shard0.png'),
+        loadTexture(loader, textureMap, 'images/shard1.png'),
+        loadTexture(loader, textureMap, 'images/shard2.png'),
+        loadTexture(loader, textureMap, 'images/explosion.png'),
     ];
     for (const weapon of weapons) {
         textures.push(loadTexture(loader, textureMap, weapon.textureUrl));
@@ -390,7 +412,7 @@ function resolveAxisCollision(entity, timeScale, axis, tilemap, tileSize) {
             // Check if tile is solid
             if (tilemap[yTile][xTile][0] === 1) {
                 if (entity.velocity[axis] > 0) {
-                    entity.position[axis] = tilePos * tileSize - entity.bounds.max[axis] - 1;
+                    entity.position[axis] = tilePos * tileSize - entity.bounds.max[axis] - 0.01;
                 } else {
                     entity.position[axis] = (tilePos + 1) * tileSize - entity.bounds.min[axis];
 
@@ -423,31 +445,637 @@ function visibleWidthAtZDepth(depth, camera) {
     return height * camera.aspect;
 };
 
-function initScene(textures) {
-    const tilesheet = textures['images/tilesheet.png'];
-    const playerTexture = textures['images/player.png'];
-    const bgTexture = textures['images/bg.png'];
-    const bulletTexture = textures['images/bullet.png'];
+function rotateAroundPivot(point, pivot, angle, flip) {
+    const cosAngle = Math.cos(angle);
+    const sinAngle = Math.sin(angle);
 
+    // Step 1: Translate point to the origin (relative to the pivot)
+    const dx = point.x - pivot.x;
+    const dy = (flip ? -point.y: point.y) - pivot.y;
     
-    const zero = new THREE.Vector3();
+    // Step 2: Rotate the point
+    const rotatedX = dx * cosAngle - dy * sinAngle;
+    const rotatedY = dx * sinAngle + dy * cosAngle;
 
-    const tileSize = 50;
-    const sheetWidth = tilesheet.image.width;
-    const sheetHeight = tilesheet.image.height;
+    // Step 3: Translate back to the pivot's position
+    return {
+        x: rotatedX + pivot.x,
+        y: rotatedY + pivot.y,
+        z: 0,
+    };
+}
 
-    const world = new THREE.Group();
+const SCREEN_WIDTH = 500;
+const SCREEN_HEIGHT = 500 * 9/16;
 
-    // Set up background
-    const bgGeometry = new THREE.PlaneGeometry(bgTexture.image.width, bgTexture.image.height); // Adjust size as needed
-    const bgMaterial = new THREE.MeshBasicMaterial({ map: bgTexture });
-    const background = new THREE.Mesh(bgGeometry, bgMaterial);
-    background.position.set(bgTexture.image.width / 2, -bgTexture.image.height / 2, -500); // Move it behind other elements
-    // scene.add(background);
+const HELI_WIDTH = 100;
+const HELI_EXIT_OFFSET = 500;
 
-    scene.background = bgTexture;
+class Enemy {
+    constructor() {
+        this.position = new THREE.Vector2(0, 0);
+        this.velocity = new THREE.Vector2(0, 0);
+        this.targetPosition = new THREE.Vector2(0, 0);
+        this.playerOffset = new THREE.Vector2(0, 0);
+
+        this.tick = 0;
+        this.nextXReposition = Number.POSITIVE_INFINITY;
+        this.nextYReposition = Number.POSITIVE_INFINITY;
+
+        this.shoot = 0;
+
+        this.health = 300;
+    }
+
+    init(game) {
+        const heliTexture = this.heliTexture = game.textures['images/heli/heli.png'];
+        const destroyedTexture = this.destroyedTexture = game.textures['images/heli/helidestroyed.png'];
+        const enemyTexture = this.enemyTexture = game.textures['images/heli/enemy.png'];
+        this.bulletTexture = game.textures['images/enemybullet.png'];
+
+        this.group = new THREE.Group();
+
+        this.heliGroup = new THREE.Group();
+        this.group.add(this.heliGroup);
+
+        const geometry = new THREE.PlaneGeometry(heliTexture.image.width, heliTexture.image.height);
+        const material = new THREE.MeshBasicMaterial({
+            map: heliTexture,
+            transparent: true,
+        });
+        const mesh = this.mesh = new THREE.Mesh(geometry, material);
+        this.heliGroup.add(mesh);
+
+        
+        const enemyGeometry = new THREE.PlaneGeometry(enemyTexture.image.width, enemyTexture.image.height);
+        const enemyMaterial = new THREE.MeshBasicMaterial({
+            map: enemyTexture,
+            transparent: true,
+        });
+
+        const enemyMesh = this.enemyMesh = new THREE.Mesh(enemyGeometry, enemyMaterial);
+        enemyMesh.position.y = -5;
+
+        this.group.add(enemyMesh);
+
+        const enemyWeapon = this.enemyWeapon = new THREE.Object3D()
+        enemyWeapon.add(weapons[0].createMesh());
+
+        this.group.add(enemyWeapon);
+
+        scene.add(this.group)
+
+        this.randomizePosition(game)
+
+        // heliBoxes.forEach((box) => {
+        //     // Get the size and center of the bounding box
+        //     const size = new THREE.Vector3();
+        //     const center = new THREE.Vector3();
+        //     box.getSize(size);
+        //     box.getCenter(center);
     
-    const buildMap = (map) => {
+        //     // Create a BoxGeometry with the dimensions of the bounding box
+        //     const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+    
+        //     // Create a material for visualization (wireframe helps show bounding volume)
+        //     const material = new THREE.MeshBasicMaterial({
+        //         color: 0x00ff00, // Green color
+        //         wireframe: true, // Wireframe mode to show the outline
+        //     });
+    
+        //     // Create a mesh from the geometry and material
+        //     const boxMesh = new THREE.Mesh(geometry, material);
+    
+        //     // Position the mesh at the center of the bounding box
+        //     boxMesh.position.copy(center);
+    
+        //     // Add the mesh to the scene
+        //     this.heliGroup.add(boxMesh);
+        // });
+    }
+
+    destroy(game) {
+        scene.remove(this.group);
+
+        new DestroyedHeli(game, this);
+        new DestroyedEnemy(game, this);
+
+        for(var i = 0; i < 3; i++) {
+            const p = this.position.clone()
+            p.x += -40 + Math.random() * 80;
+            p.y += -20 + Math.random() * 40;
+            new Shard(game, p);
+        }
+
+        new Explosion(game, this.position.clone(), 100);
+    }
+
+    randomizePosition(game) {
+        this.trackingPlayer = 300 + Math.floor(Math.random() * 200);
+
+        if (Math.random() > 0.25) {
+            if (Math.random() > 0.5) {
+                this.position.x = camera.position.x - game.visibleWidth/2 -  HELI_EXIT_OFFSET;
+            } else {
+                this.position.x = camera.position.x + game.visibleWidth/2 + HELI_EXIT_OFFSET;
+            }
+            this.position.y = game.player.position.y - game.visibleHeight * 0.5;
+        } else {
+            this.position.x = camera.position.x + game.visibleWidth/2;
+            this.position.y = -camera.position.y - HELI_EXIT_OFFSET;
+        }
+
+        this.heliGroup.scale.x = Math.random() > 0.5 ? 1 : -1;
+
+        if (this.heliGroup.scale.x == 1) {
+            this.enemyMesh.position.x = 10;
+        } else {
+            this.enemyMesh.position.x = -10;
+        }
+        this.enemyWeapon.position.set(this.enemyMesh.position.x, this.enemyMesh.position.y - 7, 0);
+    }
+
+    update(game, delta) {
+        let move = false;
+        this.tick += game.timeScale;
+        if (this.tick >= 1) {
+            this.tick %= 1;
+            move = true;
+        }
+
+        if (move) {
+            if (this.trackingPlayer > 0) {
+                if (move) {
+                    if (this.nextXReposition++ > 150) {
+                        this.nextXReposition = 0;
+                        this.playerOffset.x = -SCREEN_WIDTH/2 + Math.random() * SCREEN_WIDTH;
+                    }
+                    if (this.nextYReposition++ > 80) {
+                        this.nextYReposition = 0;
+                        this.playerOffset.y = -game.visibleHeight*0.5 + (-2 * Math.random() * 4)*10;
+                    }
+                    this.trackingPlayer--;
+                }
+
+                this.targetPosition.x = Math.max(HELI_WIDTH, Math.min(game.player.position.x+this.playerOffset.x, game.mapWidth - HELI_WIDTH));
+                this.targetPosition.y = game.player.position.y+this.playerOffset.y;
+            } else {
+                if (this.trackingPlayer == 0) { 
+                    this.randomizeExit = Math.floor(Math.random() * 10)
+                }
+
+                if (this.randomizeExit < 4) {
+                    this.targetPosition.x = camera.position.x - game.visibleWidth/2 - HELI_EXIT_OFFSET;
+                } else if (this.randomizeExit < 8) {
+                    this.targetPosition.x = camera.position.x + game.visibleWidth/2 + HELI_EXIT_OFFSET;
+                } else {
+                    this.targetPosition.y = -camera.position.y - game.visibleHeight;
+                }
+
+                this.trackingPlayer--;
+            }
+        }
+
+        const onScreen = this.isOnScreen();
+
+        var diff = this.targetPosition.clone().sub(this.position);
+
+        if (onScreen && this.trackingPlayer > 0) {
+            this.velocity.x = diff.x / 100;
+            this.velocity.y = diff.y / 50;
+            if (move) {
+                this.fireAtPlayer(game);
+            }
+        } else {
+            this.velocity.x = diff.x / 50;
+            this.velocity.y = diff.y / 20;
+        }
+
+        this.position.x += this.velocity.x*game.timeScale;
+        this.position.y += this.velocity.y*game.timeScale;
+
+        this.group.position.set(this.position.x, -this.position.y, 1);
+
+        const r = -this.velocity.x/20 * 15;
+		this.group.rotation.z = THREE.MathUtils.damp(this.group.rotation.z, r * Math.PI / 180, 10, delta);
+
+        if (this.trackingPlayer <= 0 && !onScreen) {
+            this.randomizePosition(game);
+        }
+    }
+
+    fireAtPlayer(game) {
+        // Get object position in world coordinates
+        const playerPosition = new THREE.Vector3();
+        game.playerWeapon.getWorldPosition(playerPosition);
+
+        playerPosition.add(game.player.velocity);
+
+        const enemyPosition = new THREE.Vector3();
+        this.enemyWeapon.getWorldPosition(enemyPosition);
+        this.aim = Math.atan2(
+            playerPosition.y - enemyPosition.y,
+            playerPosition.x - enemyPosition.x
+        );
+        if (this.aim > Math.PI/2 || this.aim < -Math.PI/2) {
+            this.enemyWeapon.scale.x = -1;
+            this.enemyWeapon.rotation.z = this.aim + Math.PI;
+        } else {
+            this.enemyWeapon.scale.x = 1;
+            this.enemyWeapon.rotation.z = this.aim
+        }
+
+        if ((this.shoot++%Math.max(20,32-game.level*2)) == 1) {
+            this.createBullet(game);
+        }
+    }
+
+    isOnScreen() {
+        const frustum = new THREE.Frustum();
+        const cameraViewProjectionMatrix = new THREE.Matrix4();
+
+        // Update frustum with the latest camera position
+        camera.updateMatrixWorld(); 
+        cameraViewProjectionMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+        frustum.setFromProjectionMatrix(cameraViewProjectionMatrix);
+
+        // Get mesh's bounding box
+        const boundingBox = new THREE.Box3().setFromObject(this.group);
+
+        // Check if the mesh is in the camera's frustum
+        const isMeshOnScreen = frustum.intersectsBox(boundingBox);
+
+        return isMeshOnScreen;
+    }
+
+    createBullet(game) {
+        const pivot = new THREE.Vector3();
+        this.enemyWeapon.getWorldPosition(pivot);
+
+        const texture = this.bulletTexture;
+
+        const geometry = new THREE.PlaneGeometry(texture.image.width, texture.image.height);
+        const material = new THREE.MeshBasicMaterial({ 
+            map: texture,
+            transparent: true
+        });
+
+        const player = this.player;
+
+        const direction = this.aim + (-5 + Math.random()*10) * Math.PI/180
+        
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.rotation.z = direction;
+
+        mesh.position.copy(pivot.add(rotateAroundPivot(weapons[0].barrel, zero, this.aim, !(this.aim > Math.PI/2 || this.aim < -Math.PI/2))));
+
+        scene.add(mesh);
+        game.enemyBullets.push({
+            velocity: new THREE.Vector3(
+                3.5 * Math.cos(direction),
+                3.5 * Math.sin(direction),
+                0),
+            object: mesh,
+        });
+    }
+}
+
+class Entity {
+    constructor(game, textureUrl) {
+        this.textureUrl = textureUrl;
+        this.tick = 0;
+        this.position = new THREE.Vector2(0, 0);
+        this.velocity = new THREE.Vector2(0, 0);
+        this.init(game)
+    }
+
+    init(game) {
+        const texture = this.texture = game.textures[this.textureUrl];
+
+        const geometry = new THREE.PlaneGeometry(texture.image.width, texture.image.height);
+        const material = this.material = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+        });
+        const mesh = this.mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+
+        game.entities.push(this);
+    }
+
+    update(game, delta) {
+        let move = false;
+        this.tick += game.timeScale;
+        if (this.tick >= 1) {
+            this.tick %= 1;
+            this.move(game);
+        }
+
+        this.position.x += this.velocity.x*game.timeScale;
+        this.position.y += this.velocity.y*game.timeScale;
+
+        this.updateMesh();
+
+        return false;
+    }
+
+    updateMesh() {
+        this.mesh.position.set(this.position.x, -this.position.y, 1);
+    }
+
+    move(game) {}
+
+    destroy(game) {
+        scene.remove(this.mesh);
+    }
+}
+
+class DestroyedEnemy extends Entity {
+    constructor(game, enemy) {
+        super(game, 'images/guyburned.png');
+
+        this.position.copy(enemy.position);
+		this.velocity.set(-3 + Math.random() * 6, -5 + Math.random()*5);
+        this.mesh.scale.x = enemy.heliGroup.scale.x;
+        this.mesh.rotation.z = enemy.group.rotation.z;
+    }
+
+    move(game) {
+        this.velocity.y += 0.5;
+    }
+
+    update(game, delta) {
+        let move = false;
+        this.tick += game.timeScale;
+        if (this.tick >= 1) {
+            this.tick %= 1;
+            this.move(game);
+        }
+
+        this.mesh.rotation.z += (Math.abs(this.velocity.x) + Math.abs(this.velocity.y)) * game.timeScale * Math.PI / 180
+
+        this.position.x += this.velocity.x * game.timeScale
+        if (isTileCollision(this.position.x, this.position.y, map1, game.tileSize)) {
+            this.position.x -= this.velocity.x * game.timeScale
+            this.velocity.x *= -0.5;
+        }
+        this.position.y += this.velocity.y * game.timeScale;
+        if (isTileCollision(this.position.x, this.position.y, map1, game.tileSize)) {
+            if (this.velocity.y < 2) {
+                return true;
+            } else {
+                this.position.y -= this.velocity.y * game.timeScale
+                this.velocity.y *= -0.4;
+            }
+
+        }
+
+        this.updateMesh();
+    }
+}
+
+class Shard extends Entity {
+    constructor(game, position) {
+        super(game, 'images/shard' + Math.floor(Math.random() * 3) + '.png');
+
+        this.position.copy(position);
+		this.velocity.set(-5 + Math.random() * 10, -5 + Math.random()*10);
+        this.mesh.scale.x = Math.random() > 0.5 ? 1 : -1;
+        this.mesh.rotation.z = Math.random() * 2 * Math.PI;
+
+        this.bounces = 0;
+    }
+
+    move(game) {
+        this.velocity.y += 0.5;
+    }
+
+    update(game, delta) {
+        let move = false;
+        this.tick += game.timeScale;
+        if (this.tick >= 1) {
+            this.tick %= 1;
+            this.move(game);
+        }
+
+        if (this.velocity.x > 0) {
+            this.mesh.rotation.z -= (this.velocity.x * game.timeScale * 2) * Math.PI / 180;
+        } else {
+            this.mesh.rotation.z += (this.velocity.x * game.timeScale * 2) * Math.PI / 180;
+        }
+
+        this.mesh.rotation.z += (Math.abs(this.velocity.x) + Math.abs(this.velocity.y)) * game.timeScale * Math.PI / 180
+
+        this.position.x += this.velocity.x * game.timeScale
+        if (isTileCollision(this.position.x, this.position.y, map1, game.tileSize)) {
+            this.position.x -= this.velocity.x * game.timeScale
+            this.velocity.x *= -0.5;
+        }
+        this.position.y += this.velocity.y * game.timeScale;
+        if (isTileCollision(this.position.x, this.position.y, map1, game.tileSize)) {
+            if (this.bounces > 3) {
+                return true;
+            } else {
+                this.position.y -= this.velocity.y * game.timeScale
+                this.velocity.y *= -0.5;
+                this.bounces++;
+            }
+
+        }
+
+        this.updateMesh();
+    }
+}
+
+class DestroyedHeli extends Entity {
+    constructor(game, enemy) {
+        super(game, 'images/heli/helidestroyed.png');
+
+        this.position.copy(enemy.position);
+        this.velocity.copy(enemy.velocity);
+        this.mesh.scale.x = enemy.heliGroup.scale.x;
+        this.mesh.rotation.z = enemy.group.rotation.z;
+    }
+
+    move(game) {
+        this.velocity.y += 0.5;
+    }
+
+    update(game, delta) {
+        super.update(game, delta);
+
+        if (this.velocity.x > 0) {
+            this.mesh.rotation.z -= (this.velocity.y * game.timeScale / 4) * Math.PI / 180;
+        } else {
+            this.mesh.rotation.z += (this.velocity.y * game.timeScale / 4) * Math.PI / 180;
+        }
+
+        return isTileCollision(this.position.x, this.position.y, map1, game.tileSize);
+    }
+
+    destroy(game) {
+        super.destroy(game);
+
+        for(var i = 0; i < 6; i++) {
+            const p = this.position.clone()
+            p.x += -40 + Math.random() * 80;
+            p.y -= this.velocity.y;
+            new Shard(game, p);
+        }
+
+        new Explosion(game, this.position.clone(), 150);
+    }
+}
+
+class Explosion extends Entity {
+    constructor(game, position, size) {
+        super(game, 'images/explosion.png');
+
+        this.position.copy(position);
+        this.targetSize = size * 0.75 / 337;
+
+        this.mesh.scale.x = this.mesh.scale.y = size / 337;
+    }
+
+    update(game, delta) {
+        let move = false;
+        this.tick += game.timeScale;
+        if (this.tick >= 1) {
+            this.tick %= 1;
+           
+            this.material.opacity -= 0.05;
+            this.mesh.scale.x = THREE.MathUtils.damp(this.mesh.scale.x, this.targetSize, 10, delta)
+            this.mesh.scale.y = this.mesh.scale.x;
+
+            if (this.material.opacity <= 0) {
+                return true;
+            }
+        }
+
+        this.updateMesh();
+
+        return false;
+    }
+
+    destroy(game) {
+        super.destroy(game);
+    }
+}
+
+const zero = new THREE.Vector3();
+
+class Game {
+    constructor() {
+        this.enemy = null;
+        this.level = 0;
+    }
+
+    init(textures) {
+        this.textures = textures;
+
+        const tilesheet = this.tilesheet = textures['images/tilesheet.png'];
+        const playerTexture = this.playerTexture = textures['images/player.png'];
+        const bgTexture = this.bgTexture = textures['images/bg.png'];
+        const bulletTexture = this.bulletTexture = textures['images/bullet.png'];
+
+        const tileSize = this.tileSize = 50;
+
+        const world = this.world = new THREE.Group();
+
+        // Set up background
+        const bgGeometry = new THREE.PlaneGeometry(bgTexture.image.width, bgTexture.image.height); // Adjust size as needed
+        const bgMaterial = new THREE.MeshBasicMaterial({ map: bgTexture });
+        const background = new THREE.Mesh(bgGeometry, bgMaterial);
+        background.position.set(bgTexture.image.width / 2, -bgTexture.image.height / 2, -500); // Move it behind other elements
+        // scene.add(background);
+
+        scene.background = bgTexture;
+        
+        const mapHeight = this.mapHeight = map1.length * tileSize;
+        const mapWidth = this.mapWidth = map1[0].length * tileSize;
+
+        const bgLayer = this.buildMap(bg1);
+        bgLayer.position.set(0, mapHeight - tileSize * 4, -200); // Move it behind other elements-
+        bgLayer.scale.x = 2;
+        bgLayer.scale.y = 2;
+        world.add(bgLayer);
+
+        // Add layers to the scene
+        const mapLayer = this.buildMap(map1);
+        world.add(mapLayer);
+
+        
+        const mapBox = this.mapBox = new THREE.Box3(new THREE.Vector3(0, -mapHeight, 0), new THREE.Vector3(mapWidth, 0, 0));
+        mapBox.expandByScalar(tileSize);
+
+        cube.position.x = 400;
+        cube.position.y = -400;
+
+        const clock = this.clock = new THREE.Clock();
+        let accumulator = this.accumulator = 0;
+
+        const playerSize = 55;
+        const playerWidth = playerTexture.image.width;
+        const playerHeight = playerTexture.image.height;
+
+        let timeScale = this.timeScale = 1;
+        const player = this.player =  {
+            tick: 0,
+            position: new THREE.Vector2(tileSize / 2, 47),
+            velocity: new THREE.Vector2(),
+            bounds: {
+                min: new THREE.Vector2(-8, -47),
+                max: new THREE.Vector2(8, -4),
+            },
+            jumps: 2,
+            jumping: 0,
+            weapon: 0,
+            hand: new THREE.Vector2(0, 19),
+            aim: 0,
+        }
+        const playerBullets = this.playerBullets = [];
+        const enemyBullets = this.enemyBullets = [];
+        this.entities = [];
+
+        const playerGroup = this.playerGroup = new THREE.Group();
+
+        // Create the player
+        const playerGeometry = new THREE.PlaneGeometry(playerSize, playerSize);
+        const playerMaterial = new THREE.MeshBasicMaterial({
+            map: playerTexture,
+            transparent: true,
+        });
+        const playerBody = this.playerBody = new THREE.Mesh(playerGeometry, playerMaterial);
+        playerBody.position.set(0, playerSize/2, -1);
+        setUV(playerGeometry, 1, playerSize, playerWidth, playerHeight);
+        playerGroup.add(playerBody);
+
+        const playerWeapon = this.playerWeapon = new THREE.Object3D()
+        playerWeapon.add(weapons[0].mesh);
+
+        playerWeapon.position.set(player.hand.x, player.hand.y, 0);
+        playerWeapon.rotation.z = -Math.PI/4;
+
+        playerGroup.add(playerWeapon);
+
+        // createBlueLine(0, 19, playerGroup);
+
+        world.add(playerGroup);
+
+        scene.add(world);
+
+        this.updatePlayerGroup();
+        this.selectWeapon(1);
+        weapons[player.weapon].reloading = Number.POSITIVE_INFINITY;
+
+        this.updateCameraPosition(0);
+
+        this.enemy = new Enemy()
+        this.enemy.init(this);
+    }
+
+    buildMap(map) {
+        const tileSize = this.tileSize;
         const group = new THREE.Group();
         
         for (let y = 0; y < map.length; y++) {
@@ -460,9 +1088,12 @@ function initScene(textures) {
                 // Create geometry and material with UV mapping
                 const geometry = new THREE.PlaneGeometry(tileSize, tileSize);
                 const material = new THREE.MeshBasicMaterial({ 
-                    map: tilesheet,
+                    map: this.tilesheet,
                     transparent: true
                 });
+
+                const sheetWidth = this.tilesheet.image.width;
+                const sheetHeight = this.tilesheet.image.height;
 
                 setUV(geometry, index, tileSize, sheetWidth, sheetHeight);
 
@@ -480,109 +1111,28 @@ function initScene(textures) {
         return group;
     };
 
-    
-    const mapHeight = map1.length * tileSize;
-    const mapWidth = map1[0].length * tileSize;
-
-    const bgLayer = buildMap(bg1);
-    bgLayer.position.set(0, mapHeight - tileSize * 4, -200); // Move it behind other elements-
-    bgLayer.scale.x = 2;
-    bgLayer.scale.y = 2;
-    world.add(bgLayer);
-
-    // Add layers to the scene
-    const mapLayer = buildMap(map1);
-    world.add(mapLayer);
-
-    
-    const mapBox = new THREE.Box3(new THREE.Vector3(0, -mapHeight, 0), new THREE.Vector3(mapWidth, 0, 0));
-    mapBox.expandByScalar(tileSize);
-
-    cube.position.x = 400;
-    cube.position.y = -400;
-
-    const clock = new THREE.Clock();
-    let accumulator = 0;
-
-    const playerSize = 55;
-    const playerWidth = playerTexture.image.width;
-    const playerHeight = playerTexture.image.height;
-
-    let timeScale = 1;
-    const player = {
-        tick: 0,
-        position: new THREE.Vector2(tileSize / 2, 47),
-        velocity: new THREE.Vector2(),
-        bounds: {
-            min: new THREE.Vector2(-12, -47),
-            max: new THREE.Vector2(8, -4),
-        },
-        jumps: 2,
-        jumping: 0,
-        weapon: 0,
-        hand: new THREE.Vector2(0, 19),
-        aim: 0,
-    }
-    const playerBullets = [];
-    const enemyBullets = [];
-
-    const playerGroup = new THREE.Group();
-
-    // Create the player
-    const playerGeometry = new THREE.PlaneGeometry(playerSize, playerSize);
-    const playerMaterial = new THREE.MeshBasicMaterial({
-        map: playerTexture,
-        transparent: true,
-    });
-    const playerBody = new THREE.Mesh(playerGeometry, playerMaterial);
-    playerBody.position.set(0, playerSize/2, -1);
-    setUV(playerGeometry, 1, playerSize, playerWidth, playerHeight);
-    playerGroup.add(playerBody);
-
-    const playerWeapon = new THREE.Object3D()
-    playerWeapon.add(weapons[0].mesh);
-
-    playerWeapon.position.set(player.hand.x, player.hand.y, 0);
-    playerWeapon.rotation.z = -Math.PI/4;
-
-    playerGroup.add(playerWeapon);
-
-    // createBlueLine(0, 19, playerGroup);
-
-    world.add(playerGroup);
-
-    scene.add(world);
-    
-    function selectWeapon(weaponIndex) {
-        playerWeapon.remove(weapons[player.weapon].mesh);
-        player.weapon = weaponIndex;
+    selectWeapon(weaponIndex) {
+        this.playerWeapon.remove(weapons[this.player.weapon].mesh);
+        this.player.weapon = weaponIndex;
         const weapon = weapons[weaponIndex];
-        playerWeapon.add(weapon.mesh);
-
-        updateWeaponPosition();
+        this.playerWeapon.add(weapon.mesh);
     }
 
-    function updatePlayerGroup() {
+    updatePlayerGroup() {
         // Update position of object, by mapping game position to 3d camera position.
-        playerGroup.position.set(player.position.x, Math.round(-player.position.y), 1);
+        this.playerGroup.position.set(this.player.position.x, Math.round(-this.player.position.y), 1);
     }
 
-    function updateWeaponPosition() {
-        const weapon = weapons[player.weapon];
-        weapon.mesh.position.x = -weapon.origin.x;
-        weapon.mesh.position.y = weapon.origin.y;
-    }
+    updatePlayer(delta) {
+        const player = this.player;
+        let move = false;
+        player.tick += this.timeScale;
+        if (player.tick >= 1) {
+            player.tick %= 1;
+            move = true;
+        }
 
-    updatePlayerGroup();
-    selectWeapon(4);
-    weapons[player.weapon].reloading = Number.POSITIVE_INFINITY;
-
-    // Player movement logic
-    function updatePlayer(timeScale, delta) {
-        player.tick += timeScale;
-        while (player.tick > 1) {
-            player.tick -= 1;
-        
+        if (move) {
             if (keyIsPressed['ArrowLeft'] == keyIsPressed['ArrowRight']) {
                 if (player.velocity.x > 0)  {
                     player.velocity.x = Math.max(0, player.velocity.x - 1);
@@ -599,10 +1149,10 @@ function initScene(textures) {
                 if (player.canJump && player.jumps < 2) {
                     player.canJump = false;
                     player.jumps++;
-                    player.jumping = 16;
-                    player.velocity.y = Math.min(player.velocity.y, -4);
+                    player.jumping = 8;
+                    player.velocity.y = Math.min(player.velocity.y, -6);
                 } else if (player.jumping > 0) {
-                    player.velocity.y = Math.min(player.velocity.y, -4);
+                    player.velocity.y = Math.min(player.velocity.y, -6);
                     player.jumping--;
                 }
             } else {
@@ -610,19 +1160,19 @@ function initScene(textures) {
                 player.jumping = 0;
             }
 
-            player.velocity.y = Math.min(player.velocity.y + 0.5, tileSize);
+            player.velocity.y = Math.min(player.velocity.y + 0.5, this.tileSize);
         }
         
-        let [xCol, yCol] = checkTileCollisions(player, timeScale, map1, tileSize);
+        let [xCol, yCol] = checkTileCollisions(player, this.timeScale, map1, this.tileSize);
 
         if (player.position.x + player.bounds.min.x <= 0) {
             player.position.x = -player.bounds.min.x;
-        } else if (player.position.x + player.bounds.max.x >= mapWidth) {
-            player.position.x = mapWidth - player.bounds.max.x;
+        } else if (player.position.x + player.bounds.max.x >= this.mapWidth) {
+            player.position.x = this.mapWidth - player.bounds.max.x;
         }
 
-        if (player.position.y + player.bounds.max.y >= mapHeight) {
-            player.position.y = mapHeight - player.bounds.max.y;
+        if (player.position.y + player.bounds.max.y >= this.mapHeight) {
+            player.position.y = this.mapHeight - player.bounds.max.y;
             yCol = true;          
         }
 
@@ -638,63 +1188,47 @@ function initScene(textures) {
 
         }
         
-        player.aim = calculateAngleToMouse(playerWeapon, mouse);
+        player.aim = calculateAngleToMouse(this.playerWeapon, mouse);
         if (player.aim > Math.PI/2 || player.aim < -Math.PI/2) {
-            playerWeapon.scale.x = -1;
-            playerWeapon.rotation.z = player.aim + Math.PI;
+            this.playerWeapon.scale.x = -1;
+            this.playerWeapon.rotation.z = player.aim + Math.PI;
         } else {
-            playerWeapon.scale.x = 1;
-            playerWeapon.rotation.z = player.aim
+            this.playerWeapon.scale.x = 1;
+            this.playerWeapon.rotation.z = player.aim
         }
 
-        if (mouse.wheel != 0) {
-            selectWeapon(THREE.MathUtils.euclideanModulo(player.weapon - mouse.wheel, weapons.length));
-            mouse.wheel = 0;
-        }
+        if (move) {
+            if (mouse.wheel != 0) {
+                this.selectWeapon(THREE.MathUtils.euclideanModulo(player.weapon - mouse.wheel, weapons.length));
+                mouse.wheel = 0;
+            }
 
-        const weapon = weapons[player.weapon];
-        weapon.reloading++;
-        if (mouse.down) {
-            if (weapon.reloading > weapon.reloadTime) {
-                weapon.createBullet(createBullet);
-                weapon.reloading = 0;
+            const weapon = weapons[player.weapon];
+            weapon.reloading++;
+            if (mouse.down) {
+                if (weapon.reloading > weapon.reloadTime) {
+                    weapon.createBullet(this);
+                    weapon.reloading = 0;
+                }
             }
         }
 
-        updatePlayerGroup();
+        this.updatePlayerGroup();
     }
 
-    function rotateAroundPivot(point, pivot, angle, flip) {
-        const cosAngle = Math.cos(angle);
-        const sinAngle = Math.sin(angle);
-    
-        // Step 1: Translate point to the origin (relative to the pivot)
-        const dx = point.x - pivot.x;
-        const dy = (flip ? -point.y: point.y) - pivot.y;
-        
-        // Step 2: Rotate the point
-        const rotatedX = dx * cosAngle - dy * sinAngle;
-        const rotatedY = dx * sinAngle + dy * cosAngle;
-
-        // Step 3: Translate back to the pivot's position
-        return {
-            x: rotatedX + pivot.x,
-            y: rotatedY + pivot.y,
-            z: 0,
-        };
-    }
-
-    function createBullet(weapon, rotation) {
+    createBullet(weapon, rotation) {
         const pivot = new THREE.Vector3();
-        playerWeapon.getWorldPosition(pivot);
+        this.playerWeapon.getWorldPosition(pivot);
 
-        const texture = weapon.bulletTexture || bulletTexture;
+        const texture = weapon.bulletTexture || this.bulletTexture;
 
         const geometry = new THREE.PlaneGeometry(texture.image.width, texture.image.height);
         const material = new THREE.MeshBasicMaterial({ 
             map: texture,
             transparent: true
         });
+
+        const player = this.player;
 
         const direction = player.aim + rotation * Math.PI/180
         
@@ -704,54 +1238,157 @@ function initScene(textures) {
         mesh.position.copy(pivot.add(rotateAroundPivot(weapon.barrel, zero, player.aim, !(player.aim > Math.PI/2 || player.aim < -Math.PI/2))));
 
         scene.add(mesh);
-        playerBullets.push({
+        this.playerBullets.push({
             velocity: new THREE.Vector3(
                 weapon.bulletSpeed * Math.cos(direction),
                 weapon.bulletSpeed * Math.sin(direction),
                 0),
             object: mesh,
+            damage: weapon.damage,
         });
     }
 
-    function updateCameraPosition(timeScale, delta) {
+    updateCameraPosition(delta) {
         let worldPos = new THREE.Vector3();
-        playerGroup.getWorldPosition(worldPos);
+        this.playerGroup.getWorldPosition(worldPos);
 
-        let visibleWidth = visibleWidthAtZDepth(0, camera)/2;
-        let visibleHeight = visibleHeightAtZDepth(0, camera)/2;
+        this.visibleWidth = visibleWidthAtZDepth(0, camera);
+        this.visibleHeight = visibleHeightAtZDepth(0, camera);
 
-        camera.position.x = THREE.MathUtils.damp(camera.position.x, Math.min(Math.max(Math.round(worldPos.x), visibleWidth), mapWidth - visibleWidth), 10, delta);
-        camera.position.y = THREE.MathUtils.damp(camera.position.y, Math.min(Math.max(Math.round(worldPos.y), -(mapHeight - visibleHeight)), -visibleHeight), 10, delta);
+        camera.position.x = THREE.MathUtils.damp(camera.position.x, Math.min(Math.max(Math.round(worldPos.x), this.visibleWidth/2), this.mapWidth - this.visibleWidth/2), 10, delta);
+        camera.position.y = THREE.MathUtils.damp(camera.position.y, Math.min(Math.max(Math.round(worldPos.y), -(this.mapHeight - this.visibleHeight/2)), -this.visibleHeight/2), 10, delta);
     }
 
-    function updateBullets(timeScale, delta) {
-        for (let i = playerBullets.length - 1; i >= 0; i--) {
-            const bullet = playerBullets[i];
-            bullet.object.position.add(bullet.velocity);
+    updateBullets(delta) {
+        for (let i = this.playerBullets.length - 1; i >= 0; i--) {
+            const bullet = this.playerBullets[i];
+            const bulletPos = bullet.object.position;
+            bulletPos.x += bullet.velocity.x * this.timeScale;
+            bulletPos.y += bullet.velocity.y * this.timeScale;
             //bullet.object.rotation.z += 5 * Math.PI/180;
-            if (!mapBox.containsPoint(bullet.object.position)) {
-                playerBullets.splice(i, 1);
+
+            let remove = false;
+            if (isTileCollision(bulletPos.x, -bulletPos.y, map1, this.tileSize)) {
+                remove = true;
+            }
+
+            if (checkPointCollisionWithBoxes(bulletPos, this.enemy, heliBoxes)) {
+                this.enemy.health -= bullet.damage;
+                remove = true;
+                if (this.enemy.health < 0) {
+                    this.enemy.destroy(this);
+
+                    // TODO(Add score)
+                    // TODO(Add bullettime when killed enemy)
+
+                    this.enemy = new Enemy()
+                    this.enemy.init(this);
+                }
+            }
+
+            if (remove || !this.mapBox.containsPoint(bulletPos)) {
+                this.playerBullets.splice(i, 1);
+                scene.remove(bullet.object);
+            }
+        }
+        for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
+            const bullet = this.enemyBullets[i];
+            const bulletPos = bullet.object.position;
+            bulletPos.x += bullet.velocity.x * this.timeScale;
+            bulletPos.y += bullet.velocity.y * this.timeScale;
+            //bullet.object.rotation.z += 5 * Math.PI/180;
+
+            let remove = false;
+            if (isTileCollision(bulletPos.x, -bulletPos.y, map1, this.tileSize) || isPlayerCollision(bulletPos.x, -bulletPos.y, this.player)) {
+                remove = true;
+            }
+
+            if (remove || !this.mapBox.containsPoint(bulletPos)) {
+                this.enemyBullets.splice(i, 1);
                 scene.remove(bullet.object);
             }
         }
     }
 
-    // Game loop
-    gameLoop = function () {
-        const delta = clock.getDelta();
+    updateEntities(delta) {
+        for (let i = this.entities.length - 1; i >= 0; i--) {
+            const entity = this.entities[i];
+            if (entity.update(this, delta)) {
+                this.entities.splice(i, 1);
+                entity.destroy(this);
+            }
+        }
+    }
 
-        accumulator += delta;
+    update() {
+        const delta = this.clock.getDelta();
 
-        if (accumulator > 1/60) {
-            updatePlayer(timeScale, delta);
-            updateCameraPosition(timeScale, delta);
-            updateBullets(timeScale, delta);
-            accumulator %= 1/60;
+        this.accumulator += delta;
+
+        if (this.accumulator > 1/60) {
+
+            if (keyIsPressed['Shift']) {
+                this.timeScale = 0.1;
+            } else {
+                this.timeScale = 1;
+            }
+
+            this.updatePlayer(delta);
+
+            if (this.enemy) {
+                this.enemy.update(this, delta);
+            }
+
+            this.updateCameraPosition(delta);
+            this.updateBullets(delta);
+            this.updateEntities(delta);
+            this.accumulator %= 1/60;
         };
         
     }
+}
 
+function isTileCollision(x, y, tilemap, tileSize) {
+    x = Math.floor(x/tileSize);
+    y = Math.floor(y/tileSize);
 
+    if (x < 0 || y < 0) {
+        return true;
+    }
+
+    if (y >= tilemap.length || x >= tilemap[y].length) {
+        return true;
+    }
+
+    return tilemap[y][x][0] == 1;
+}
+
+function isPlayerCollision(x, y, player) {
+    const pos = player.position;
+    const bounds = player.bounds
+    return x >= pos.x + player.bounds.min.x && x <= pos.x + player.bounds.max.x && y >= pos.y + player.bounds.min.y && y <= pos.y + player.bounds.max.y;
+}
+
+var heliBoxes = [
+    new THREE.Box3(new THREE.Vector3(-88, 13, -5), new THREE.Vector3(-72, 28, 5)),
+    new THREE.Box3(new THREE.Vector3(-88, -29, -5), new THREE.Vector3(-31, 13, 5)),
+    new THREE.Box3(new THREE.Vector3(-31, -37, -5), new THREE.Vector3(55, 35, 5)),
+    new THREE.Box3(new THREE.Vector3(55, 0, -5), new THREE.Vector3(77, 20, 5)),
+    new THREE.Box3(new THREE.Vector3(55, -33, -5), new THREE.Vector3(100, -1, 5)),
+];
+
+function checkPointCollisionWithBoxes(point, enemy, boxes) {
+    // Convert the world-space point to the object's local space
+    const localPoint = point.clone();
+    enemy.heliGroup.worldToLocal(localPoint);
+
+    for (const box of boxes) {
+        if (box.containsPoint(localPoint)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 init();
