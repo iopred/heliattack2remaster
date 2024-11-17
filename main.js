@@ -3,11 +3,12 @@ import WebGL from 'three/addons/capabilities/WebGL.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
-import { Vector2 } from 'three';
-import { Vector3 } from 'three';
 import {Tween, Easing} from '@tweenjs/tween.js'
-import { mx_bilerp_0 } from 'three/src/nodes/materialx/lib/mx_noise.js';
-import { velocity } from 'three/webgpu';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+
+
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
@@ -18,11 +19,67 @@ camera.lookAt(0, 0, 0);
 THREE.ColorManagement.enabled = true;
 
 const renderer = new THREE.WebGLRenderer();
-// renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.gammaOutput = true;
-renderer.gammaFactor = 2.2; // Optional, to fine-tune
-
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.gammaOutput = true;
+renderer.gammaFactor = 2.2;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+// Set up EffectComposer
+const composer = new EffectComposer(renderer);
+composer.setSize(window.innerWidth, window.innerHeight);
+
+// Add a render pass (renders the scene as usual)
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+// Add the inversion shader pass
+const shaderPass = new ShaderPass(new THREE.ShaderMaterial({
+    uniforms: {
+        tDiffuse: { value: null },              // Rendered texture
+        invertEnabled: { value: 0.0 },         // Toggle inversion (0 = off, 1 = on)
+        tintEnabled: { value: 0.0 },           // Toggle tinting (0 = off, 1 = on)
+        tintColor: { value: new THREE.Color(1, 0.5, 0.5) }, // Red tint
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float invertEnabled;
+        uniform float tintEnabled;
+        uniform vec3 tintColor;
+        varying vec2 vUv;
+
+        // Function to convert linear color to gamma (sRGB) space
+        vec3 linearToGamma(vec3 linearColor) {
+            return pow(linearColor, vec3(1.0 / 2.2));
+        }
+
+        void main() {
+            vec4 texColor = texture2D(tDiffuse, vUv);
+
+            // Invert color
+            vec3 invertedColor = 1.0 - texColor.rgb;
+
+            // Mix original and inverted based on invertEnabled
+            vec3 color = mix(texColor.rgb, invertedColor, invertEnabled);
+
+            // Apply tint
+            color = mix(color, color * tintColor, tintEnabled);
+
+            // Re-encode to gamma (sRGB) space for correct display
+            vec3 gammaCorrectedColor = linearToGamma(color);
+
+            gl_FragColor = vec4(gammaCorrectedColor, texColor.a);
+        }
+    `,
+}));
+composer.addPass(shaderPass);
+
 document.body.appendChild(renderer.domElement);
 
 const dirLight = new THREE.DirectionalLight( 0xffffff, 0.4 );
@@ -88,16 +145,16 @@ function animate() {
         game.update();
     }
 
-	renderer.render(scene, camera);
+	// renderer.render(scene, camera);
+    composer.render();
 }
 
 function onWindowResize() {
-
-
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
 
     renderer.setSize(window.innerWidth, window.innerHeight);
+    composer.setSize(window.innerWidth, window.innerHeight);
 }
 
 // Key handling
@@ -105,6 +162,9 @@ const keyIsPressed = {
     'ArrowLeft': false,
     'ArrowRight': false,
     'ArrowUp': false,
+    'ArrowDown': false,
+    'Control': false,
+    'Shift': false,
 };
 
 const raycaster = new THREE.Raycaster();
@@ -189,6 +249,11 @@ function init() {
 
     window.addEventListener('keydown', (e) => { keyIsPressed[e.key] = true; });
     window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });
+    window.addEventListener('blur', () => {
+        for (const key in keyIsPressed) {
+            keyIsPressed[key] = false;
+        }
+    });
 
 
     if (WebGL.isWebGL2Available()) {
@@ -288,10 +353,10 @@ class Weapon {
         this.mesh = this.createMesh();
     }
 
-    createMesh() {
+    createMesh(tintShader) {
         const texture = this.texture;
         const geometry = new THREE.PlaneGeometry(texture.image.width, texture.image.height);
-        const material = new THREE.MeshBasicMaterial({
+        const material = tintShader ? createTintShader(texture) : new THREE.MeshBasicMaterial({
             map: texture,
             transparent: true,
         });
@@ -423,7 +488,7 @@ function seekerUpdate(game, delta) {
 
         this.object.rotation.z = aim;
 
-        if (this.time % 8 == 0) {
+        if (this.time % 4 == 0) {
             const pos = this.object.position.clone();
             pos.y *= -1;
             pos.z = -1;
@@ -616,7 +681,7 @@ function fireMinesUpdate(game, delta) {
         }
 
         for (const flame of this.flames) {
-            flame.flame.scale.x = flame.flame.scale.y += getScaleDelta(FIRE_TIME, this.time, flame.flameScale, flame.flameScale * 1.25 );
+            flame.flame.scale.x = flame.flame.scale.y += getScaleDelta(FIRE_TIME, this.time, flame.flameScale, flame.flameScale * 1.25 ) * game.timeScale;
         }
 
         var bbox = new THREE.Box3().setFromObject(this.object);
@@ -748,7 +813,7 @@ function updateGrappleLine(game) {
     // Update the line's positions
     const positions = this.line.geometry.attributes.position.array;
     this.object.position.toArray(positions, 0); // Start point
-    game.playerGroup.position.clone().add(game.playerWeapon.position).toArray(positions, 3); // End point
+    game.player.group.position.clone().add(game.player.weaponObject.position).toArray(positions, 3); // End point
     this.line.geometry.attributes.position.needsUpdate = true;
 }
 
@@ -760,13 +825,13 @@ function grappleUpdate(game, delta) {
 
         const points = [];
         points.push( this.object.position );
-        points.push( game.playerGroup.position.clone().add(game.playerWeapon.position) );
+        points.push( game.player.group.position.clone().add(game.player.weaponObject.position) );
 
         const lineGeometry = new THREE.BufferGeometry().setFromPoints( points );
         
         const line = new THREE.Line(lineGeometry, lineMaterial);
         this.line = line;
-        scene.add(line);
+        game.world.add(line);
     }
 
     if (this.grappled) {
@@ -779,7 +844,7 @@ function grappleUpdate(game, delta) {
 
         if (this.grappled.health <= 0) {
             this.grappled = false;
-            scene.remove(this.line);
+            game.world.remove(this.line);
 
             return true;
         }
@@ -795,7 +860,7 @@ function grappleUpdate(game, delta) {
     updateGrappleLine.apply(this, [game]);
 
     if (isTileCollision(pos.x, -pos.y, map1, game.tileSize)) {
-        scene.remove(this.line);
+        game.world.remove(this.line);
 
         return true;
     }
@@ -806,11 +871,19 @@ function grappleUpdate(game, delta) {
         this.grappled = game.enemy;
         this.grappleOffset = this.object.position.clone().sub(game.enemy.group.position);
 
+        
+        for(var i = 0; i < 2; i++) {
+            const p = this.object.position.clone()
+            //p.x += -40 + Math.random() * 80;
+            p.y *= -1;
+            new Shard(game, p);
+        }
+
         return false;
     }
 
     if (!game.mapBox.containsPoint(pos)) {
-        scene.remove(this.line);
+        game.world.remove(this.line);
 
         return true;
     }
@@ -828,7 +901,7 @@ const weapons = [
     new Weapon("RPG", 'images/weapons/rpg.png', new THREE.Vector2(18, 20), new THREE.Vector2(32, -7), 40, 4, 75, 'images/rpgbullet.png').setUpdate(rpgUpdate).setDestroy(explosionDestroy),
     new Weapon("Rocket Launcher", 'images/weapons/rocketlauncher.png', new THREE.Vector2(19, 23), new THREE.Vector2(25, -9.5), 50, 7, 100, 'images/rocketbullet.png').setUpdate(rocketUpdate).setDestroy(explosionDestroy),
     new Weapon("Seeker Launcher", 'images/weapons/seekerlauncher.png', new THREE.Vector2(24, 28), new THREE.Vector2(24, -9.5), 55, 7, 100, 'images/seekerbullet.png').setUpdate(seekerUpdate).setDestroy(explosionDestroy),
-    new Weapon("Flame Thrower", 'images/weapons/flamethrower.png', new THREE.Vector2(9, 16), new THREE.Vector2(29, -7), 1, 8, 2, 'images/flame.png').setSpread(10).setUpdate(flameUpdate),
+    new Weapon("Flame Thrower", 'images/weapons/flamethrower.png', new THREE.Vector2(9, 16), new THREE.Vector2(29, -7), 1, 9, 2, 'images/flame.png').setSpread(10).setUpdate(flameUpdate),
     new Weapon("Fire Mines", 'images/weapons/mine.png', new THREE.Vector2(-9, 15), new THREE.Vector2(20, -5.5), 100, 3, 5, 'images/minebullet.png').setUpdate(fireMinesUpdate),
     new Weapon("A-Bomb Launcher", 'images/weapons/abomb.png', new THREE.Vector2(22, 30), new THREE.Vector2(36, -13), 150, 3, 300, 'images/abombbullet.png').setUpdate(abombUpdate).setDestroy(abombDestroy),
     new Weapon("Rail Gun", 'images/weapons/railgun.png', new THREE.Vector2(23, 27), new THREE.Vector2(32, -8), 75, 20, 150, 'images/rail.png').setUpdate(railUpdate),
@@ -872,6 +945,7 @@ async function loadAssets() {
         loadTexture(loader, textureMap, 'images/explosion.png'),
         loadTexture(loader, textureMap, 'images/smoke.png'),
         loadTexture(loader, textureMap, 'images/flamepillar.png'),
+        loadTexture(loader, textureMap, 'images/blood.png'),
     ];
     for (const weapon of weapons) {
         textures.push(loadTexture(loader, textureMap, weapon.textureUrl));
@@ -889,8 +963,8 @@ async function loadAssets() {
 function setUV(geometry, index, size, width, height) {
     // Calculate UV coordinates based on the index
     const tilesPerRow = width / size;
-    const u = ((index-1) % tilesPerRow) * size / width;
-    const v = 1 - Math.floor((index-1) / tilesPerRow) * size / height;
+    const u = (index % tilesPerRow) * size / width;
+    const v = 1 - Math.floor(index / tilesPerRow) * size / height;
 
     // Update UV coordinates
     geometry.attributes.uv.setXY(0, u, v);                            // Bottom-left
@@ -987,6 +1061,64 @@ function rotateAroundPivot(point, pivot, angle, flip) {
     };
 }
 
+function createTintShader(texture) {
+    const tintShaderMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            map: { value: null },                       // Texture map
+            color: { value: new THREE.Color(0xffffff) }, // Base color multiplier
+            tint: { value: new THREE.Color(0xffffff) },  // Tint color
+            brightness: { value: 2.0 },                  // Brightness multiplier
+            enabled: { value: 0.0 }                      // Toggle (1 = enabled, 0 = disabled)
+        },
+        transparent: true, // Allow transparency
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv; // Pass UV coordinates to the fragment shader
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D map; // Texture sampler
+            uniform vec3 color;    // Base color multiplier
+            uniform vec3 tint;     // Tint color
+            uniform float brightness; // Brightness multiplier
+            uniform float enabled;    // Toggle for effect
+            varying vec2 vUv;      // UV coordinates
+    
+            // Function to convert linear color to gamma (sRGB) space
+            vec3 linearToGamma(vec3 linearColor) {
+                return pow(linearColor, vec3(1.0 / 2.2));
+            }
+    
+            void main() {
+                // Sample the texture (assumed to be in linear space)
+                vec4 texColor = texture2D(map, vUv);
+    
+                // Apply the base color multiplier
+                vec3 baseColor = texColor.rgb * color;
+    
+                // Apply tint and brightness in linear space
+                vec3 tintedColor = baseColor * tint * brightness;
+    
+                // Mix between base color and tinted color based on enabled flag
+                vec3 finalColor = mix(baseColor, tintedColor, enabled);
+    
+                // Re-encode to gamma (sRGB) space for correct display
+                vec3 gammaCorrectedColor = linearToGamma(finalColor);
+    
+                // Output the final color with alpha
+                gl_FragColor = vec4(finalColor, texColor.a); // Preserve texture alpha
+            }
+        `
+    });
+    
+    // Apply the texture to the shader
+    tintShaderMaterial.uniforms.map.value = texture;
+
+    return tintShaderMaterial;
+}
+
 const SCREEN_WIDTH = 500;
 const SCREEN_HEIGHT = 500 * 9/16;
 
@@ -1007,57 +1139,13 @@ class Enemy {
         this.shoot = 0;
 
         this.health = 300;
+        this.lastHealth = this.health;
+
+        this.tints = [];
+        this.tint = 0;
     }
 
-    createTintShader(texture) {
-        const tintShaderMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                map: { value: null },                       // Texture map
-                color: { value: new THREE.Color(0xffffff) }, // Base color multiplier
-                tint: { value: new THREE.Color(0xffffff) },  // Tint color
-                brightness: { value: 2.0 },                  // Brightness multiplier
-                enabled: { value: 0.0 }                      // Toggle (1 = enabled, 0 = disabled)
-            },
-            transparent: true, // Allow transparency
-            vertexShader: `
-                varying vec2 vUv;
-                void main() {
-                    vUv = uv; // Pass UV coordinates to the fragment shader
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-                uniform sampler2D map; // Texture sampler
-                uniform vec3 color;    // Base color multiplier
-                uniform vec3 tint;     // Tint color
-                uniform float brightness; // Brightness multiplier
-                uniform float enabled;    // Toggle for effect
-                varying vec2 vUv;      // UV coordinates
-        
-                void main() {
-                    // Sample the texture directly (Three.js now handles SRGBColorSpace)
-                    vec4 texColor = texture2D(map, vUv);
-        
-                    // Apply the base color multiplier
-                    vec3 baseColor = texColor.rgb * color;
-        
-                    // Apply tint and brightness
-                    vec3 tintedColor = baseColor * tint * brightness;
-        
-                    // Mix between base color and tinted color based on enabled flag
-                    vec3 finalColor = mix(baseColor, tintedColor, enabled);
-        
-                    // Output the final color with alpha
-                    gl_FragColor = vec4(finalColor, texColor.a); // Preserve texture alpha
-                }
-            `
-        });
-        
-        // Apply the texture to the shader
-        tintShaderMaterial.uniforms.map.value = texture;
-
-        return tintShaderMaterial;
-    }
+    
 
     init(game) {
         const heliTexture = this.heliTexture = game.textures['images/heli/heli.png'];
@@ -1076,9 +1164,10 @@ class Enemy {
             transparent: true,
         });
 
-        const tintMaterial = this.createTintShader(heliTexture)
+        const tintMaterial = createTintShader(heliTexture)
+        this.tints.push(tintMaterial);
 
-        const mesh = this.mesh = new THREE.Mesh(geometry, material);
+        const mesh = this.mesh = new THREE.Mesh(geometry, tintMaterial);
         this.heliGroup.add(mesh);
 
         
@@ -1088,17 +1177,22 @@ class Enemy {
             transparent: true,
         });
 
-        const enemyMesh = this.enemyMesh = new THREE.Mesh(enemyGeometry, enemyMaterial);
+        const enemyTintMaterial = createTintShader(enemyTexture);
+        this.tints.push(enemyTintMaterial);
+
+        const enemyMesh = this.enemyMesh = new THREE.Mesh(enemyGeometry, enemyTintMaterial);
         enemyMesh.position.y = -5;
 
         this.group.add(enemyMesh);
 
-        const enemyWeapon = this.enemyWeapon = new THREE.Object3D()
-        enemyWeapon.add(weapons[0].createMesh());
+        const enemyWeapon = this.enemyWeapon = new THREE.Object3D();
+        const weaponMesh = weapons[0].createMesh(true);
+        enemyWeapon.add(weaponMesh);
+        this.tints.push(weaponMesh.material);
 
         this.group.add(enemyWeapon);
 
-        scene.add(this.group)
+        game.world.add(this.group)
 
         this.randomizePosition(game)
 
@@ -1129,8 +1223,14 @@ class Enemy {
         // });
     }
 
+    setTint(enabled) {
+        for (const tint of this.tints) {
+            tint.uniforms.enabled.value = enabled ? 1.0 : 0.0;
+        }
+    }
+
     destroy(game) {
-        scene.remove(this.group);
+        game.world.remove(this.group);
 
         new DestroyedHeli(game, this);
         new DestroyedEnemy(game, this);
@@ -1182,7 +1282,7 @@ class Enemy {
             if (move) {
                 this.velocity.y += 0.5;
             }
-            this.group.rotation.z += ((Math.abs(this.velocity.x) + Math.abs(this.velocity.y)) * game.timeScale / 4) * Math.PI / 180;
+            this.group.rotation.z += ((Math.abs(this.velocity.x) + Math.abs(this.velocity.y)) * game.timeScale / 8) * Math.PI / 180;
             
             this.position.x += this.velocity.x*game.timeScale;
             this.position.y += this.velocity.y*game.timeScale;
@@ -1213,7 +1313,7 @@ class Enemy {
                 }
 
                 this.targetPosition.x = Math.max(HELI_WIDTH, Math.min(game.player.position.x+this.playerOffset.x, game.mapWidth - HELI_WIDTH));
-                this.targetPosition.y = game.player.position.y+this.playerOffset.y;
+                this.targetPosition.y = game.mapHeight+this.playerOffset.y-50;
             } else {
                 if (this.trackingPlayer == 0) { 
                     this.randomizeExit = Math.floor(Math.random() * 10)
@@ -1257,12 +1357,24 @@ class Enemy {
         if (this.trackingPlayer <= 0 && !onScreen) {
             this.randomizePosition(game);
         }
+
+        if (this.lastHealth != this.health) {
+            this.setTint(true);
+            this.tint = 3;
+        }
+        this.lastHealth = this.health;
+        if (this.tint && move) {
+            this.tint--;
+            if (this.tint <= 0) {
+                this.setTint(false);
+            }
+        }
     }
 
     fireAtPlayer(game) {
         // Get object position in world coordinates
         const playerPosition = new THREE.Vector3();
-        game.playerWeapon.getWorldPosition(playerPosition);
+        game.player.weaponObject.getWorldPosition(playerPosition);
 
         playerPosition.add(game.player.velocity);
 
@@ -1315,16 +1427,15 @@ class Enemy {
             transparent: true
         });
 
-        const player = this.player;
-
         const direction = this.aim + (-5 + Math.random()*10) * Math.PI/180
         
         const mesh = new THREE.Mesh(geometry, material);
         mesh.rotation.z = direction;
 
         mesh.position.copy(pivot.add(rotateAroundPivot(weapons[0].barrel, zero, this.aim, !(this.aim > Math.PI/2 || this.aim < -Math.PI/2))));
+        mesh.position.z = 0.5;
 
-        scene.add(mesh);
+        game.world.add(mesh);
 
         const bullet = {
             velocity: new THREE.Vector3(
@@ -1342,7 +1453,7 @@ class Enemy {
             this.destroy(game);
 
             // TODO(Add score)
-            // TODO(Add bullettime when killed enemy)
+            game.player.bulletTime = Math.min(MAX_BULLET_TIME, game.player.bulletTime + MAX_BULLET_TIME / 3);
 
             game.enemy = new Enemy()
             game.enemy.init(game);
@@ -1354,7 +1465,7 @@ class Entity {
     constructor(game, textureUrl) {
         this.textureUrl = textureUrl;
         this.tick = 0;
-        this.position = new THREE.Vector2(0, 0);
+        this.position = new THREE.Vector2(0, 0, 1);
         this.velocity = new THREE.Vector2(0, 0);
         this.init(game)
     }
@@ -1368,7 +1479,7 @@ class Entity {
             transparent: true,
         });
         const mesh = this.mesh = new THREE.Mesh(geometry, material);
-        scene.add(mesh);
+        game.world.add(mesh);
 
         game.entities.push(this);
     }
@@ -1396,7 +1507,7 @@ class Entity {
     move(game) {}
 
     destroy(game) {
-        scene.remove(this.mesh);
+        game.world.remove(this.mesh);
     }
 }
 
@@ -1405,7 +1516,7 @@ class DestroyedEnemy extends Entity {
         super(game, 'images/guyburned.png');
 
         this.position.copy(enemy.position);
-		this.velocity.set(-3 + Math.random() * 6, -5 + Math.random()*5);
+		this.velocity.set(-3 + Math.random() * 6, -5 + Math.random()*5, 0);
         this.mesh.scale.x = enemy.heliGroup.scale.x;
         this.mesh.rotation.z = enemy.group.rotation.z;
     }
@@ -1532,6 +1643,7 @@ class Explosion extends Entity {
         super(game, 'images/explosion.png');
 
         this.position.copy(position);
+        this.position.z = 1;
         this.targetSize = size * 0.75 / 374;
 
         this.mesh.scale.x = this.mesh.scale.y = size / 374;
@@ -1635,6 +1747,328 @@ class Fire extends Entity {
     }
 }
 
+class Blood extends Entity {
+    constructor(game, position, pause) {
+        super(game, 'images/blood.png');
+
+        this.position.copy(position);
+        this.targetSize = 14 / 30;
+
+        this.mesh.scale.x = this.mesh.scale.y = 6 / 30;
+        this.mesh.rotation.z = Math.random() * 2 * Math.PI;
+
+        this.pause = pause;
+        this.velocity = new THREE.Vector3(Math.cos(this.mesh.rotation.z), Math.sin(this.mesh.rotation.z), 0);
+        this.time = 0;
+    }
+
+    update(game, delta) {
+        let move = false;
+        this.tick += game.timeScale;
+        if (this.tick >= 1) {
+            this.tick %= 1;
+
+            if (this.pause > 0) {
+                this.pause--;
+                return false;
+            }
+            this.time++;
+           
+            if (this.time >= 10) {
+                this.material.opacity -= 0.5;
+            }
+
+            this.mesh.scale.x = THREE.MathUtils.damp(this.mesh.scale.x, this.targetSize, 10, delta)
+            this.mesh.scale.y = this.mesh.scale.x;
+
+            if (this.material.opacity <= 0) {
+                return true;
+            }
+        }
+
+        this.position.x += this.velocity.x * game.timeScale
+        this.position.y += this.velocity.y * game.timeScale
+
+        this.updateMesh();
+
+        return false;
+    }
+
+    destroy(game) {
+        super.destroy(game);
+    }
+}
+
+
+const MAX_BULLET_TIME = 120;
+const HYPERJUMP_RECHARGE = 300;
+
+const walkAnimation = [0, 1, 0, 2];
+
+class Player {
+    constructor() {
+        this.tick = 0;
+
+        this.position = new THREE.Vector2();
+        this.velocity = new THREE.Vector2();
+        this.standingBounds = {
+            min: new THREE.Vector2(-8, -47),
+            max: new THREE.Vector2(8, -2),
+        };
+        this.crouchingBounds = {
+            min: new THREE.Vector2(-8, -37),
+            max: new THREE.Vector2(8, -2),
+        }
+        this.bounds = this.standingBounds;
+        this.jumps = 2;
+        this.jumping = 0;
+        this.weapon = 0;
+
+
+        this.standingHand = new THREE.Vector2(0, 19);
+        this.crouchingHand = new THREE.Vector2(0, 15);
+
+        this.hand = this.standingHand;
+        this.aim = 0;
+        this.health = 100;
+        this.lastHealth = 100;
+        this.tint = 0;
+        this.bulletTime = MAX_BULLET_TIME;
+        this.hyperJump = HYPERJUMP_RECHARGE;
+
+        this.frame = 0;
+        this.walkTimer = 0;
+        this.walkAnimationIndex = 0;
+        this.inAir = false;
+
+        this.crouch = false;
+    }
+
+    init(game) {
+        const playerTexture = game.textures['images/player.png'];
+
+        const size = this.size = 55;
+        this.textureWidth = playerTexture.image.width;
+        this.textureHeight = playerTexture.image.height;
+
+        const group = this.group = new THREE.Group();
+
+        const geometry = this.geometry = new THREE.PlaneGeometry(size, size);
+        const material = new THREE.MeshBasicMaterial({
+            map: playerTexture,
+            transparent: true,
+        });
+        const body = new THREE.Mesh(geometry, material);
+        body.position.set(0, size/2, -0.2);
+        this.setFrame(0);
+        group.add(body);
+
+        const weaponObject = this.weaponObject = new THREE.Object3D()
+        weaponObject.add(weapons[0].mesh);
+
+        weaponObject.position.set(this.hand.x, this.hand.y, -0.1);
+        weaponObject.rotation.z = -Math.PI/4;
+
+        group.add(weaponObject);
+
+        game.world.add(group);;
+
+        this.updateMesh();
+        this.selectWeapon(12);
+        weapons[this.weapon].reloading = Number.POSITIVE_INFINITY;
+
+        this.position.x = game.tileSize / 2
+        this.position.y = -this.bounds.min.y;
+    }
+
+    setFrame(frame) {
+        this.frame = frame
+        setUV(this.geometry, this.frame, this.size, this.textureWidth, this.textureHeight);
+    }
+
+    
+    selectWeapon(weaponIndex) {
+        this.weaponObject.remove(weapons[this.weapon].mesh);
+        this.weapon = weaponIndex;
+        const weapon = weapons[weaponIndex];
+        this.weaponObject.add(weapon.mesh);
+    }
+
+    updateMesh() {
+        // Update position of object, by mapping game position to 3d camera position.
+        this.group.position.set(this.position.x, Math.round(-this.position.y), 0.5);
+    }
+
+    update(game, delta) {
+        let move = false;
+        this.tick += game.timeScale;
+        if (this.tick >= 1) {
+            this.tick %= 1;
+            move = true;
+        }
+
+
+        if (move) {
+            // TODO: Support TimeRift
+            if (this.bulletTime > 0 && keyIsPressed['Shift']) {
+                game.timeScale = Math.max(0.2, game.timeScale - 0.1);
+                this.bulletTime--;
+            } else {
+                game.timeScale = Math.min(1, game.timeScale + 0.1);
+            }
+
+            if (keyIsPressed['ArrowDown']) {
+                if (!this.crouch) {
+                    this.crouch = true;
+                    this.bounds = this.crouchingBounds;
+                    this.hand = this.crouchingHand;
+                    this.weaponObject.position.set(this.hand.x, this.hand.y, -0.1);
+                    this.setFrame(5);
+                }
+            } else if (this.crouch) {
+                this.crouch = false;
+                this.bounds = this.standingBounds;
+                this.hand = this.standingHand;
+                this.weaponObject.position.set(this.hand.x, this.hand.y, -0.1);
+            }
+
+            if ((this.crouch && !this.inAir) || keyIsPressed['ArrowLeft'] == keyIsPressed['ArrowRight']) {
+                if (this.velocity.x > 0)  {
+                    this.velocity.x = Math.max(0, this.velocity.x - 1);
+                } else if (this.velocity.x < 0) {
+                    this.velocity.x = Math.min(0, this.velocity.x + 1);
+                }
+            } else if (keyIsPressed['ArrowLeft']) {
+                this.velocity.x = -3;
+            } else if (keyIsPressed['ArrowRight']) {
+                this.velocity.x = 3;
+            }
+
+            if (this.hyperJump < HYPERJUMP_RECHARGE){
+                this.hyperJump++;
+            } else if (keyIsPressed['Control'] && this.canJump) {
+                this.velocity.y = Math.min(this.velocity.y, -25);
+                this.inAir = true;
+                this.canJump = false;
+                this.jumps++;
+                this.hyperJump = 0;
+            }
+
+            if (keyIsPressed['ArrowUp']) { 
+                if (this.canJump && this.jumps < 2) {
+                    this.canJump = false;
+                    this.jumps++;
+                    this.jumping = 8;
+                    this.velocity.y = Math.min(this.velocity.y, -6);
+                    this.inAir = true;
+                } else if (this.jumping > 0) {
+                    this.velocity.y = Math.min(this.velocity.y, -6);
+                    this.inAir = true;
+                    this.jumping--;
+                }
+            } else {
+                this.canJump = true;
+                this.jumping = 0;
+            }
+
+            this.velocity.y = Math.min(this.velocity.y + 0.5, game.tileSize);
+        }
+
+        if (this.crouch) {
+            this.setFrame(5);
+        } else if (this.inAir) {
+            if (this.jumps == 1) {
+                this.setFrame(3);
+            } else {
+                this.setFrame(4);
+            }
+        } else if (Math.abs(this.velocity.x) >= 1) {
+            if (move) {
+                this.setFrame(walkAnimation[this.walkAnimationIndex]);
+
+                this.walkTimer++;
+                if (this.walkTimer >= 8) {
+                    this.walkTimer = 0;
+                    this.walkAnimationIndex = (this.walkAnimationIndex+1)%walkAnimation.length;
+                }
+            }
+        } else {
+            this.setFrame(0);
+        }
+        
+        let [xCol, yCol] = checkTileCollisions(this, game.timeScale, map1, game.tileSize);
+
+        if (this.position.x + this.bounds.min.x <= 0) {
+            this.position.x = -this.bounds.min.x;
+        } else if (this.position.x + this.bounds.max.x >= game.mapWidth) {
+            this.position.x = this.mapWidth - this.bounds.max.x;
+        }
+
+        if (this.position.y + this.bounds.max.y >= game.mapHeight) {
+            this.position.y = this.mapHeight - this.bounds.max.y;
+            yCol = true;          
+        }
+
+        if (xCol) {
+            this.velocity.x = 0;
+        }
+
+        if (yCol) {
+            if (this.velocity.y > 0) {
+                this.jumps = 0;
+                this.jumping = 0;
+                if (this.inAir) {
+                    this.inAir = false;
+                    this.setFrame(0);
+                    this.walkAnimationIndex = 0;
+                    this.walkTimer = 0;
+                }
+            }
+            this.velocity.y = 0;
+
+        }
+        
+        this.aim = calculateAngleToMouse(this.weaponObject, mouse);
+        if (this.aim > Math.PI/2 || this.aim < -Math.PI/2) {
+            this.weaponObject.scale.x = -1;
+            this.weaponObject.rotation.z = this.aim + Math.PI;
+        } else {
+            this.weaponObject.scale.x = 1;
+            this.weaponObject.rotation.z = this.aim
+        }
+
+        if (move) {
+            if (mouse.wheel != 0) {
+                this.selectWeapon(THREE.MathUtils.euclideanModulo(this.weapon - mouse.wheel, weapons.length));
+                mouse.wheel = 0;
+            }
+
+            const weapon = weapons[this.weapon];
+            weapon.reloading++;
+            if (mouse.down) {
+                if (weapon.reloading >= weapon.reloadTime) {
+                    weapon.createBullet(game);
+                    weapon.reloading = 0;
+                }
+            }
+        }
+
+        this.updateMesh();
+
+        if (this.lastHealth != this.health) {
+            shaderPass.uniforms.tintEnabled.value = 1.0;
+            this.tint = 3;
+        }
+        this.lastHealth = this.health;
+        if (this.tint && move) {
+            this.tint--;
+            if (this.tint <= 0) {
+                shaderPass.uniforms.tintEnabled.value = 0.0;
+            }
+        }
+    }
+}
+
 const zero = new THREE.Vector3();
 
 class Game {
@@ -1647,13 +2081,13 @@ class Game {
         this.textures = textures;
 
         const tilesheet = this.tilesheet = textures['images/tilesheet.png'];
-        const playerTexture = this.playerTexture = textures['images/player.png'];
         const bgTexture = this.bgTexture = textures['images/bg.png'];
         const bulletTexture = this.bulletTexture = textures['images/bullet.png'];
 
         const tileSize = this.tileSize = 50;
 
         const world = this.world = new THREE.Group();
+        scene.add(world)
 
         // Set up background
         const bgGeometry = new THREE.PlaneGeometry(bgTexture.image.width, bgTexture.image.height); // Adjust size as needed
@@ -1687,59 +2121,14 @@ class Game {
         const clock = this.clock = new THREE.Clock();
         let accumulator = this.accumulator = 0;
 
-        const playerSize = 55;
-        const playerWidth = playerTexture.image.width;
-        const playerHeight = playerTexture.image.height;
-
         let timeScale = this.timeScale = 1;
-        const player = this.player =  {
-            tick: 0,
-            position: new THREE.Vector2(tileSize / 2, 47),
-            velocity: new THREE.Vector2(),
-            bounds: {
-                min: new THREE.Vector2(-8, -47),
-                max: new THREE.Vector2(8, -4),
-            },
-            jumps: 2,
-            jumping: 0,
-            weapon: 0,
-            hand: new THREE.Vector2(0, 19),
-            aim: 0,
-        }
+
         const playerBullets = this.playerBullets = [];
         const enemyBullets = this.enemyBullets = [];
         this.entities = [];
 
-        const playerGroup = this.playerGroup = new THREE.Group();
-
-        // Create the player
-        const playerGeometry = new THREE.PlaneGeometry(playerSize, playerSize);
-        const playerMaterial = new THREE.MeshBasicMaterial({
-            map: playerTexture,
-            transparent: true,
-        });
-        const playerBody = this.playerBody = new THREE.Mesh(playerGeometry, playerMaterial);
-        playerBody.position.set(0, playerSize/2, -1);
-        setUV(playerGeometry, 1, playerSize, playerWidth, playerHeight);
-        playerGroup.add(playerBody);
-
-        const playerWeapon = this.playerWeapon = new THREE.Object3D()
-        playerWeapon.add(weapons[0].mesh);
-
-        playerWeapon.position.set(player.hand.x, player.hand.y, 0);
-        playerWeapon.rotation.z = -Math.PI/4;
-
-        playerGroup.add(playerWeapon);
-
-        // createBlueLine(0, 19, playerGroup);
-
-        world.add(playerGroup);
-
-        scene.add(world);
-
-        this.updatePlayerGroup();
-        this.selectWeapon(12);
-        weapons[player.weapon].reloading = Number.POSITIVE_INFINITY;
+        this.player = new Player()
+        this.player.init(this);
 
         this.updateCameraPosition(0);
 
@@ -1768,7 +2157,7 @@ class Game {
                 const sheetWidth = this.tilesheet.image.width;
                 const sheetHeight = this.tilesheet.image.height;
 
-                setUV(geometry, index, tileSize, sheetWidth, sheetHeight);
+                setUV(geometry, index - 1, tileSize, sheetWidth, sheetHeight);
 
                 geometry.translate(tileSize / 2, -tileSize / 2, 0);
                 
@@ -1784,114 +2173,9 @@ class Game {
         return group;
     };
 
-    selectWeapon(weaponIndex) {
-        this.playerWeapon.remove(weapons[this.player.weapon].mesh);
-        this.player.weapon = weaponIndex;
-        const weapon = weapons[weaponIndex];
-        this.playerWeapon.add(weapon.mesh);
-    }
-
-    updatePlayerGroup() {
-        // Update position of object, by mapping game position to 3d camera position.
-        this.playerGroup.position.set(this.player.position.x, Math.round(-this.player.position.y), 1);
-    }
-
-    updatePlayer(delta) {
-        const player = this.player;
-        let move = false;
-        player.tick += this.timeScale;
-        if (player.tick >= 1) {
-            player.tick %= 1;
-            move = true;
-        }
-
-        if (move) {
-            if (keyIsPressed['ArrowLeft'] == keyIsPressed['ArrowRight']) {
-                if (player.velocity.x > 0)  {
-                    player.velocity.x = Math.max(0, player.velocity.x - 1);
-                } else if (player.velocity.x < 0) {
-                    player.velocity.x = Math.min(0, player.velocity.x + 1);
-                }
-            } else if (keyIsPressed['ArrowLeft']) {
-                player.velocity.x = -3;
-            } else if (keyIsPressed['ArrowRight']) {
-                player.velocity.x = 3;
-            }
-
-            if (keyIsPressed['ArrowUp']) { 
-                if (player.canJump && player.jumps < 2) {
-                    player.canJump = false;
-                    player.jumps++;
-                    player.jumping = 8;
-                    player.velocity.y = Math.min(player.velocity.y, -6);
-                } else if (player.jumping > 0) {
-                    player.velocity.y = Math.min(player.velocity.y, -6);
-                    player.jumping--;
-                }
-            } else {
-                player.canJump = true;
-                player.jumping = 0;
-            }
-
-            player.velocity.y = Math.min(player.velocity.y + 0.5, this.tileSize);
-        }
-        
-        let [xCol, yCol] = checkTileCollisions(player, this.timeScale, map1, this.tileSize);
-
-        if (player.position.x + player.bounds.min.x <= 0) {
-            player.position.x = -player.bounds.min.x;
-        } else if (player.position.x + player.bounds.max.x >= this.mapWidth) {
-            player.position.x = this.mapWidth - player.bounds.max.x;
-        }
-
-        if (player.position.y + player.bounds.max.y >= this.mapHeight) {
-            player.position.y = this.mapHeight - player.bounds.max.y;
-            yCol = true;          
-        }
-
-        if (xCol) {
-            player.velocity.x = 0;
-        }
-        if (yCol) {
-            if (player.velocity.y > 0) {
-                player.jumps = 0;
-                player.jumping = 0;
-            }
-            player.velocity.y = 0;
-
-        }
-        
-        player.aim = calculateAngleToMouse(this.playerWeapon, mouse);
-        if (player.aim > Math.PI/2 || player.aim < -Math.PI/2) {
-            this.playerWeapon.scale.x = -1;
-            this.playerWeapon.rotation.z = player.aim + Math.PI;
-        } else {
-            this.playerWeapon.scale.x = 1;
-            this.playerWeapon.rotation.z = player.aim
-        }
-
-        if (move) {
-            if (mouse.wheel != 0) {
-                this.selectWeapon(THREE.MathUtils.euclideanModulo(player.weapon - mouse.wheel, weapons.length));
-                mouse.wheel = 0;
-            }
-
-            const weapon = weapons[player.weapon];
-            weapon.reloading++;
-            if (mouse.down) {
-                if (weapon.reloading >= weapon.reloadTime) {
-                    weapon.createBullet(this);
-                    weapon.reloading = 0;
-                }
-            }
-        }
-
-        this.updatePlayerGroup();
-    }
-
     createBullet(weapon, rotation, offset) {
         const pivot = new THREE.Vector3();
-        this.playerWeapon.getWorldPosition(pivot);
+        this.player.weaponObject.getWorldPosition(pivot);
 
         const texture = weapon.bulletTexture || this.bulletTexture;
 
@@ -1913,9 +2197,10 @@ class Game {
             pos.x += offset * Math.cos(direction);
             pos.y += offset * Math.sin(direction);
         }
+        pos.z = 0.5;
         mesh.position.copy(pos);
 
-        scene.add(mesh);
+        this.world.add(mesh);
 
         const bullet = {
             velocity: new THREE.Vector3(
@@ -1939,11 +2224,12 @@ class Game {
         }
 
         this.playerBullets.push(bullet);
+        
     }
 
     updateCameraPosition(delta) {
         let worldPos = new THREE.Vector3();
-        this.playerGroup.getWorldPosition(worldPos);
+        this.player.group.getWorldPosition(worldPos);
 
         this.visibleWidth = visibleWidthAtZDepth(0, camera);
         this.visibleHeight = visibleHeightAtZDepth(0, camera);
@@ -1971,7 +2257,7 @@ class Game {
 
             if (remove) {
                 this.playerBullets.splice(i, 1);
-                scene.remove(bullet.object);
+                game.world.remove(bullet.object);
             }
         }
         for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
@@ -1981,13 +2267,23 @@ class Game {
             bulletPos.y += bullet.velocity.y * this.timeScale;
 
             let remove = false;
-            if (isTileCollision(bulletPos.x, -bulletPos.y, map1, this.tileSize) || isPlayerCollision(bulletPos.x, -bulletPos.y, this.player)) {
+
+
+            if (isPlayerCollision(bulletPos.x, -bulletPos.y, this.player)) {
+                this.player.health -= 10;
+                for (let i = 0; i < 3; i++) {
+                    new Blood(game, new THREE.Vector3(bulletPos.x, -bulletPos.y, 0), i * 2);
+                }
+                remove = true; 
+            }
+
+            if (isTileCollision(bulletPos.x, -bulletPos.y, map1, this.tileSize)) {
                 remove = true;
             }
 
             if (remove || !this.mapBox.containsPoint(bulletPos)) {
                 this.enemyBullets.splice(i, 1);
-                scene.remove(bullet.object);
+                game.world.remove(bullet.object);
             }
         }
     }
@@ -2008,19 +2304,10 @@ class Game {
         this.accumulator += delta;
 
         if (this.accumulator > 1/60) {
-
-            if (keyIsPressed['Shift']) {
-                this.timeScale = 0.1;
-            } else {
-                this.timeScale = 1;
-            }
-
-            this.updatePlayer(delta);
-
+            this.player.update(this, delta);
             if (this.enemy) {
                 this.enemy.update(this, delta);
             }
-
             this.updateCameraPosition(delta);
             this.updateBullets(delta);
             this.updateEntities(delta);

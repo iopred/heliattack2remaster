@@ -1585,7 +1585,7 @@ function heroAction(timestep) {
 			if(sounds){
 				shjump.start(0,0);
 			}
-			this.yspeed = -32;
+			this.yspeed = -16;
 			if (this.jump) {
 				this.jump2 = 1;
 			}
@@ -2157,6 +2157,7 @@ function heliFrame(timeStep) {
 		temp.action = heliFall;
 		temp.gotoAndStop(this._currentframe);
 		entityArray.push(temp);
+		
 		var temp = world.attachMovie("boom", "boom_"+world.entityDepth, world.entityDepth++);
 		temp._x = this._x;
 		temp._y = this._y;
