@@ -230,9 +230,9 @@ function onMouseUp(event){
 
 function onMouseWheel(event){
     if (event.deltaY < 0) {
-        mouse.wheel = -1;
-    } else if (event.deltaY > 0) {
         mouse.wheel = 1;
+    } else if (event.deltaY > 0) {
+        mouse.wheel = -1;
     }
 };
 
@@ -304,7 +304,7 @@ const bg1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 
 
 
 class Weapon {
-    constructor(name, textureUrl, origin /* {THREE.Vector2} */, barrel /* {THREE.Vector2} */, reloadTime, bulletSpeed, damage, bulletTextureUrl) {
+    constructor(name, textureUrl, origin /* {THREE.Vector2} */, barrel /* {THREE.Vector2} */, reloadTime, bulletSpeed, damage, boxAmmo, bulletTextureUrl) {
         this.name = name;
         this.textureUrl = textureUrl;
         this.origin = origin;
@@ -321,6 +321,9 @@ class Weapon {
         this.spread = 0;
         this.update = null;
         this.destroy = null;
+        // How much ammo in a box.
+        this.boxAmmo = boxAmmo;
+        this.ammo = 0;
     }
 
     setSpread(spread) {
@@ -377,6 +380,10 @@ class Weapon {
             rot += this.bulletsSpread;
         }
     }
+
+    collect(game) {
+        this.ammo += this.boxAmmo;
+    }
 }
 
 function defaultBulletUpdate(game, delta) {
@@ -405,7 +412,7 @@ function shotgunRocketUpdate(game, delta) {
     if (this.tick >= 1) {
         this.tick %= 1;
 
-        if (this.time % 8 == 0) {
+        if (this.time % 4 == 0) {
             const pos = this.object.position.clone();
             pos.y *= -1;
             pos.z = -1;
@@ -448,7 +455,7 @@ function rocketUpdate(game, delta) {
     if (this.tick >= 1) {
         this.tick %= 1;
 
-        if (this.time % 8 == 0) {
+        if (this.time % 4 == 0) {
             const pos = this.object.position.clone();
             pos.y *= -1;
             pos.z = -1;
@@ -703,7 +710,7 @@ function fireMinesUpdate(game, delta) {
         }
         pos.y += this.velocity.y * game.timeScale;
         if (isTileCollision(pos.x, -pos.y, map1, game.tileSize)) {
-            pos.y = -(Math.floor(-pos.y / game.tileSize)) * game.tileSize + 4;
+            pos.y = -(Math.floor(-pos.y / game.tileSize)) * game.tileSize + 2;
 
             const [pillar, flames] = constructFirePillar.apply(this, [game]);
             this.object.add(pillar)
@@ -891,22 +898,21 @@ function grappleUpdate(game, delta) {
     return false;
 }
 
-
 const weapons = [
-    new Weapon("Machine Gun", 'images/weapons/machinegun.png', new THREE.Vector2(5, 12), new THREE.Vector2(23, -7.5), 5, 8, 10).setSpread(2),
-    new Weapon("Akimbo Mac10's", 'images/weapons/mac10s.png', new THREE.Vector2(-2, 21), new THREE.Vector2(28, -8.5), 4, 8, 9).setSpread(8).setBullets(2, 0, 8),
-    new Weapon("Shotgun", 'images/weapons/shotgun.png', new THREE.Vector2(5, 12), new THREE.Vector2(30, -7), 25, 8, 15).setBullets(5, 5),
-    new Weapon("Shotgun Rockets", 'images/weapons/shotgunrockets.png', new THREE.Vector2(7, 19), new THREE.Vector2(34, -8), 40, 7, 40, 'images/shotgunrocketbullet.png').setBullets(3, 10).setUpdate(shotgunRocketUpdate).setDestroy(shotgunRocketDestroy),
-    new Weapon("Grenade Launcher", 'images/weapons/grenadelauncher.png', new THREE.Vector2(13, 18), new THREE.Vector2(29, -7), 30, 25, 75, 'images/grenade.png').setUpdate(grenadeUpdate).setDestroy(explosionDestroy),
-    new Weapon("RPG", 'images/weapons/rpg.png', new THREE.Vector2(18, 20), new THREE.Vector2(32, -7), 40, 4, 75, 'images/rpgbullet.png').setUpdate(rpgUpdate).setDestroy(explosionDestroy),
-    new Weapon("Rocket Launcher", 'images/weapons/rocketlauncher.png', new THREE.Vector2(19, 23), new THREE.Vector2(25, -9.5), 50, 7, 100, 'images/rocketbullet.png').setUpdate(rocketUpdate).setDestroy(explosionDestroy),
-    new Weapon("Seeker Launcher", 'images/weapons/seekerlauncher.png', new THREE.Vector2(24, 28), new THREE.Vector2(24, -9.5), 55, 7, 100, 'images/seekerbullet.png').setUpdate(seekerUpdate).setDestroy(explosionDestroy),
-    new Weapon("Flame Thrower", 'images/weapons/flamethrower.png', new THREE.Vector2(9, 16), new THREE.Vector2(29, -7), 1, 9, 2, 'images/flame.png').setSpread(10).setUpdate(flameUpdate),
-    new Weapon("Fire Mines", 'images/weapons/mine.png', new THREE.Vector2(-9, 15), new THREE.Vector2(20, -5.5), 100, 3, 5, 'images/minebullet.png').setUpdate(fireMinesUpdate),
-    new Weapon("A-Bomb Launcher", 'images/weapons/abomb.png', new THREE.Vector2(22, 30), new THREE.Vector2(36, -13), 150, 3, 300, 'images/abombbullet.png').setUpdate(abombUpdate).setDestroy(abombDestroy),
-    new Weapon("Rail Gun", 'images/weapons/railgun.png', new THREE.Vector2(23, 27), new THREE.Vector2(32, -8), 75, 20, 150, 'images/rail.png').setUpdate(railUpdate),
-    new Weapon("Grapple Cannon", 'images/weapons/grapplecannon.png', new THREE.Vector2(18, 23), new THREE.Vector2(33, -11), 250, 20, 300, 'images/grapplebullet.png').setUpdate(grappleUpdate),
-    new Weapon("Shoulder Cannon", 'images/weapons/shouldercannon.png', new THREE.Vector2(0, 0), new THREE.Vector2(16, 0), 100, 20, 300, 'images/shouldercannon.png').setUpdate(railUpdate),
+    new Weapon("Machine Gun", 'images/weapons/machinegun.png', new THREE.Vector2(5, 12), new THREE.Vector2(23, -7.5), 5, 8, 10, 0).setSpread(2),
+    new Weapon("Akimbo Mac10's", 'images/weapons/mac10s.png', new THREE.Vector2(-2, 21), new THREE.Vector2(28, -8.5), 4, 8, 9, 50).setSpread(8).setBullets(2, 0, 8),
+    new Weapon("Shotgun", 'images/weapons/shotgun.png', new THREE.Vector2(5, 12), new THREE.Vector2(30, -7), 25, 8, 15, 14).setBullets(5, 5),
+    new Weapon("Shotgun Rockets", 'images/weapons/shotgunrockets.png', new THREE.Vector2(7, 19), new THREE.Vector2(34, -8), 40, 7, 40, 8, 'images/shotgunrocketbullet.png').setBullets(3, 10).setUpdate(shotgunRocketUpdate).setDestroy(shotgunRocketDestroy),
+    new Weapon("Grenade Launcher", 'images/weapons/grenadelauncher.png', new THREE.Vector2(13, 18), new THREE.Vector2(29, -7), 30, 25, 75, 12, 'images/grenade.png').setUpdate(grenadeUpdate).setDestroy(explosionDestroy),
+    new Weapon("RPG", 'images/weapons/rpg.png', new THREE.Vector2(18, 20), new THREE.Vector2(32, -7), 40, 4, 75, 10, 'images/rpgbullet.png').setUpdate(rpgUpdate).setDestroy(explosionDestroy),
+    new Weapon("Rocket Launcher", 'images/weapons/rocketlauncher.png', new THREE.Vector2(19, 23), new THREE.Vector2(25, -9.5), 50, 7, 100, 8, 'images/rocketbullet.png').setUpdate(rocketUpdate).setDestroy(explosionDestroy),
+    new Weapon("Seeker Launcher", 'images/weapons/seekerlauncher.png', new THREE.Vector2(24, 28), new THREE.Vector2(24, -9.5), 55, 7, 100, 6, 'images/seekerbullet.png').setUpdate(seekerUpdate).setDestroy(explosionDestroy),
+    new Weapon("Flame Thrower", 'images/weapons/flamethrower.png', new THREE.Vector2(9, 16), new THREE.Vector2(29, -7), 1, 9, 2, 150, 'images/flame.png').setSpread(10).setUpdate(flameUpdate),
+    new Weapon("Fire Mines", 'images/weapons/mine.png', new THREE.Vector2(-9, 15), new THREE.Vector2(20, -5.5), 100, 3, 5, 3, 'images/minebullet.png').setUpdate(fireMinesUpdate),
+    new Weapon("A-Bomb Launcher", 'images/weapons/abomb.png', new THREE.Vector2(22, 30), new THREE.Vector2(36, -13), 150, 3, 300, 2, 'images/abombbullet.png').setUpdate(abombUpdate).setDestroy(abombDestroy),
+    new Weapon("Rail Gun", 'images/weapons/railgun.png', new THREE.Vector2(23, 27), new THREE.Vector2(32, -8), 75, 20, 150, 3, 'images/rail.png').setUpdate(railUpdate),
+    new Weapon("Grapple Cannon", 'images/weapons/grapplecannon.png', new THREE.Vector2(18, 23), new THREE.Vector2(33, -11), 250, 20, 300, 2, 'images/grapplebullet.png').setUpdate(grappleUpdate),
+    new Weapon("Shoulder Cannon", 'images/weapons/shouldercannon.png', new THREE.Vector2(0, 0), new THREE.Vector2(16, 0), 10, 20, 300, 0, 'images/shouldercannon.png').setUpdate(railUpdate),
 ];
 
 // Helper to load a texture as a promise
@@ -946,6 +952,8 @@ async function loadAssets() {
         loadTexture(loader, textureMap, 'images/smoke.png'),
         loadTexture(loader, textureMap, 'images/flamepillar.png'),
         loadTexture(loader, textureMap, 'images/blood.png'),
+        loadTexture(loader, textureMap, 'images/parachute.png'),
+        loadTexture(loader, textureMap, 'images/box.png'),
     ];
     for (const weapon of weapons) {
         textures.push(loadTexture(loader, textureMap, weapon.textureUrl));
@@ -996,27 +1004,26 @@ function resolveAxisCollision(entity, timeScale, axis, tilemap, tileSize) {
     const startOther = Math.floor((entity.position[otherAxis] + entity.bounds.min[otherAxis]) / tileSize);
     const endOther = Math.floor((entity.position[otherAxis] + entity.bounds.max[otherAxis]) / tileSize);
 
-    
-        for (let otherTilePos = startOther; otherTilePos <= endOther; otherTilePos++) {
-            const xTile = axis === 'x' ? tilePos : otherTilePos;
-            const yTile = axis === 'y' ? tilePos : otherTilePos;
+    for (let otherTilePos = startOther; otherTilePos <= endOther; otherTilePos++) {
+        const xTile = axis === 'x' ? tilePos : otherTilePos;
+        const yTile = axis === 'y' ? tilePos : otherTilePos;
 
-            if (xTile < 0 || yTile < 0 || yTile >= tilemap.length || xTile >= tilemap[yTile].length) {
-                continue;
-            }
-
-            // Check if tile is solid
-            if (tilemap[yTile][xTile][0] === 1) {
-                if (entity.velocity[axis] > 0) {
-                    entity.position[axis] = tilePos * tileSize - entity.bounds.max[axis] - 0.01;
-                } else {
-                    entity.position[axis] = (tilePos + 1) * tileSize - entity.bounds.min[axis];
-
-                }
-                
-                return true;
-            }
+        if (xTile < 0 || yTile < 0 || yTile >= tilemap.length || xTile >= tilemap[yTile].length) {
+            continue;
         }
+
+        // Check if tile is solid
+        if (tilemap[yTile][xTile][0] === 1) {
+            if (entity.velocity[axis] > 0) {
+                entity.position[axis] = tilePos * tileSize - entity.bounds.max[axis] - 0.01;
+            } else {
+                entity.position[axis] = (tilePos + 1) * tileSize - entity.bounds.min[axis];
+
+            }
+            
+            return true;
+        }
+    }
     
 
     entity.position[axis] += entity.velocity[axis] * timeScale;
@@ -1450,13 +1457,7 @@ class Enemy {
     damage(damage, game) {
         this.health -= damage;
         if (this.health <= 0) {
-            this.destroy(game);
-
-            // TODO(Add score)
-            game.player.bulletTime = Math.min(MAX_BULLET_TIME, game.player.bulletTime + MAX_BULLET_TIME / 3);
-
-            game.enemy = new Enemy()
-            game.enemy.init(game);
+            game.heliDestroyed();
         }
     }
 }
@@ -1512,13 +1513,13 @@ class Entity {
 }
 
 class DestroyedEnemy extends Entity {
-    constructor(game, enemy) {
+    constructor(game, enemy, permanent) {
         super(game, 'images/guyburned.png');
 
         this.position.copy(enemy.position);
 		this.velocity.set(-3 + Math.random() * 6, -5 + Math.random()*5, 0);
-        this.mesh.scale.x = enemy.heliGroup.scale.x;
         this.mesh.rotation.z = enemy.group.rotation.z;
+        this.permanent = permanent;
     }
 
     move(game) {
@@ -1533,8 +1534,6 @@ class DestroyedEnemy extends Entity {
             this.move(game);
         }
 
-        this.mesh.rotation.z += (Math.abs(this.velocity.x) + Math.abs(this.velocity.y)) * game.timeScale * Math.PI / 180
-
         this.position.x += this.velocity.x * game.timeScale
         if (isTileCollision(this.position.x, this.position.y, map1, game.tileSize)) {
             this.position.x -= this.velocity.x * game.timeScale
@@ -1543,12 +1542,18 @@ class DestroyedEnemy extends Entity {
         this.position.y += this.velocity.y * game.timeScale;
         if (isTileCollision(this.position.x, this.position.y, map1, game.tileSize)) {
             if (this.velocity.y < 2) {
+                if (this.permanent) {
+                    this.position.y = (Math.floor(this.position.y / game.tileSize)) * game.tileSize + 2;
+                    return false;
+                }
                 return true;
             } else {
                 this.position.y -= this.velocity.y * game.timeScale
                 this.velocity.y *= -0.4;
             }
 
+        } else {
+            this.mesh.rotation.z += (Math.abs(this.velocity.x) + Math.abs(this.velocity.y)) * game.timeScale * Math.PI / 180
         }
 
         this.updateMesh();
@@ -1799,6 +1804,160 @@ class Blood extends Entity {
     }
 }
 
+class Parachute {
+    constructor(game, parent, opened) {
+        
+        this.parent = parent; 
+    
+        const texture = this.texture = game.textures['images/parachute.png'];
+
+        const geometry = new THREE.PlaneGeometry(texture.image.width, texture.image.height);
+        geometry.translate(0, texture.image.height - 20, 0); 
+        const material = this.material = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+        });
+        const mesh = this.mesh = new THREE.Mesh(geometry, material);
+        mesh.position.z = -0.5;
+        parent.add(mesh);
+
+        this.opened = opened;
+        if (!opened) {
+            this.mesh.scale.x = 0;
+        }
+
+        this.tick = 0;
+    }
+
+    update(game, delta) {
+        this.tick += game.timeScale;
+        if (this.tick >= 1) {
+            this.tick %= 1;
+            
+            this.mesh.scale.x = THREE.MathUtils.damp(this.mesh.scale.x, this.opened ? 1 : 0, 20, delta)
+
+            if (this.mesh.scale.x <= 0.1) {
+                this.destroy(game);
+            }
+        }
+    }
+
+    destroy(game) {
+        this.parent.remove(this.mesh);
+    }
+}
+
+const BOX_SIZE = 33;
+
+class Box extends Entity {
+    constructor(game, position, type) {
+        super(game, 'images/box.png');
+        this.position.copy(position);
+
+        if (this.position.x < BOX_SIZE/2) {
+            this.position.x = BOX_SIZE/2
+        } else if (this.position.x > game.mapWidth - BOX_SIZE/2) {
+            this.position.x = game.mapWidth - BOX_SIZE/2;
+        }
+        setUV(this.geometry, type, BOX_SIZE, this.texture.image.width, this.texture.image.height);
+
+        this.type = type;
+    }
+
+    init(game) {
+        const texture = this.texture = game.textures[this.textureUrl];
+
+        this.group = new THREE.Object3D();
+
+        const geometry = this.geometry = new THREE.PlaneGeometry(BOX_SIZE, BOX_SIZE);
+        geometry.translate(0, BOX_SIZE/2, 0);
+        
+
+        const material = this.material = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+        });
+        
+        const mesh = this.mesh = new THREE.Mesh(geometry, material);
+        this.group.add(mesh);
+
+        game.world.add(this.group);
+
+        setUV(this.geometry, 0, BOX_SIZE, texture.image.width, texture.image.height);
+
+        this.parachute = new Parachute(game, this.group, false);
+        this.parachute.opened = true;
+
+        game.entities.push(this);
+
+        this.updateMesh();
+    }
+
+    update(game, delta) {
+        let move = false;
+        this.tick += game.timeScale;
+        if (this.tick >= 1) {
+            this.tick %= 1;
+
+            if (this.parachute.opened) {
+                this.velocity.y = 1;
+            } else {
+                this.velocity.y += 0.5;
+            }
+        }
+
+        const pos = this.position;
+
+        pos.x += this.velocity.x * game.timeScale
+        pos.y += this.velocity.y * game.timeScale
+        
+        if (isTileCollision(pos.x - BOX_SIZE/2, pos.y, map1, game.tileSize) || isTileCollision(pos.x + BOX_SIZE/2, pos.y, map1, game.tileSize)) {
+            if (this.velocity.y < 2) {
+                pos.y = (Math.floor(pos.y / game.tileSize)) * game.tileSize + 2;
+                this.velocity.y = 0;
+            } else {
+                this.position.y -= this.velocity.y * game.timeScale
+                this.velocity.y *= -0.4;
+            }
+        }
+
+        if (this.parachute.opened && isTileCollision(pos.x, pos.y + 150, map1, game.tileSize)) {
+            this.parachute.opened = false;
+        }
+
+        this.parachute.update(game, delta);
+
+        if (isPlayerCollisionRect(pos.x - BOX_SIZE/2, pos.y - BOX_SIZE, BOX_SIZE, BOX_SIZE, game.player)) {
+            this.collect(game);
+            return true;
+        }
+
+        this.updateMesh();
+
+        return false;
+    }
+
+    collect(game) {
+        // Weapons
+        if (this.type < weapons.length) {
+            weapons[this.type].collect(game);
+        } else if (this.type == weapons.length) {
+            // TODO: Powerups
+            debugger;
+        } else if (this.type == weapons.length + 1) {
+            game.player.health = Math.min(100, game.player.health + 20);
+        }
+    }
+
+    updateMesh() {
+        // Update position of object, by mapping game position to 3d camera position.
+        this.group.position.set(this.position.x, Math.round(-this.position.y), 0.5);
+    }
+
+    destroy(game) {
+        game.world.remove(this.group);
+    }
+}
 
 const MAX_BULLET_TIME = 120;
 const HYPERJUMP_RECHARGE = 300;
@@ -1842,6 +2001,7 @@ class Player {
         this.inAir = false;
 
         this.crouch = false;
+        this.dead = false;
     }
 
     init(game) {
@@ -1871,14 +2031,22 @@ class Player {
 
         group.add(weaponObject);
 
-        game.world.add(group);;
+        game.world.add(group);
 
         this.updateMesh();
-        this.selectWeapon(12);
+
+        weapons[0].ammo = Number.POSITIVE_INFINITY;
+        for (let i = 1; i < weapons.length; i++) {
+            weapons[i].ammo = 0;
+        }
+
+        this.selectWeapon(0);
         weapons[this.weapon].reloading = Number.POSITIVE_INFINITY;
 
-        this.position.x = game.tileSize / 2
-        this.position.y = -this.bounds.min.y;
+        this.position.x = game.tileSize;
+        this.position.y = 0;
+
+        this.parachute = new Parachute(game, group, true);
     }
 
     setFrame(frame) {
@@ -1894,6 +2062,17 @@ class Player {
         this.weaponObject.add(weapon.mesh);
     }
 
+    selectWeaponDirection(direction) {
+        let weapon = weapons[this.weapon + direction];
+        for (var i = 1; i < weapons.length; i++) {
+            const index = THREE.MathUtils.euclideanModulo(this.weapon + i*direction, weapons.length)
+            if (weapons[index].ammo > 0) {
+                this.selectWeapon(index);
+                break;
+            }
+        }
+    }
+
     updateMesh() {
         // Update position of object, by mapping game position to 3d camera position.
         this.group.position.set(this.position.x, Math.round(-this.position.y), 0.5);
@@ -1907,94 +2086,103 @@ class Player {
             move = true;
         }
 
-
-        if (move) {
-            // TODO: Support TimeRift
-            if (this.bulletTime > 0 && keyIsPressed['Shift']) {
-                game.timeScale = Math.max(0.2, game.timeScale - 0.1);
-                this.bulletTime--;
-            } else {
-                game.timeScale = Math.min(1, game.timeScale + 0.1);
-            }
-
-            if (keyIsPressed['ArrowDown']) {
-                if (!this.crouch) {
-                    this.crouch = true;
-                    this.bounds = this.crouchingBounds;
-                    this.hand = this.crouchingHand;
-                    this.weaponObject.position.set(this.hand.x, this.hand.y, -0.1);
-                    this.setFrame(5);
-                }
-            } else if (this.crouch) {
-                this.crouch = false;
-                this.bounds = this.standingBounds;
-                this.hand = this.standingHand;
-                this.weaponObject.position.set(this.hand.x, this.hand.y, -0.1);
-            }
-
-            if ((this.crouch && !this.inAir) || keyIsPressed['ArrowLeft'] == keyIsPressed['ArrowRight']) {
-                if (this.velocity.x > 0)  {
-                    this.velocity.x = Math.max(0, this.velocity.x - 1);
-                } else if (this.velocity.x < 0) {
-                    this.velocity.x = Math.min(0, this.velocity.x + 1);
-                }
-            } else if (keyIsPressed['ArrowLeft']) {
-                this.velocity.x = -3;
-            } else if (keyIsPressed['ArrowRight']) {
-                this.velocity.x = 3;
-            }
-
-            if (this.hyperJump < HYPERJUMP_RECHARGE){
-                this.hyperJump++;
-            } else if (keyIsPressed['Control'] && this.canJump) {
-                this.velocity.y = Math.min(this.velocity.y, -25);
-                this.inAir = true;
-                this.canJump = false;
-                this.jumps++;
-                this.hyperJump = 0;
-            }
-
-            if (keyIsPressed['ArrowUp']) { 
-                if (this.canJump && this.jumps < 2) {
-                    this.canJump = false;
-                    this.jumps++;
-                    this.jumping = 8;
-                    this.velocity.y = Math.min(this.velocity.y, -6);
-                    this.inAir = true;
-                } else if (this.jumping > 0) {
-                    this.velocity.y = Math.min(this.velocity.y, -6);
-                    this.inAir = true;
-                    this.jumping--;
-                }
-            } else {
-                this.canJump = true;
-                this.jumping = 0;
-            }
-
-            this.velocity.y = Math.min(this.velocity.y + 0.5, game.tileSize);
-        }
-
-        if (this.crouch) {
-            this.setFrame(5);
-        } else if (this.inAir) {
-            if (this.jumps == 1) {
-                this.setFrame(3);
-            } else {
-                this.setFrame(4);
-            }
-        } else if (Math.abs(this.velocity.x) >= 1) {
-            if (move) {
-                this.setFrame(walkAnimation[this.walkAnimationIndex]);
-
-                this.walkTimer++;
-                if (this.walkTimer >= 8) {
-                    this.walkTimer = 0;
-                    this.walkAnimationIndex = (this.walkAnimationIndex+1)%walkAnimation.length;
-                }
+        if (this.parachute.opened) {
+            this.velocity.y = 2;
+            if (map1[Math.floor((this.position.y + 6 * game.tileSize) / game.tileSize)][Math.floor(this.position.x / game.tileSize)][0] == 1) {
+                this.parachute.opened = false;
+                game.enemy = new Enemy()
+                game.enemy.init(game);
             }
         } else {
-            this.setFrame(0);
+            if (move) {
+                // TODO: Support TimeRift
+                if (this.bulletTime > 0 && keyIsPressed['Shift']) {
+                    game.timeScale = Math.max(0.2, game.timeScale - 0.1);
+                    this.bulletTime--;
+                } else {
+                    game.timeScale = Math.min(1, game.timeScale + 0.1);
+                }
+
+                if (keyIsPressed['ArrowDown']) {
+                    if (!this.crouch) {
+                        this.crouch = true;
+                        this.bounds = this.crouchingBounds;
+                        this.hand = this.crouchingHand;
+                        this.weaponObject.position.set(this.hand.x, this.hand.y, -0.1);
+                        this.setFrame(5);
+                    }
+                } else if (this.crouch) {
+                    this.crouch = false;
+                    this.bounds = this.standingBounds;
+                    this.hand = this.standingHand;
+                    this.weaponObject.position.set(this.hand.x, this.hand.y, -0.1);
+                }
+
+                if ((this.crouch && !this.inAir) || keyIsPressed['ArrowLeft'] == keyIsPressed['ArrowRight']) {
+                    if (this.velocity.x > 0)  {
+                        this.velocity.x = Math.max(0, this.velocity.x - 1);
+                    } else if (this.velocity.x < 0) {
+                        this.velocity.x = Math.min(0, this.velocity.x + 1);
+                    }
+                } else if (keyIsPressed['ArrowLeft']) {
+                    this.velocity.x = -3;
+                } else if (keyIsPressed['ArrowRight']) {
+                    this.velocity.x = 3;
+                }
+
+                if (this.hyperJump < HYPERJUMP_RECHARGE){
+                    this.hyperJump++;
+                } else if (keyIsPressed['Control'] && this.canJump) {
+                    this.velocity.y = Math.min(this.velocity.y, -25);
+                    this.inAir = true;
+                    this.canJump = false;
+                    this.jumps++;
+                    this.hyperJump = 0;
+                }
+
+                if (keyIsPressed['ArrowUp']) { 
+                    if (this.canJump && this.jumps < 2) {
+                        this.canJump = false;
+                        this.jumps++;
+                        this.jumping = 8;
+                        this.velocity.y = Math.min(this.velocity.y, -6);
+                        this.inAir = true;
+                    } else if (this.jumping > 0) {
+                        this.velocity.y = Math.min(this.velocity.y, -6);
+                        this.inAir = true;
+                        this.jumping--;
+                    }
+                } else {
+                    this.canJump = true;
+                    this.jumping = 0;
+                }
+
+                this.velocity.y = Math.min(this.velocity.y + 0.5, game.tileSize);
+            }
+
+            if (this.crouch) {
+                this.setFrame(5);
+            } else if (this.inAir) {
+                if (this.jumps == 1) {
+                    this.setFrame(3);
+                } else {
+                    this.setFrame(4);
+                }
+            } else if (Math.abs(this.velocity.x) >= 1) {
+                if (move) {
+                    this.setFrame(walkAnimation[this.walkAnimationIndex]);
+
+                    this.walkTimer++;
+                    if (this.walkTimer >= 8) {
+                        this.walkTimer = 0;
+                        this.walkAnimationIndex = (this.walkAnimationIndex+1)%walkAnimation.length;
+                    }
+                }
+            } else {
+                this.setFrame(0);
+            }
         }
+        this.parachute.update(game, delta);
         
         let [xCol, yCol] = checkTileCollisions(this, game.timeScale, map1, game.tileSize);
 
@@ -2039,7 +2227,8 @@ class Player {
 
         if (move) {
             if (mouse.wheel != 0) {
-                this.selectWeapon(THREE.MathUtils.euclideanModulo(this.weapon - mouse.wheel, weapons.length));
+                //this.selectWeapon(THREE.MathUtils.euclideanModulo(this.weapon - mouse.wheel, weapons.length));
+                this.selectWeaponDirection(mouse.wheel);
                 mouse.wheel = 0;
             }
 
@@ -2048,14 +2237,18 @@ class Player {
             if (mouse.down) {
                 if (weapon.reloading >= weapon.reloadTime) {
                     weapon.createBullet(game);
+                    weapon.ammo--;
                     weapon.reloading = 0;
+                    if (weapon.ammo <= 0) {
+                        this.selectWeaponDirection(1);
+                    }
                 }
             }
         }
 
         this.updateMesh();
 
-        if (this.lastHealth != this.health) {
+        if (this.lastHealth > this.health) {
             shaderPass.uniforms.tintEnabled.value = 1.0;
             this.tint = 3;
         }
@@ -2067,6 +2260,15 @@ class Player {
             }
         }
     }
+
+    destroy(game) {
+        game.timeScale = 0.2;
+        shaderPass.uniforms.tintEnabled.value = 1.0;
+        this.dead = true;
+        game.world.remove(this.group);
+        new DestroyedEnemy(game, this, true);
+        new Explosion(game, this.position.clone(), 500);
+    }
 }
 
 const zero = new THREE.Vector3();
@@ -2075,6 +2277,9 @@ class Game {
     constructor() {
         this.enemy = null;
         this.level = 0;
+        this.score = 0;
+        this.helisDestroyed = 0;
+        this.nextHealth = 15;
     }
 
     init(textures) {
@@ -2100,9 +2305,11 @@ class Game {
         
         const mapHeight = this.mapHeight = map1.length * tileSize;
         const mapWidth = this.mapWidth = map1[0].length * tileSize;
+        this.visibleWidth = visibleWidthAtZDepth(0, camera);
+        this.visibleHeight = visibleHeightAtZDepth(0, camera);
 
         const bgLayer = this.buildMap(bg1);
-        bgLayer.position.set(0, mapHeight - tileSize * 4, -200); // Move it behind other elements-
+        bgLayer.position.set(0, mapHeight - tileSize * 4, -200);
         bgLayer.scale.x = 2;
         bgLayer.scale.y = 2;
         world.add(bgLayer);
@@ -2114,9 +2321,6 @@ class Game {
         
         const mapBox = this.mapBox = new THREE.Box3(new THREE.Vector3(0, -mapHeight, 0), new THREE.Vector3(mapWidth, 0, 0));
         mapBox.expandByScalar(tileSize);
-
-        cube.position.x = 400;
-        cube.position.y = -400;
 
         const clock = this.clock = new THREE.Clock();
         let accumulator = this.accumulator = 0;
@@ -2130,10 +2334,7 @@ class Game {
         this.player = new Player()
         this.player.init(this);
 
-        this.updateCameraPosition(0);
-
-        this.enemy = new Enemy()
-        this.enemy.init(this);
+        this.updateCameraPosition(Number.POSITIVE_INFINITY);
     }
 
     buildMap(map) {
@@ -2268,11 +2469,15 @@ class Game {
 
             let remove = false;
 
-
             if (isPlayerCollision(bulletPos.x, -bulletPos.y, this.player)) {
                 this.player.health -= 10;
                 for (let i = 0; i < 3; i++) {
                     new Blood(game, new THREE.Vector3(bulletPos.x, -bulletPos.y, 0), i * 2);
+                }
+                if (this.player.health <= 0 && !this.player.dead) {
+                    this.player.destroy(this);
+                    this.enemy.destroy(this);
+                    this.enemy = null;
                 }
                 remove = true; 
             }
@@ -2304,16 +2509,42 @@ class Game {
         this.accumulator += delta;
 
         if (this.accumulator > 1/60) {
-            this.player.update(this, delta);
+            if (!this.player.dead) {
+                this.player.update(this, delta);
+            }
             if (this.enemy) {
                 this.enemy.update(this, delta);
             }
-            this.updateCameraPosition(delta);
             this.updateBullets(delta);
             this.updateEntities(delta);
+            this.updateCameraPosition(delta);
             this.accumulator %= 1/60;
         };
         
+    }
+
+    heliDestroyed() {
+        this.score += 300;        
+        
+        this.player.bulletTime = Math.min(MAX_BULLET_TIME, this.player.bulletTime + MAX_BULLET_TIME / 3);
+
+        this.helisDestroyed++;
+        if (this.helisDestroyed == this.nextHealth) {
+            new Box(this, this.enemy.position, weapons.length+1);
+            this.nextHealth *= 2;
+        } else if ((this.helisDestroyed % 3) == 0) {
+            // Account for shoulder cannon box and machinegun.
+            let type = 1 + Math.floor(Math.random() * (weapons.length - 1));
+            if (type == weapons.length - 1) {
+                type++;
+            }
+            new Box(this, this.enemy.position, type);
+        }
+
+        this.enemy.destroy(this);
+
+        game.enemy = new Enemy()
+        game.enemy.init(game);
     }
 }
 
@@ -2338,6 +2569,12 @@ function isPlayerCollision(x, y, player) {
     return x >= pos.x + player.bounds.min.x && x <= pos.x + player.bounds.max.x && y >= pos.y + player.bounds.min.y && y <= pos.y + player.bounds.max.y;
 }
 
+function isPlayerCollisionRect(x, y, width, height, player) {
+    const pos = player.position;
+    const bounds = player.bounds;
+    return x + width >= pos.x + player.bounds.min.x && x <= pos.x + player.bounds.max.x && y + height >= pos.y + player.bounds.min.y && y <= pos.y + player.bounds.max.y;
+}
+
 var heliBoxes = [
     new THREE.Box3(new THREE.Vector3(-88, 13, -5), new THREE.Vector3(-72, 28, 5)),
     new THREE.Box3(new THREE.Vector3(-88, -29, -5), new THREE.Vector3(-31, 13, 5)),
@@ -2347,6 +2584,10 @@ var heliBoxes = [
 ];
 
 function checkPointCollisionWithBoxes(point, enemy, boxes) {
+    if (!enemy) {
+        return;
+    }
+
     // Convert the world-space point to the object's local space
     const localPoint = point.clone();
     enemy.heliGroup.worldToLocal(localPoint);
