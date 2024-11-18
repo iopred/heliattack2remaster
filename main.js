@@ -2654,7 +2654,7 @@ class Game {
             let remove = false;
 
             if (isPlayerCollision(bulletPos.x, -bulletPos.y, this.player)) {
-                if (!this.player.powerup == INVULNERABILITY) {
+                if (this.player.powerup != INVULNERABILITY) {
                     this.player.health -= 10;
                     audioManager.playEffect('hurt');
                 }
