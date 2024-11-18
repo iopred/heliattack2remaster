@@ -7,6 +7,7 @@ import {Tween, Easing} from '@tweenjs/tween.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import AudioManager from './audiomanager.js';
 
 
 
@@ -218,6 +219,7 @@ function manageRaycasterIntersections(scene, camera, vector) {
 }
 
 function onMouseDown(event){
+    audioManager.init();
     //console.log("mouse position: (" + mouse.x + ", "+ mouse.y + ")");
     manageRaycasterIntersections(scene, camera, mouse);
     mouse.down = true;
@@ -237,6 +239,7 @@ function onMouseWheel(event){
 };
 
 let game;
+let audioManager;
 
 function init() {
     window.addEventListener('resize', onWindowResize);
@@ -268,6 +271,48 @@ function init() {
         game = new Game();
         game.init(textures);
     }).catch(error => console.error('Error loading assets:', error));
+
+    audioManager = new AudioManager();
+    audioManager.preload([
+        { key: 'boom', url: 'sounds/game/boom.wav'},
+        { key: 'flame', url: 'sounds/game/flame.wav'},
+        { key: 'grapple', url: 'sounds/game/grapple.wav'},
+        { key: 'grenade', url: 'sounds/game/grenade.wav'},
+        { key: 'helicopter', url: 'sounds/game/helicopter.wav'},
+        { key: 'helidestroyed', url: 'sounds/game/helidestroyed.wav'},
+        { key: 'hurt', url: 'sounds/game/hurt.wav'},
+        { key: 'hyperjump', url: 'sounds/game/hyperjump.wav'},
+        { key: 'metal0', url: 'sounds/game/metal0.wav'},
+        { key: 'metal1', url: 'sounds/game/metal1.wav'},
+        { key: 'metal2', url: 'sounds/game/metal2.wav'},
+        { key: 'metal3', url: 'sounds/game/metal3.wav'},
+        { key: 'music', url: 'sounds/game/music.wav'},
+        { key: 'pistol', url: 'sounds/game/pistol.wav'},
+        { key: 'railgun', url: 'sounds/game/railgun.wav'},
+        { key: 'rocketlauncher', url: 'sounds/game/rocketlauncher.wav'},
+        { key: 'shotgun', url: 'sounds/game/shotgun.wav'},
+        { key: 'shotgunrockets', url: 'sounds/game/shotgunrockets.wav'},
+        { key: 'bigboom', url: 'sounds/game/bigboom.wav'},
+        { key: 'boom', url: 'sounds/game/boom.wav'},
+        { key: 'announcerAbomb', url: 'sounds/announcer/abomb.wav'},
+        { key: 'announcerFiremines', url: 'sounds/announcer/firemines.wav'},
+        { key: 'announcerFlamethrower', url: 'sounds/announcer/flamethrower.wav'},
+        { key: 'announcerGrapplecannon', url: 'sounds/announcer/grapplecannon.wav'},
+        { key: 'announcerGrenadelauncher', url: 'sounds/announcer/grenadelauncher.wav'},
+        { key: 'announcerHealth', url: 'sounds/announcer/health.wav'},
+        { key: 'announcerInvulnerability', url: 'sounds/announcer/invulnerability.wav'},
+        { key: 'announcerJetpack', url: 'sounds/announcer/jetpack.wav'},
+        { key: 'announcerMac10', url: 'sounds/announcer/mac10.wav'},
+        { key: 'announcerPredatormode', url: 'sounds/announcer/predatormode.wav'},
+        { key: 'announcerRailgun', url: 'sounds/announcer/railgun.wav'},
+        { key: 'announcerRocketlauncher', url: 'sounds/announcer/rocketlauncher.wav'},
+        { key: 'announcerRpg', url: 'sounds/announcer/rpg.wav'},
+        { key: 'announcerSeekerlauncher', url: 'sounds/announcer/seekerlauncher.wav'},
+        { key: 'announcerShotgun', url: 'sounds/announcer/shotgun.wav'},
+        { key: 'announcerShotgunrockets', url: 'sounds/announcer/shotgunrockets.wav'},
+        { key: 'announcerTimerift', url: 'sounds/announcer/timerift.wav'},
+        { key: 'announcerTridamage', url: 'sounds/announcer/tridamage.wav'},
+    ]);
 }
 
 const map1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
@@ -304,9 +349,11 @@ const bg1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 
 
 
 class Weapon {
-    constructor(name, textureUrl, origin /* {THREE.Vector2} */, barrel /* {THREE.Vector2} */, reloadTime, bulletSpeed, damage, boxAmmo, bulletTextureUrl) {
+    constructor(name, textureUrl, announcerSoundKey, soundKey, origin /* {THREE.Vector2} */, barrel /* {THREE.Vector2} */, reloadTime, bulletSpeed, damage, boxAmmo, bulletTextureUrl) {
         this.name = name;
         this.textureUrl = textureUrl;
+        this.announcerSoundKey = announcerSoundKey;
+        this.soundKey = soundKey;
         this.origin = origin;
         this.barrel = barrel;
         // 30fps -> 60fps
@@ -356,10 +403,10 @@ class Weapon {
         this.mesh = this.createMesh();
     }
 
-    createMesh(tintShader) {
+    createMesh() {
         const texture = this.texture;
         const geometry = new THREE.PlaneGeometry(texture.image.width, texture.image.height);
-        const material = tintShader ? createTintShader(texture) : new THREE.MeshBasicMaterial({
+        const material = true ? createTintShader(texture) : new THREE.MeshBasicMaterial({
             map: texture,
             transparent: true,
         });
@@ -371,6 +418,9 @@ class Weapon {
     }
 
     createBullet(game) {
+        if (this.soundKey) {
+            audioManager.playEffect(this.soundKey);
+        }
         let rot = 0;
         if (this.bullets > 1) {
             rot = -this.bulletsSpread * this.bullets / 2;
@@ -383,6 +433,9 @@ class Weapon {
 
     collect(game) {
         this.ammo += this.boxAmmo;
+        if (this.announcerSoundKey) {
+            audioManager.playEffect(this.announcerSoundKey);
+        }
     }
 }
 
@@ -899,20 +952,20 @@ function grappleUpdate(game, delta) {
 }
 
 const weapons = [
-    new Weapon("Machine Gun", 'images/weapons/machinegun.png', new THREE.Vector2(5, 12), new THREE.Vector2(23, -7.5), 5, 8, 10, 0).setSpread(2),
-    new Weapon("Akimbo Mac10's", 'images/weapons/mac10s.png', new THREE.Vector2(-2, 21), new THREE.Vector2(28, -8.5), 4, 8, 9, 50).setSpread(8).setBullets(2, 0, 8),
-    new Weapon("Shotgun", 'images/weapons/shotgun.png', new THREE.Vector2(5, 12), new THREE.Vector2(30, -7), 25, 8, 15, 14).setBullets(5, 5),
-    new Weapon("Shotgun Rockets", 'images/weapons/shotgunrockets.png', new THREE.Vector2(7, 19), new THREE.Vector2(34, -8), 40, 7, 40, 8, 'images/shotgunrocketbullet.png').setBullets(3, 10).setUpdate(shotgunRocketUpdate).setDestroy(shotgunRocketDestroy),
-    new Weapon("Grenade Launcher", 'images/weapons/grenadelauncher.png', new THREE.Vector2(13, 18), new THREE.Vector2(29, -7), 30, 25, 75, 12, 'images/grenade.png').setUpdate(grenadeUpdate).setDestroy(explosionDestroy),
-    new Weapon("RPG", 'images/weapons/rpg.png', new THREE.Vector2(18, 20), new THREE.Vector2(32, -7), 40, 4, 75, 10, 'images/rpgbullet.png').setUpdate(rpgUpdate).setDestroy(explosionDestroy),
-    new Weapon("Rocket Launcher", 'images/weapons/rocketlauncher.png', new THREE.Vector2(19, 23), new THREE.Vector2(25, -9.5), 50, 7, 100, 8, 'images/rocketbullet.png').setUpdate(rocketUpdate).setDestroy(explosionDestroy),
-    new Weapon("Seeker Launcher", 'images/weapons/seekerlauncher.png', new THREE.Vector2(24, 28), new THREE.Vector2(24, -9.5), 55, 7, 100, 6, 'images/seekerbullet.png').setUpdate(seekerUpdate).setDestroy(explosionDestroy),
-    new Weapon("Flame Thrower", 'images/weapons/flamethrower.png', new THREE.Vector2(9, 16), new THREE.Vector2(29, -7), 1, 9, 2, 150, 'images/flame.png').setSpread(10).setUpdate(flameUpdate),
-    new Weapon("Fire Mines", 'images/weapons/mine.png', new THREE.Vector2(-9, 15), new THREE.Vector2(20, -5.5), 100, 3, 5, 3, 'images/minebullet.png').setUpdate(fireMinesUpdate),
-    new Weapon("A-Bomb Launcher", 'images/weapons/abomb.png', new THREE.Vector2(22, 30), new THREE.Vector2(36, -13), 150, 3, 300, 2, 'images/abombbullet.png').setUpdate(abombUpdate).setDestroy(abombDestroy),
-    new Weapon("Rail Gun", 'images/weapons/railgun.png', new THREE.Vector2(23, 27), new THREE.Vector2(32, -8), 75, 20, 150, 3, 'images/rail.png').setUpdate(railUpdate),
-    new Weapon("Grapple Cannon", 'images/weapons/grapplecannon.png', new THREE.Vector2(18, 23), new THREE.Vector2(33, -11), 250, 20, 300, 2, 'images/grapplebullet.png').setUpdate(grappleUpdate),
-    new Weapon("Shoulder Cannon", 'images/weapons/shouldercannon.png', new THREE.Vector2(0, 0), new THREE.Vector2(16, 0), 10, 20, 300, 0, 'images/shouldercannon.png').setUpdate(railUpdate),
+    new Weapon("Machine Gun", 'images/weapons/machinegun.png', null, 'pistol', new THREE.Vector2(5, 12), new THREE.Vector2(23, -7.5), 5, 8, 10, 0).setSpread(2),
+    new Weapon("Akimbo Mac10's", 'images/weapons/mac10s.png', 'announcerMac10', 'pistol', new THREE.Vector2(-2, 21), new THREE.Vector2(28, -8.5), 4, 8, 9, 50).setSpread(8).setBullets(2, 0, 8),
+    new Weapon("Shotgun", 'images/weapons/shotgun.png', 'announcerShotgun', 'shotgun', new THREE.Vector2(5, 12), new THREE.Vector2(30, -7), 25, 8, 15, 14).setBullets(5, 5),
+    new Weapon("Shotgun Rockets", 'images/weapons/shotgunrockets.png', 'announcerShotgunrockets', 'shotgunrockets', new THREE.Vector2(7, 19), new THREE.Vector2(34, -8), 40, 7, 40, 8, 'images/shotgunrocketbullet.png').setBullets(3, 10).setUpdate(shotgunRocketUpdate).setDestroy(shotgunRocketDestroy),
+    new Weapon("Grenade Launcher", 'images/weapons/grenadelauncher.png', 'announcerGrenadelauncher', 'grenadelauncher', new THREE.Vector2(13, 18), new THREE.Vector2(29, -7), 30, 25, 75, 12, 'images/grenade.png').setUpdate(grenadeUpdate).setDestroy(explosionDestroy),
+    new Weapon("RPG", 'images/weapons/rpg.png', new THREE.Vector2(18, 20), 'announcerRpg', 'rpg', new THREE.Vector2(32, -7), 40, 4, 75, 10, 'images/rpgbullet.png').setUpdate(rpgUpdate).setDestroy(explosionDestroy),
+    new Weapon("Rocket Launcher", 'images/weapons/rocketlauncher.png', 'announcerRocketlauncher', 'rocketlauncher', new THREE.Vector2(19, 23), new THREE.Vector2(25, -9.5), 50, 7, 100, 8, 'images/rocketbullet.png').setUpdate(rocketUpdate).setDestroy(explosionDestroy),
+    new Weapon("Seeker Launcher", 'images/weapons/seekerlauncher.png', 'announcerSeekerlauncher', 'rocketlauncher', new THREE.Vector2(24, 28), new THREE.Vector2(24, -9.5), 55, 7, 100, 6, 'images/seekerbullet.png').setUpdate(seekerUpdate).setDestroy(explosionDestroy),
+    new Weapon("Flame Thrower", 'images/weapons/flamethrower.png', 'announcerFlamethrower', 'flame', new THREE.Vector2(9, 16), new THREE.Vector2(29, -7), 1, 9, 2, 150, 'images/flame.png').setSpread(10).setUpdate(flameUpdate),
+    new Weapon("Fire Mines", 'images/weapons/mine.png', 'announcerFiremines', null, new THREE.Vector2(-9, 15), new THREE.Vector2(20, -5.5), 100, 3, 5, 3, 'images/minebullet.png').setUpdate(fireMinesUpdate),
+    new Weapon("A-Bomb Launcher", 'images/weapons/abomb.png', 'announcerAbomb', 'rocketlauncher', new THREE.Vector2(22, 30), new THREE.Vector2(36, -13), 150, 3, 300, 2, 'images/abombbullet.png').setUpdate(abombUpdate).setDestroy(abombDestroy),
+    new Weapon("Rail Gun", 'images/weapons/railgun.png', 'announcerRailgun', 'railgun', new THREE.Vector2(23, 27), new THREE.Vector2(32, -8), 75, 20, 150, 3, 'images/rail.png').setUpdate(railUpdate),
+    new Weapon("Grapple Cannon", 'images/weapons/grapplecannon.png', 'announcerGrapplecannon', 'grapple', new THREE.Vector2(18, 23), new THREE.Vector2(33, -11), 250, 20, 300, 2, 'images/grapplebullet.png').setUpdate(grappleUpdate),
+    new Weapon("Shoulder Cannon", 'images/weapons/shouldercannon.png', 'railgun', new THREE.Vector2(0, 0), new THREE.Vector2(16, 0), 100, 20, 300, 0, 'images/shouldercannon.png').setUpdate(railUpdate),
 ];
 
 // Helper to load a texture as a promise
@@ -1071,11 +1124,13 @@ function rotateAroundPivot(point, pivot, angle, flip) {
 function createTintShader(texture) {
     const tintShaderMaterial = new THREE.ShaderMaterial({
         uniforms: {
-            map: { value: null },                       // Texture map
+            map: { value: null },                        // Texture map
             color: { value: new THREE.Color(0xffffff) }, // Base color multiplier
             tint: { value: new THREE.Color(0xffffff) },  // Tint color
             brightness: { value: 2.0 },                  // Brightness multiplier
-            enabled: { value: 0.0 }                      // Toggle (1 = enabled, 0 = disabled)
+            tintEnabled: { value: 0.0 },                 // Toggle for tint (1 = enabled, 0 = disabled)
+            brightnessEnabled: { value: 0.0 },           // Toggle for brightness (1 = enabled, 0 = disabled)
+            opacity: { value: 1.0 }                      // Opacity (1 = fully opaque, 0 = fully transparent)
         },
         transparent: true, // Allow transparency
         vertexShader: `
@@ -1090,14 +1145,11 @@ function createTintShader(texture) {
             uniform vec3 color;    // Base color multiplier
             uniform vec3 tint;     // Tint color
             uniform float brightness; // Brightness multiplier
-            uniform float enabled;    // Toggle for effect
+            uniform float tintEnabled; // Toggle for tint effect
+            uniform float brightnessEnabled; // Toggle for brightness effect
+            uniform float opacity;       // Opacity
             varying vec2 vUv;      // UV coordinates
-    
-            // Function to convert linear color to gamma (sRGB) space
-            vec3 linearToGamma(vec3 linearColor) {
-                return pow(linearColor, vec3(1.0 / 2.2));
-            }
-    
+
             void main() {
                 // Sample the texture (assumed to be in linear space)
                 vec4 texColor = texture2D(map, vUv);
@@ -1105,17 +1157,14 @@ function createTintShader(texture) {
                 // Apply the base color multiplier
                 vec3 baseColor = texColor.rgb * color;
     
-                // Apply tint and brightness in linear space
-                vec3 tintedColor = baseColor * tint * brightness;
+                // Apply tint if enabled
+                vec3 tintedColor = mix(baseColor, baseColor * tint, tintEnabled);
     
-                // Mix between base color and tinted color based on enabled flag
-                vec3 finalColor = mix(baseColor, tintedColor, enabled);
+                // Apply brightness if enabled
+                vec3 brightenedColor = mix(tintedColor, tintedColor * brightness, brightnessEnabled);
     
-                // Re-encode to gamma (sRGB) space for correct display
-                vec3 gammaCorrectedColor = linearToGamma(finalColor);
-    
-                // Output the final color with alpha
-                gl_FragColor = vec4(finalColor, texColor.a); // Preserve texture alpha
+                // Output the final color with alpha modulated by opacity
+                gl_FragColor = vec4(brightenedColor, texColor.a * opacity);
             }
         `
     });
@@ -1193,7 +1242,7 @@ class Enemy {
         this.group.add(enemyMesh);
 
         const enemyWeapon = this.enemyWeapon = new THREE.Object3D();
-        const weaponMesh = weapons[0].createMesh(true);
+        const weaponMesh = weapons[0].createMesh();
         enemyWeapon.add(weaponMesh);
         this.tints.push(weaponMesh.material);
 
@@ -1232,7 +1281,7 @@ class Enemy {
 
     setTint(enabled) {
         for (const tint of this.tints) {
-            tint.uniforms.enabled.value = enabled ? 1.0 : 0.0;
+            tint.uniforms.brightnessEnabled.value = enabled ? 1.0 : 0.0;
         }
     }
 
@@ -1367,7 +1416,7 @@ class Enemy {
 
         if (this.lastHealth != this.health) {
             this.setTint(true);
-            this.tint = 3;
+            this.tint = 2;
         }
         this.lastHealth = this.health;
         if (this.tint && move) {
@@ -1385,12 +1434,17 @@ class Enemy {
 
         playerPosition.add(game.player.velocity);
 
+        if (game.player.powerup == PREDATOR_MODE) {
+            playerPosition.x += Math.sin(game.player.powerupTime * 2 * Math.PI / 180) * 200;
+        }
+
         const enemyPosition = new THREE.Vector3();
         this.enemyWeapon.getWorldPosition(enemyPosition);
         this.aim = Math.atan2(
             playerPosition.y - enemyPosition.y,
             playerPosition.x - enemyPosition.x
         );
+        
         if (this.aim > Math.PI/2 || this.aim < -Math.PI/2) {
             this.enemyWeapon.scale.x = -1;
             this.enemyWeapon.rotation.z = this.aim + Math.PI;
@@ -1455,7 +1509,14 @@ class Enemy {
     }
 
     damage(damage, game) {
-        this.health -= damage;
+        if (game.player.powerup == TRI_DAMAGE) {
+            this.health -= damage * 3;
+        } else {   
+            this.health -= damage;
+        }
+        audioManager.playEffect('metal' + Math.floor(Math.random() * 4));
+
+
         if (this.health <= 0) {
             game.heliDestroyed();
         }
@@ -1639,7 +1700,7 @@ class DestroyedHeli extends Entity {
             new Shard(game, p);
         }
 
-        new Explosion(game, this.position.clone(), 150);
+        new Explosion(game, this.position.clone(), 140);
     }
 }
 
@@ -1653,6 +1714,14 @@ class Explosion extends Entity {
 
         this.mesh.scale.x = this.mesh.scale.y = size / 374;
         this.mesh.rotation.z = Math.random() * 2 * Math.PI;
+
+        if (size == 150) {
+            audioManager.playEffect('helidestroyed');
+        } else if (size > 300) {
+            audioManager.playEffect('bigboom');
+        } else {
+            audioManager.playEffect('boom');
+        }
     }
 
     update(game, delta) {
@@ -1942,10 +2011,10 @@ class Box extends Entity {
         if (this.type < weapons.length) {
             weapons[this.type].collect(game);
         } else if (this.type == weapons.length) {
-            // TODO: Powerups
-            debugger;
+            game.player.collectPowerup(1+Math.floor(Math.random() * 5));
         } else if (this.type == weapons.length + 1) {
             game.player.health = Math.min(100, game.player.health + 20);
+            audioManager.playEffect('announcerHealth');
         }
     }
 
@@ -1959,6 +2028,14 @@ class Box extends Entity {
     }
 }
 
+const POWERUP_NONE = 0;
+const TRI_DAMAGE = 1;
+const INVULNERABILITY = 2;
+const PREDATOR_MODE = 3;
+const TIME_RIFT = 4;
+const JETPACK = 5;
+
+const POWERUP_TIME = 1000;
 const MAX_BULLET_TIME = 120;
 const HYPERJUMP_RECHARGE = 300;
 
@@ -2002,6 +2079,9 @@ class Player {
 
         this.crouch = false;
         this.dead = false;
+
+        this.powerup = -1;
+        this.powerupTime = 0;
     }
 
     init(game) {
@@ -2011,13 +2091,18 @@ class Player {
         this.textureWidth = playerTexture.image.width;
         this.textureHeight = playerTexture.image.height;
 
+        this.tints = [];
+
         const group = this.group = new THREE.Group();
 
         const geometry = this.geometry = new THREE.PlaneGeometry(size, size);
-        const material = new THREE.MeshBasicMaterial({
+        const material = createTintShader(playerTexture);
+        /*new THREE.MeshBasicMaterial({
             map: playerTexture,
             transparent: true,
-        });
+        });*/
+        this.tints.push(material);
+        
         const body = new THREE.Mesh(geometry, material);
         body.position.set(0, size/2, -0.2);
         this.setFrame(0);
@@ -2025,6 +2110,10 @@ class Player {
 
         const weaponObject = this.weaponObject = new THREE.Object3D()
         weaponObject.add(weapons[0].mesh);
+
+        for (const weapon of weapons) {
+            this.tints.push(weapons[0].mesh.material);
+        }
 
         weaponObject.position.set(this.hand.x, this.hand.y, -0.1);
         weaponObject.rotation.z = -Math.PI/4;
@@ -2054,6 +2143,20 @@ class Player {
         setUV(this.geometry, this.frame, this.size, this.textureWidth, this.textureHeight);
     }
 
+    setTint(enabled, color) {
+        for (const tint of this.tints) {
+            tint.uniforms.tintEnabled.value = enabled ? 1.0 : 0.0;
+            if (enabled) {
+                tint.uniforms.tint.value = color;
+            }
+        }
+    }
+
+    setOpacity(opacity) {
+        for (const tint of this.tints) {
+            tint.uniforms.opacity.value = opacity;
+        }
+    }
     
     selectWeapon(weaponIndex) {
         this.weaponObject.remove(weapons[this.weapon].mesh);
@@ -2063,6 +2166,9 @@ class Player {
     }
 
     selectWeaponDirection(direction) {
+        if (this.powerup == PREDATOR_MODE) {
+            return;
+        }
         let weapon = weapons[this.weapon + direction];
         for (var i = 1; i < weapons.length; i++) {
             const index = THREE.MathUtils.euclideanModulo(this.weapon + i*direction, weapons.length)
@@ -2080,7 +2186,13 @@ class Player {
 
     update(game, delta) {
         let move = false;
-        this.tick += game.timeScale;
+
+        let timeScale = game.timeScale;
+        if (this.powerup == TIME_RIFT) {
+            timeScale = 1;
+        }
+
+        this.tick += timeScale;
         if (this.tick >= 1) {
             this.tick %= 1;
             move = true;
@@ -2095,10 +2207,11 @@ class Player {
             }
         } else {
             if (move) {
-                // TODO: Support TimeRift
-                if (this.bulletTime > 0 && keyIsPressed['Shift']) {
+                if ((this.bulletTime > 0 && keyIsPressed['Shift']) || this.powerup == TIME_RIFT) {
                     game.timeScale = Math.max(0.2, game.timeScale - 0.1);
-                    this.bulletTime--;
+                    if (this.powerup != TIME_RIFT) {
+                        this.bulletTime--;
+                    }
                 } else {
                     game.timeScale = Math.min(1, game.timeScale + 0.1);
                 }
@@ -2138,10 +2251,14 @@ class Player {
                     this.canJump = false;
                     this.jumps++;
                     this.hyperJump = 0;
+                    audioManager.playEffect('hyperjump');
                 }
 
                 if (keyIsPressed['ArrowUp']) { 
-                    if (this.canJump && this.jumps < 2) {
+                    if (this.powerup == JETPACK) {
+                        this.velocity.y = Math.max(Math.min(this.velocity.y, -6), -25);
+                        this.inAir = true;
+                    } else if (this.canJump && this.jumps < 2) {
                         this.canJump = false;
                         this.jumps++;
                         this.jumping = 8;
@@ -2184,7 +2301,7 @@ class Player {
         }
         this.parachute.update(game, delta);
         
-        let [xCol, yCol] = checkTileCollisions(this, game.timeScale, map1, game.tileSize);
+        let [xCol, yCol] = checkTileCollisions(this, timeScale, map1, game.tileSize);
 
         if (this.position.x + this.bounds.min.x <= 0) {
             this.position.x = -this.bounds.min.x;
@@ -2244,13 +2361,31 @@ class Player {
                     }
                 }
             }
+
+            if (this.powerup != POWERUP_NONE) {
+                this.powerupTime--;
+                if (this.powerupTime <= 0) {
+                    this.endPowerup(game);
+                }
+                if (this.powerup == PREDATOR_MODE) {
+                    this.setOpacity(0.0);
+                    if((this.powerupTime%10) == 4){
+                        this.setOpacity(0.1);	
+                    }
+                    if((this.powerupTime%10) == 8){
+                        this.setOpacity(0.04);	
+                    }
+                } else if (this.powerup == JETPACK && this.inAir && (this.powerupTime % 3) == 0) {
+                    new Smoke(game, this.position, 20);
+                }
+            }
         }
 
         this.updateMesh();
 
         if (this.lastHealth > this.health) {
             shaderPass.uniforms.tintEnabled.value = 1.0;
-            this.tint = 3;
+            this.tint = 2;
         }
         this.lastHealth = this.health;
         if (this.tint && move) {
@@ -2259,6 +2394,54 @@ class Player {
                 shaderPass.uniforms.tintEnabled.value = 0.0;
             }
         }
+
+        
+    }
+
+    collectPowerup(type, game) {
+        if (this.powerup) {
+            this.endPowerup(game);
+        }
+        this.powerupTime = POWERUP_TIME;
+        this.powerup = type;
+        if(type == TRI_DAMAGE){
+            console.log("TriDamage");	
+            this.setTint(true, new THREE.Color(0, 0, 1));
+            audioManager.playEffect('announcerTridamage');
+        }else if(type == INVULNERABILITY){
+            console.log("Invulnerability");	
+            this.setTint(true, new THREE.Color(1, 0, 0));
+            audioManager.playEffect('announcerInvulnerability');
+        }else if(type == PREDATOR_MODE){
+            console.log("PredatorMode");
+            shaderPass.uniforms.invertEnabled.value = 1.0;
+
+            this.previousWeapon = this.weapon;
+            const shoulderCannon = weapons[weapons.length-1];
+            shoulderCannon.ammo = Number.POSITIVE_INFINITY;
+            shoulderCannon.reloading = Number.POSITIVE_INFINITY;
+            this.selectWeapon(weapons.length-1);
+            audioManager.playEffect('announcerPredatormode');
+        }else if(type == TIME_RIFT){
+            console.log("TimeRift");
+            this.setTint(true, new THREE.Color(0, 1, 0));
+            audioManager.playEffect('announcerTimerift');
+        }else if(type == JETPACK){
+            console.log("Jetpack");	
+            audioManager.playEffect('announcerJetpack');
+        }
+    }
+
+    endPowerup(game) {
+        if (this.powerup == PREDATOR_MODE) {
+            const shoulderCannon = weapons[weapons.length-1];
+            shoulderCannon.ammo = 0;
+            this.selectWeapon(this.previousWeapon);
+        }
+        this.powerup = POWERUP_NONE;
+        this.setTint(false);
+        this.setOpacity(1.0);
+        shaderPass.uniforms.invertEnabled.value = 0.0;
     }
 
     destroy(game) {
@@ -2317,7 +2500,6 @@ class Game {
         // Add layers to the scene
         const mapLayer = this.buildMap(map1);
         world.add(mapLayer);
-
         
         const mapBox = this.mapBox = new THREE.Box3(new THREE.Vector3(0, -mapHeight, 0), new THREE.Vector3(mapWidth, 0, 0));
         mapBox.expandByScalar(tileSize);
@@ -2335,6 +2517,8 @@ class Game {
         this.player.init(this);
 
         this.updateCameraPosition(Number.POSITIVE_INFINITY);
+
+        audioManager.playEffect('bigboom');
     }
 
     buildMap(map) {
@@ -2470,7 +2654,10 @@ class Game {
             let remove = false;
 
             if (isPlayerCollision(bulletPos.x, -bulletPos.y, this.player)) {
-                this.player.health -= 10;
+                if (!this.player.powerup == INVULNERABILITY) {
+                    this.player.health -= 10;
+                    audioManager.playEffect('hurt');
+                }
                 for (let i = 0; i < 3; i++) {
                     new Blood(game, new THREE.Vector3(bulletPos.x, -bulletPos.y, 0), i * 2);
                 }
@@ -2539,6 +2726,41 @@ class Game {
                 type++;
             }
             new Box(this, this.enemy.position, type);
+        }
+
+        if (this.player.position.y < this.enemy.position.y) {
+            const weapon = 1 + Math.floor(Math.random() * 8);
+            let ammo = 1;
+            switch (weapon) {
+                case 1:
+                    ammo = 10;
+                    break;
+                case 2:
+                    ammo = 3;
+                    break;
+                case 3:
+                    ammo = 3;
+                    break;
+                case 4:
+                    ammo = 2
+                    break;
+                case 5:
+                    ammo = 2;
+                    break;
+                case 6:
+                    ammo = 2;
+                    break;
+                case 7:
+                    ammo = 1;
+                    break;
+                case 8:
+                    ammo = 30;
+                    break;
+                case 9:
+                    ammo = 1;
+                    break
+            }
+            weapons[weapon].ammo += ammo;
         }
 
         this.enemy.destroy(this);
