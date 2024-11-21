@@ -3,12 +3,235 @@
 	<head>
 		<meta charset="utf-8">
 		<title>Heli Attack</title>
+		<link rel="preconnect" href="https://fonts.cdnfonts.com">
+		<link href="https://fonts.cdnfonts.com/css/sf-pixelate" rel="stylesheet">
 		<style>
-			body { margin: 0; }
+			body {
+				margin: 0;
+			}
+
+			#ui {
+				pointer-events: none;
+
+				font-family: "SF Pixelate", sans-serif;
+				font-optical-sizing: auto;
+				font-size: 19px;
+				color: white;
+			}
+
+			#info {
+				position: fixed;
+				top: 10px;
+				left: 10px;
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#health {
+				position: fixed;
+				right: 10px;                
+				top: 10px;  
+			}
+
+			#health-text {
+				display: inline-block;
+				vertical-align: top;
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#health-bar,
+			#powerup-bar {
+				position: relative;
+				display: inline-block;
+				width: 17px;
+				height: 78px;
+				background: url('images/ui/upbar-white.png') no-repeat center center;
+				background-size: contain;             
+			}
+
+			#health-fill,
+			#powerup-fill {
+				position: absolute;
+				bottom: 0;
+				width: 17px;
+				height: 78px;
+				background: url('images/ui/upbar-red.png') no-repeat bottom center;
+			}
+
+			#bottom {
+				position: fixed;
+				right: 10px;                
+				bottom: 10px;
+				text-align: right;
+			}
+
+			#hyperjump-text {
+				display: inline-block;
+				vertical-align: middle;
+				
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#hyperjump-bar {
+				display: inline-block;
+				vertical-align: middle;
+				
+				width: 78px;
+				height: 17px;
+				background: url('images/ui/longbar-white.png') no-repeat center center;
+				background-size: contain;             
+			}
+
+			#hyperjump-fill {
+				bottom: 0;
+				width: 78px;
+				height: 17px;
+				background: url('images/ui/longbar-blue.png') no-repeat center left;
+			}
+
+			#time-text {
+				display: inline-block;
+				vertical-align: middle;
+				
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#time-bar {
+				display: inline-block;
+				vertical-align: middle;
+				
+				width: 78px;
+				height: 17px;
+				background: url('images/ui/longbar-white.png') no-repeat center center;
+				background-size: contain;             
+			}
+
+			#time-fill {
+				bottom: 0;
+				width: 78px;
+				height: 17px;
+				background: url('images/ui/longbar-green.png') no-repeat center left;
+			}
+
+			#reload-text {
+				display: inline-block;
+				vertical-align: middle;
+				
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#reload-bar {
+				display: inline-block;
+				vertical-align: middle;
+				
+				width: 42px;
+				height: 17px;
+				background: url('images/ui/bar-white.png') no-repeat center center;
+				background-size: contain;
+			}
+
+			#reload-fill {
+				width: 42px;
+				height: 17px;
+				background: url('images/ui/bar-yellow.png') no-repeat center left;
+			}
+
+			#bullets-text {
+				display: inline-block;
+				vertical-align: bottom;
+
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#bullets-box {
+				display: inline-block;
+				vertical-align: bottom;
+				width: 33px;
+				height: 33px;
+				background-image: url('images/box.png');
+				background-size: 528px 33px;
+				background-position: 0 0;
+				background-repeat: no-repeat;
+			}
+
+			#powerup-text {
+				display: inline-block;
+				vertical-align: bottom;
+
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#powerup-box {
+				display: inline-block;
+				vertical-align: bottom;
+				width: 33px;
+				height: 33px;
+				background-image: url('images/box.png');
+				background-size: 528px 33px;
+				background-position: -462px 0;
+				background-repeat: no-repeat;
+			}
+
+			.nobreak {
+				display: inline-block;
+			}
 		</style>
 	</head>
 	<body>
 		<script type="module" src="/main.js"></script>
         <div id="container"></div>
+		<div id="ui">
+			<div id="info"></div>
+			<div id="health">
+				<div id="health-text">
+					Health:
+				</div>
+				<div id="health-bar">
+					<div id="health-fill"></div>
+				</div>
+			</div>
+			<div id="bottom">
+				<div id="powerup-bar">
+					<div id="powerup-fill"></div>
+				</div>
+				<div id="powerup">
+					<div id="powerup-text">
+						Predator Mode
+					</div>
+					<div id="powerup-box"></div>
+				</div>
+				<div>
+					<div id="bullets-text">
+						Infinite x 
+					</div>
+					<div id="bullets-box"></div>
+				</div>
+				<div>
+					<div class="nobreak">
+						<div id="hyperjump-text">
+							Hyper Jump:
+						</div>
+						<div id="hyperjump-bar">
+							<div id="hyperjump-fill"></div>
+						</div>
+					</div>
+					<div class="nobreak">
+						<div id="time-text">
+							Time Distort:
+						</div>
+						<div id="time-bar">
+							<div id="time-fill"></div>
+						</div>
+					</div>
+					<div class="nobreak">
+						<div id="reload-text">
+							Reload:
+						</div>
+						<div id="reload-bar">
+							<div id="reload-fill"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 	</body>
 </html>

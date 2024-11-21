@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import WebGL from 'three/addons/capabilities/WebGL.js';
-import { FontLoader } from 'three/addons/loaders/FontLoader.js';
-import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
-import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
-import {Tween, Easing} from '@tweenjs/tween.js'
+// import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+// import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
@@ -87,11 +85,6 @@ const dirLight = new THREE.DirectionalLight( 0xffffff, 0.4 );
 dirLight.position.set( 0, 0, 1 ).normalize();
 scene.add( dirLight );
 
-const geometry = new THREE.BoxGeometry(50, 50, 50);
-const material = new THREE.MeshPhongMaterial( { color: 0xffffff, flatShading: true } );
-const cube = new THREE.Mesh(geometry, material);
-// scene.add(cube);
-
 function createBlueLine(x, y, object) {
     //create a blue LineBasicMaterial
     const material2 = new THREE.LineBasicMaterial( { color: 0x0000ff } );
@@ -106,42 +99,7 @@ function createBlueLine(x, y, object) {
     object.add(line);
 }
 
-const fontLoader = new FontLoader();
-
-let textGeometry;
-let textMesh;
-
-fontLoader.load( 'fonts/helvetiker_regular.typeface.json', function ( font ) {
-
-	textGeometry = new TextGeometry( 'Heli Attack', {
-		font: font,
-		size: 20,
-		depth: 15,
-		curveSegments: 12,
-		bevelEnabled: false,
-		bevelThickness: 10,
-		bevelSize: 8,
-		bevelOffset: 0,
-		bevelSegments: 5
-	} );
-
-    textGeometry.center();
-    textGeometry.computeBoundingBox();
-    
-    textMesh = new THREE.Mesh(textGeometry, material);
-    textMesh.position.x = 0;
-
-    // scene.add( textMesh );
-} );
-
 function animate() {
-    cube.rotation.x += 0.01;
-    cube.rotation.y += 0.01;
-
-    if (textMesh) {
-        textMesh.rotation.y += 0.01;
-    }
-
     if (game) {
         game.update();
     }
@@ -240,6 +198,7 @@ function onMouseWheel(event){
 
 let game;
 let audioManager;
+let flameSound;
 
 function init() {
     window.addEventListener('resize', onWindowResize);
@@ -273,6 +232,7 @@ function init() {
     }).catch(error => console.error('Error loading assets:', error));
 
     audioManager = new AudioManager();
+    audioManager.masterVolume = 0.2;
     audioManager.preload([
         { key: 'boom', url: 'sounds/game/boom.wav'},
         { key: 'flame', url: 'sounds/game/flame.wav'},
@@ -312,7 +272,11 @@ function init() {
         { key: 'announcerShotgunrockets', url: 'sounds/announcer/shotgunrockets.wav'},
         { key: 'announcerTimerift', url: 'sounds/announcer/timerift.wav'},
         { key: 'announcerTridamage', url: 'sounds/announcer/tridamage.wav'},
-    ]);
+    ]).then(() => {
+        // audioManager.playLoop('music');
+        audioManager.playLoop('flame', 0);
+        audioManager.playLoop('helicopter', 0);
+    });
 }
 
 const map1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
@@ -482,9 +446,10 @@ function rpgUpdate(game, delta) {
     if (this.tick >= 1) {
         this.tick %= 1;
 
-        if (this.time == 6) {
+        if (this.time == 8) {
             // play sound
-        } else if (this.time > 6 && this.time < 14) {
+            audioManager.playEffect('rocketlauncher');
+        } else if (this.time > 8 && this.time < 16) {
             this.velocity.x *= 1.4;
             this.velocity.y *= 1.4;
         }
@@ -584,7 +549,7 @@ function abombUpdate(game, delta) {
             const pos = this.object.position.clone();
             pos.y *= -1;
             pos.z = -1;
-            new Fire(game, pos, 14);
+            new Fire(game, pos, 20);
         }
         this.time++;
     }
@@ -624,6 +589,8 @@ function flameUpdate(game, delta) {
     }
     if (this.time > FLAME_TIME) {
         return true;
+    } else {
+        audioManager.setLoopVolume('flame', 1.0);
     }
 
     var bbox = new THREE.Box3().setFromObject(this.object).expandByScalar(-0.75);
@@ -632,6 +599,7 @@ function flameUpdate(game, delta) {
     bbox.max.z = enemyBbox.max.z = 5;
     if (bbox.intersectsBox(enemyBbox)) {
         game.enemy.damage(this.damage*(1-Math.min(this.time / FLAME_TIME, 1))*game.timeScale, game);
+        this.time = Math.max(FLAME_TIME - 8, this.time);
         return false;
     }
 
@@ -751,6 +719,8 @@ function fireMinesUpdate(game, delta) {
         if (bbox.intersectsBox(enemyBbox)) {
             game.enemy.damage(this.damage * game.timeScale, game);
         }
+
+        audioManager.setLoopVolume('flame', 1.0);
 
         return this.time >= FIRE_TIME;
     } else {
@@ -895,8 +865,6 @@ function grappleUpdate(game, delta) {
     }
 
     if (this.grappled) {
-        //this.object.position.copy(game.enemy.group.position.clone().add(this.grappleOffset));
-
         const worldPosition = this.grappleOffset.clone().applyMatrix4(game.enemy.group.matrixWorld);
         this.object.position.copy(worldPosition);
 
@@ -939,6 +907,8 @@ function grappleUpdate(game, delta) {
             new Shard(game, p);
         }
 
+        playHit();
+
         return false;
     }
 
@@ -956,16 +926,16 @@ const weapons = [
     new Weapon("Akimbo Mac10's", 'images/weapons/mac10s.png', 'announcerMac10', 'pistol', new THREE.Vector2(-2, 21), new THREE.Vector2(28, -8.5), 4, 8, 9, 50).setSpread(8).setBullets(2, 0, 8),
     new Weapon("Shotgun", 'images/weapons/shotgun.png', 'announcerShotgun', 'shotgun', new THREE.Vector2(5, 12), new THREE.Vector2(30, -7), 25, 8, 15, 14).setBullets(5, 5),
     new Weapon("Shotgun Rockets", 'images/weapons/shotgunrockets.png', 'announcerShotgunrockets', 'shotgunrockets', new THREE.Vector2(7, 19), new THREE.Vector2(34, -8), 40, 7, 40, 8, 'images/shotgunrocketbullet.png').setBullets(3, 10).setUpdate(shotgunRocketUpdate).setDestroy(shotgunRocketDestroy),
-    new Weapon("Grenade Launcher", 'images/weapons/grenadelauncher.png', 'announcerGrenadelauncher', 'grenadelauncher', new THREE.Vector2(13, 18), new THREE.Vector2(29, -7), 30, 25, 75, 12, 'images/grenade.png').setUpdate(grenadeUpdate).setDestroy(explosionDestroy),
-    new Weapon("RPG", 'images/weapons/rpg.png', new THREE.Vector2(18, 20), 'announcerRpg', 'rpg', new THREE.Vector2(32, -7), 40, 4, 75, 10, 'images/rpgbullet.png').setUpdate(rpgUpdate).setDestroy(explosionDestroy),
+    new Weapon("Grenade Launcher", 'images/weapons/grenadelauncher.png', 'announcerGrenadelauncher', 'grenade', new THREE.Vector2(13, 18), new THREE.Vector2(29, -7), 30, 25, 75, 12, 'images/grenade.png').setUpdate(grenadeUpdate).setDestroy(explosionDestroy),
+    new Weapon("RPG", 'images/weapons/rpg.png', 'announcerRpg', 'grenade', new THREE.Vector2(18, 20), new THREE.Vector2(32, -7), 40, 4, 75, 10, 'images/rpgbullet.png').setUpdate(rpgUpdate).setDestroy(explosionDestroy),
     new Weapon("Rocket Launcher", 'images/weapons/rocketlauncher.png', 'announcerRocketlauncher', 'rocketlauncher', new THREE.Vector2(19, 23), new THREE.Vector2(25, -9.5), 50, 7, 100, 8, 'images/rocketbullet.png').setUpdate(rocketUpdate).setDestroy(explosionDestroy),
     new Weapon("Seeker Launcher", 'images/weapons/seekerlauncher.png', 'announcerSeekerlauncher', 'rocketlauncher', new THREE.Vector2(24, 28), new THREE.Vector2(24, -9.5), 55, 7, 100, 6, 'images/seekerbullet.png').setUpdate(seekerUpdate).setDestroy(explosionDestroy),
-    new Weapon("Flame Thrower", 'images/weapons/flamethrower.png', 'announcerFlamethrower', 'flame', new THREE.Vector2(9, 16), new THREE.Vector2(29, -7), 1, 9, 2, 150, 'images/flame.png').setSpread(10).setUpdate(flameUpdate),
-    new Weapon("Fire Mines", 'images/weapons/mine.png', 'announcerFiremines', null, new THREE.Vector2(-9, 15), new THREE.Vector2(20, -5.5), 100, 3, 5, 3, 'images/minebullet.png').setUpdate(fireMinesUpdate),
+    new Weapon("Flame Thrower", 'images/weapons/flamethrower.png', 'announcerFlamethrower', null, new THREE.Vector2(9, 16), new THREE.Vector2(29, -7), 1, 9, 5, 150, 'images/flame.png').setSpread(10).setUpdate(flameUpdate),
+    new Weapon("Fire Mines", 'images/weapons/mine.png', 'announcerFiremines', null, new THREE.Vector2(-9, 15), new THREE.Vector2(20, -5.5), 100, 3, 4, 3, 'images/minebullet.png').setUpdate(fireMinesUpdate),
     new Weapon("A-Bomb Launcher", 'images/weapons/abomb.png', 'announcerAbomb', 'rocketlauncher', new THREE.Vector2(22, 30), new THREE.Vector2(36, -13), 150, 3, 300, 2, 'images/abombbullet.png').setUpdate(abombUpdate).setDestroy(abombDestroy),
-    new Weapon("Rail Gun", 'images/weapons/railgun.png', 'announcerRailgun', 'railgun', new THREE.Vector2(23, 27), new THREE.Vector2(32, -8), 75, 20, 150, 3, 'images/rail.png').setUpdate(railUpdate),
+    new Weapon("Rail Gun", 'images/weapons/railgun.png', 'announcerRailgun', 'railgun', new THREE.Vector2(23, 27), new THREE.Vector2(32, -8), 75, 20, 150, 4, 'images/rail.png').setUpdate(railUpdate),
     new Weapon("Grapple Cannon", 'images/weapons/grapplecannon.png', 'announcerGrapplecannon', 'grapple', new THREE.Vector2(18, 23), new THREE.Vector2(33, -11), 250, 20, 300, 2, 'images/grapplebullet.png').setUpdate(grappleUpdate),
-    new Weapon("Shoulder Cannon", 'images/weapons/shouldercannon.png', 'railgun', new THREE.Vector2(0, 0), new THREE.Vector2(16, 0), 100, 20, 300, 0, 'images/shouldercannon.png').setUpdate(railUpdate),
+    new Weapon("Shoulder Cannon", 'images/weapons/shouldercannon.png', null, 'railgun', new THREE.Vector2(0, 0), new THREE.Vector2(16, 0), 100, 20, 300, 0, 'images/shouldercannon.png').setUpdate(railUpdate),
 ];
 
 // Helper to load a texture as a promise
@@ -1181,6 +1151,8 @@ const SCREEN_HEIGHT = 500 * 9/16;
 const HELI_WIDTH = 100;
 const HELI_EXIT_OFFSET = 500;
 
+let playEnemyHit = true;
+
 class Enemy {
     constructor() {
         this.position = new THREE.Vector3(0, 0);
@@ -1199,6 +1171,8 @@ class Enemy {
 
         this.tints = [];
         this.tint = 0;
+
+        this.aim = Math.PI/2;
     }
 
     
@@ -1389,8 +1363,15 @@ class Enemy {
 
         const onScreen = this.isOnScreen();
 
-        var diff = this.targetPosition.clone().sub(this.position);
+        
 
+        const playerDiff = game.player.position.clone().sub(this.position).length();
+        
+        if (playerDiff < 700) {
+            audioManager.setLoopVolume('helicopter', Math.min(1.0, (700 - playerDiff) / 700));
+        }
+
+        var diff = this.targetPosition.clone().sub(this.position);
         if (onScreen && this.trackingPlayer > 0) {
             this.velocity.x = diff.x / 100;
             this.velocity.y = diff.y / 75;
@@ -1450,7 +1431,7 @@ class Enemy {
             this.enemyWeapon.rotation.z = this.aim + Math.PI;
         } else {
             this.enemyWeapon.scale.x = 1;
-            this.enemyWeapon.rotation.z = this.aim
+            this.enemyWeapon.rotation.z = this.aim;
         }
 
         if ((this.shoot++%Math.max(20,32-game.level*2)) == 1) {
@@ -1488,7 +1469,8 @@ class Enemy {
             transparent: true
         });
 
-        const direction = this.aim + (-5 + Math.random()*10) * Math.PI/180
+        const innacuracy = Math.max(2, 6 - game.level);
+        const direction = this.aim + (-innacuracy + Math.random()*2*innacuracy) * Math.PI/180
         
         const mesh = new THREE.Mesh(geometry, material);
         mesh.rotation.z = direction;
@@ -1514,13 +1496,20 @@ class Enemy {
         } else {   
             this.health -= damage;
         }
-        audioManager.playEffect('metal' + Math.floor(Math.random() * 4));
 
+        if (playEnemyHit) {
+            playHit();
+            playEnemyHit = false;
+        }
 
         if (this.health <= 0) {
             game.heliDestroyed();
         }
     }
+}
+
+function playHit() {
+    audioManager.playEffect('metal' + Math.floor(Math.random() * 4));
 }
 
 class Entity {
@@ -1621,6 +1610,8 @@ class DestroyedEnemy extends Entity {
     }
 }
 
+let shardBounces = 0;
+
 class Shard extends Entity {
     constructor(game, position) {
         super(game, 'images/shard' + Math.floor(Math.random() * 3) + '.png');
@@ -1651,6 +1642,9 @@ class Shard extends Entity {
         if (isTileCollision(this.position.x, this.position.y, map1, game.tileSize)) {
             this.position.x -= this.velocity.x * game.timeScale
             this.velocity.x *= -0.5;
+            if (shardBounces++ % 3 == 0) {
+                playHit();
+            }
         }
         this.position.y += this.velocity.y * game.timeScale;
         if (isTileCollision(this.position.x, this.position.y, map1, game.tileSize)) {
@@ -1660,6 +1654,9 @@ class Shard extends Entity {
                 this.position.y -= this.velocity.y * game.timeScale
                 this.velocity.y *= -0.5;
                 this.bounces++;
+                if (shardBounces++ % 3 == 0) {
+                    playHit();
+                }
             }
 
         }
@@ -1874,7 +1871,7 @@ class Blood extends Entity {
 }
 
 class Parachute {
-    constructor(game, parent, opened) {
+    constructor(game, parent, opened, scale) {
         
         this.parent = parent; 
     
@@ -1890,11 +1887,15 @@ class Parachute {
         mesh.position.z = -0.5;
         parent.add(mesh);
 
+        this.mesh.scale.x = this.mesh.scale.y = scale;
+
         this.opened = opened;
         if (!opened) {
             this.mesh.scale.x = 0;
         }
 
+
+        this.scale = scale;
         this.tick = 0;
     }
 
@@ -1903,7 +1904,7 @@ class Parachute {
         if (this.tick >= 1) {
             this.tick %= 1;
             
-            this.mesh.scale.x = THREE.MathUtils.damp(this.mesh.scale.x, this.opened ? 1 : 0, 20, delta)
+            this.mesh.scale.x = THREE.MathUtils.damp(this.mesh.scale.x, this.opened ? this.scale : 0, 20, delta);
 
             if (this.mesh.scale.x <= 0.1) {
                 this.destroy(game);
@@ -1913,6 +1914,7 @@ class Parachute {
 
     destroy(game) {
         this.parent.remove(this.mesh);
+        this.destroyed = true;
     }
 }
 
@@ -1954,7 +1956,7 @@ class Box extends Entity {
 
         setUV(this.geometry, 0, BOX_SIZE, texture.image.width, texture.image.height);
 
-        this.parachute = new Parachute(game, this.group, false);
+        this.parachute = new Parachute(game, this.group, false, 0.75);
         this.parachute.opened = true;
 
         game.entities.push(this);
@@ -2135,7 +2137,7 @@ class Player {
         this.position.x = game.tileSize;
         this.position.y = 0;
 
-        this.parachute = new Parachute(game, group, true);
+        this.parachute = new Parachute(game, group, true, 1);
     }
 
     setFrame(frame) {
@@ -2198,12 +2200,18 @@ class Player {
             move = true;
         }
 
-        if (this.parachute.opened) {
-            this.velocity.y = 2;
-            if (map1[Math.floor((this.position.y + 6 * game.tileSize) / game.tileSize)][Math.floor(this.position.x / game.tileSize)][0] == 1) {
-                this.parachute.opened = false;
-                game.enemy = new Enemy()
-                game.enemy.init(game);
+        if (this.parachute) {
+            if (this.parachute.opened) {
+                this.velocity.y = 2;
+                if (map1[Math.floor((this.position.y + 6 * game.tileSize) / game.tileSize)][Math.floor(this.position.x / game.tileSize)][0] == 1) {
+                    this.parachute.opened = false;
+                    game.enemy = new Enemy()
+                    game.enemy.init(game);
+                }
+            }
+            this.parachute.update(game, delta);
+            if (this.parachute.destroyed) {
+                this.parachute = null;
             }
         } else {
             if (move) {
@@ -2299,7 +2307,7 @@ class Player {
                 this.setFrame(0);
             }
         }
-        this.parachute.update(game, delta);
+
         
         let [xCol, yCol] = checkTileCollisions(this, timeScale, map1, game.tileSize);
 
@@ -2404,16 +2412,16 @@ class Player {
         }
         this.powerupTime = POWERUP_TIME;
         this.powerup = type;
+        const powerupText = document.getElementById("powerup-text");
         if(type == TRI_DAMAGE){
-            console.log("TriDamage");	
             this.setTint(true, new THREE.Color(0, 0, 1));
             audioManager.playEffect('announcerTridamage');
+            powerupText.innerHTML = 'TriDamage';
         }else if(type == INVULNERABILITY){
-            console.log("Invulnerability");	
             this.setTint(true, new THREE.Color(1, 0, 0));
             audioManager.playEffect('announcerInvulnerability');
+            powerupText.innerHTML = 'Invulnerability';
         }else if(type == PREDATOR_MODE){
-            console.log("PredatorMode");
             shaderPass.uniforms.invertEnabled.value = 1.0;
 
             this.previousWeapon = this.weapon;
@@ -2422,13 +2430,14 @@ class Player {
             shoulderCannon.reloading = Number.POSITIVE_INFINITY;
             this.selectWeapon(weapons.length-1);
             audioManager.playEffect('announcerPredatormode');
+            powerupText.innerHTML = 'Predator Mode';
         }else if(type == TIME_RIFT){
-            console.log("TimeRift");
             this.setTint(true, new THREE.Color(0, 1, 0));
             audioManager.playEffect('announcerTimerift');
+            powerupText.innerHTML = 'Time Rift';
         }else if(type == JETPACK){
-            console.log("Jetpack");	
             audioManager.playEffect('announcerJetpack');
+            powerupText.innerHTML = 'Jetpack';
         }
     }
 
@@ -2463,6 +2472,7 @@ class Game {
         this.score = 0;
         this.helisDestroyed = 0;
         this.nextHealth = 15;
+        this.nextLevel = 10000;
     }
 
     init(textures) {
@@ -2653,15 +2663,16 @@ class Game {
 
             let remove = false;
 
-            if (isPlayerCollision(bulletPos.x, -bulletPos.y, this.player)) {
+            if (!this.player.dead && isPlayerCollision(bulletPos.x, -bulletPos.y, this.player)) {
                 if (this.player.powerup != INVULNERABILITY) {
                     this.player.health -= 10;
+                    updateHealthBar(game);
                     audioManager.playEffect('hurt');
                 }
                 for (let i = 0; i < 3; i++) {
                     new Blood(game, new THREE.Vector3(bulletPos.x, -bulletPos.y, 0), i * 2);
                 }
-                if (this.player.health <= 0 && !this.player.dead) {
+                if (this.player.health <= 0) {
                     this.player.destroy(this);
                     this.enemy.destroy(this);
                     this.enemy = null;
@@ -2696,6 +2707,10 @@ class Game {
         this.accumulator += delta;
 
         if (this.accumulator > 1/60) {
+            audioManager.setLoopVolume('flame', 0);
+            audioManager.setLoopVolume('helicopter', 0);
+            playEnemyHit = true;
+
             if (!this.player.dead) {
                 this.player.update(this, delta);
             }
@@ -2706,12 +2721,17 @@ class Game {
             this.updateEntities(delta);
             this.updateCameraPosition(delta);
             this.accumulator %= 1/60;
+            updateUI(this);
         };
         
     }
 
     heliDestroyed() {
-        this.score += 300;        
+        this.score += 300;
+        if (this.score > this.nextLevel) {
+            this.level++;
+            this.nextLevel *= 2;
+        }        
         
         this.player.bulletTime = Math.min(MAX_BULLET_TIME, this.player.bulletTime + MAX_BULLET_TIME / 3);
 
@@ -2728,7 +2748,7 @@ class Game {
             new Box(this, this.enemy.position, type);
         }
 
-        if (this.player.position.y < this.enemy.position.y) {
+        if (this.player.position.y < this.enemy.position.y || (this.player.powerup == JETPACK && this.player.inAir)) {
             const weapon = 1 + Math.floor(Math.random() * 8);
             let ammo = 1;
             switch (weapon) {
@@ -2840,6 +2860,79 @@ function checkBoxCollisionWithBoxes(testBox, enemy, boxes) {
     return false;
 }
 
+function updateUI(game) {
+    updateInfo(game);
+    updateHealthBar(game);
+    updateReloadBar(game);
+    updateHyperjumpBar(game);
+    updateTimeDistortBar(game);
+    updateBullets(game);
+    updatePowerup(game);
+}
+
+function updateInfo(game) {
+    const info = document.getElementById('info');
+    info.innerHTML = `Helis: ${game.helisDestroyed}<br>Score: ${game.score}`;
+}
+
+function updateHealthBar(game) {
+    const percentage = game.player.health / 100;
+    const fill = document.getElementById('health-fill');
+    const clampedPercentage = Math.max(0, Math.min(1, percentage));
+    fill.style.height = `${78 * clampedPercentage}px`;
+}
+
+function updateReloadBar(game) {    
+    const weapon = weapons[game.player.weapon];
+    const percentage = weapon.reloading / weapon.reloadTime;
+
+    const fill = document.getElementById('reload-fill');
+    const clampedPercentage = Math.max(0, Math.min(1, percentage));
+    fill.style.width = `${42 * clampedPercentage}px`;
+}
+
+function updateHyperjumpBar(game) {
+    const fill = document.getElementById('hyperjump-fill');
+    const clampedPercentage = Math.max(0, Math.min(1, game.player.hyperJump / HYPERJUMP_RECHARGE));
+    fill.style.width = `${78 * clampedPercentage}px`;
+}
+
+function updateTimeDistortBar(game) {
+    const fill = document.getElementById('time-fill');
+    const clampedPercentage = Math.max(0, Math.min(1, game.player.bulletTime / MAX_BULLET_TIME));
+    fill.style.width = `${78 * clampedPercentage}px`;
+}
+
+function updateBullets(game) {
+    const weapon = weapons[game.player.weapon];
+
+    const bulletsText = document.getElementById('bullets-text');
+    bulletsText.innerHTML = `${weapon.ammo} x`;
+
+    const bulletsBox = document.getElementById('bullets-box');
+    bulletsBox.style.backgroundPosition = `${-game.player.weapon * 33}px 0px`
+}
+
+function updatePowerup(game) {
+    const show = game.player.powerup != POWERUP_NONE;
+
+    const bar = document.getElementById('powerup-bar');
+    const ui = document.getElementById('powerup');
+
+    if (!show) {
+        bar.style.visibility = 'hidden';
+        ui.style.visibility = 'hidden';
+        return;
+    } else {
+        bar.style.visibility = 'unset';
+        ui.style.visibility = 'unset';
+    }
+
+    const percentage = game.player.powerupTime / POWERUP_TIME;
+    const fill = document.getElementById('powerup-fill');
+    const clampedPercentage = Math.max(0, Math.min(1, percentage));
+    fill.style.height = `${78 * clampedPercentage}px`;
+}
 
 
 init();

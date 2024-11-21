@@ -4,6 +4,8 @@ class AudioManager {
         this.context = null; // Audio context (created in init)
         this.gainNodes = new Map(); // Manages gain (volume) for different audio
         this.toPreload = [];
+        this.preloadPromise = null; // Stores the promise for the preload process
+        this.masterVolume = 1.0;
     }
 
     /**
@@ -13,11 +15,48 @@ class AudioManager {
         if (!this.context) {
             this.context = new (window.AudioContext || window.webkitAudioContext)();
             console.log('AudioContext initialized.');
-            if (this.toPreload) {
-                this.preload(this.toPreload);
+
+            if (this.toPreload.length > 0) {
+                this._executePreload(); // Preload any queued audio files
             }
         }
     }
+
+        /**
+     * Internal method to execute the preload process.
+     * Resolves the preload promise once all files are loaded.
+     */
+    _executePreload() {
+            const preloadFiles = [...this.toPreload];
+            this.toPreload = [];
+    
+            const promises = preloadFiles.map(({ key, url }) =>
+                fetch(url)
+                    .then(response => response.arrayBuffer())
+                    .then(data => this.context.decodeAudioData(data))
+                    .then(buffer => {
+                        this.audioCache.set(key, buffer);
+                    })
+                    .catch(error => {
+                        console.warn(`Could not load sound: ${key} - ${error}`);
+                    })
+            );
+    
+            // Ensure the preload promise resolves when all are loaded
+            Promise.all(promises)
+                .then(() => {
+                    if (this.preloadPromise) {
+                        this.preloadPromise.resolve();
+                        this.preloadPromise = null;
+                    }
+                })
+                .catch(error => {
+                    if (this.preloadPromise) {
+                        this.preloadPromise.reject(error);
+                        this.preloadPromise = null;
+                    }
+                });
+        }
 
     /**
      * Preloads an array of audio files.
@@ -25,11 +64,24 @@ class AudioManager {
      * @returns {Promise} - Resolves when all files are loaded.
      */
     preload(audioFiles) {
+        // If the context hasn't been initialized, queue the files and return a promise
         if (!this.context) {
             this.toPreload.push(...audioFiles);
-            return;
+
+            // Create a new promise if none exists
+            if (!this.preloadPromise) {
+                this.preloadPromise = {};
+                this.preloadPromise.promise = new Promise((resolve, reject) => {
+                    this.preloadPromise.resolve = resolve;
+                    this.preloadPromise.reject = reject;
+                });
+            }
+
+            return this.preloadPromise.promise;
         }
-        const promises = audioFiles.map(({ key, url }) => 
+
+        // If the context is initialized, load the files immediately
+        const promises = audioFiles.map(({ key, url }) =>
             fetch(url)
                 .then(response => response.arrayBuffer())
                 .then(data => this.context.decodeAudioData(data))
@@ -37,7 +89,7 @@ class AudioManager {
                     this.audioCache.set(key, buffer);
                 })
                 .catch(error => {
-                    console.log(`Could not load sound: ${key} ${error}`);
+                    console.warn(`Could not load sound: ${key} - ${error}`);
                 })
         );
 
@@ -51,7 +103,6 @@ class AudioManager {
      */
     playEffect(key, volume = 1.0) {
         if (!this.audioCache.has(key)) {
-            console.error(`Audio key "${key}" not found in cache.`);
             return;
         }
 
@@ -60,7 +111,7 @@ class AudioManager {
         source.buffer = buffer;
 
         const gainNode = this.context.createGain();
-        gainNode.gain.value = volume;
+        gainNode.gain.value = volume * this.masterVolume;
 
         source.connect(gainNode).connect(this.context.destination);
         source.start();
@@ -73,12 +124,10 @@ class AudioManager {
      */
     playLoop(key, volume = 1.0) {
         if (!this.audioCache.has(key)) {
-            console.error(`Audio key "${key}" not found in cache.`);
             return;
         }
 
         if (this.gainNodes.has(key)) {
-            console.warn(`Audio key "${key}" is already looping.`);
             return;
         }
 
@@ -88,7 +137,7 @@ class AudioManager {
         source.loop = true;
 
         const gainNode = this.context.createGain();
-        gainNode.gain.value = volume;
+        gainNode.gain.value = volume * this.masterVolume;
 
         source.connect(gainNode).connect(this.context.destination);
         source.start();
@@ -102,7 +151,6 @@ class AudioManager {
      */
     stopLoop(key) {
         if (!this.gainNodes.has(key)) {
-            console.error(`Audio key "${key}" is not currently looping.`);
             return;
         }
 
@@ -118,12 +166,11 @@ class AudioManager {
      */
     setLoopVolume(key, volume) {
         if (!this.gainNodes.has(key)) {
-            console.error(`Audio key "${key}" is not currently looping.`);
             return;
         }
 
         const { gainNode } = this.gainNodes.get(key);
-        gainNode.gain.value = volume;
+        gainNode.gain.value = volume * this.masterVolume;
     }
 }
 
