@@ -7,8 +7,15 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import AudioManager from './audiomanager.js';
 
+// const images = import.meta.glob('./images/*.png');
+// const imagesHeli = import.meta.glob('./images/heli/*.png');
+// const imagesUi = import.meta.glob('./images/ui/*.png');
+// const imagesWeapons = import.meta.glob('./images/weapons/*.png');
 
+// const soundsAnnouncer = import.meta.glob('./images/sounds/announcer/*.wav');
+// const soundsGame = import.meta.glob('./images/sounds/game/*.wav');
 
+// // debugger;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
 
@@ -277,6 +284,46 @@ function init() {
         audioManager.playLoop('flame', 0);
         audioManager.playLoop('helicopter', 0);
     });
+}
+
+const onResults = (results) => {
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
+        handleSpaceTimeGesture(landmarks, 1.0);
+        drawOutline(landmarks);
+    }
+};
+
+const canvas = document.getElementById("gesture-canvas");
+debugger;
+const ctx = canvas.getContext("2d");
+
+// Example: Drawing a squiggle based on hand landmarks
+function drawOutline(landmarks) {
+    ctx.beginPath();
+    landmarks.forEach((point, index) => {
+        if (index === 0) {
+            ctx.moveTo(point.x * canvas.width, point.y * canvas.height);
+        } else {
+            ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
+        }
+    });
+    ctx.stroke();
+}
+
+// Example: Detecting color selection
+function selectColor(x, y) {
+    const pixel = ctx.getImageData(x, y, 1, 1).data;
+    return `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+}
+
+function handleSpaceTimeGesture(landmarks, timeDelta) {
+    const movement = calculateHandMovement(landmarks);
+    const scale = movement.y * timeDelta;
+    const rotation = movement.x * timeDelta;
+
+    // Apply transformations to the object
+    transformObject(scale, rotation);
 }
 
 const map1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
@@ -935,7 +982,7 @@ const weapons = [
     new Weapon("A-Bomb Launcher", 'images/weapons/abomb.png', 'announcerAbomb', 'rocketlauncher', new THREE.Vector2(22, 30), new THREE.Vector2(36, -13), 150, 3, 300, 2, 'images/abombbullet.png').setUpdate(abombUpdate).setDestroy(abombDestroy),
     new Weapon("Rail Gun", 'images/weapons/railgun.png', 'announcerRailgun', 'railgun', new THREE.Vector2(23, 27), new THREE.Vector2(32, -8), 75, 20, 150, 4, 'images/rail.png').setUpdate(railUpdate),
     new Weapon("Grapple Cannon", 'images/weapons/grapplecannon.png', 'announcerGrapplecannon', 'grapple', new THREE.Vector2(18, 23), new THREE.Vector2(33, -11), 250, 20, 300, 2, 'images/grapplebullet.png').setUpdate(grappleUpdate),
-    new Weapon("Shoulder Cannon", 'images/weapons/shouldercannon.png', null, 'railgun', new THREE.Vector2(0, 0), new THREE.Vector2(16, 0), 100, 20, 300, 0, 'images/shouldercannon.png').setUpdate(railUpdate),
+    new Weapon("Shoulder Cannon", 'game/images/weapons/shouldercannon.png', null, 'railgun', new THREE.Vector2(0, 0), new THREE.Vector2(16, 0), 100, 20, 300, 0, 'images/shouldercannon.png').setUpdate(railUpdate),
 ];
 
 // Helper to load a texture as a promise

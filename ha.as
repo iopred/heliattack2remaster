@@ -1585,7 +1585,7 @@ function heroAction(timestep) {
 			if(sounds){
 				shjump.start(0,0);
 			}
-			this.yspeed = -16;
+			this.yspeed = -32;
 			if (this.jump) {
 				this.jump2 = 1;
 			}
