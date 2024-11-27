@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Heli Attack</title>
+		<link rel="preconnect" href="https://fonts.cdnfonts.com">
+		<link href="https://fonts.cdnfonts.com/css/sf-pixelate" rel="stylesheet">
+		<style>
+			body {
+				margin: 0;
+			}
+
+			#ui {
+				pointer-events: none;
+
+				font-family: "SF Pixelate", sans-serif;
+				font-optical-sizing: auto;
+				font-size: 19px;
+				color: white;
+			}
+
+			#info {
+				position: fixed;
+				top: 10px;
+				left: 10px;
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#health {
+				position: fixed;
+				right: 10px;                
+				top: 10px;  
+			}
+
+			#health-text {
+				display: inline-block;
+				vertical-align: top;
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#health-bar,
+			#powerup-bar {
+				position: relative;
+				display: inline-block;
+				width: 17px;
+				height: 78px;
+				background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAABOCAYAAADGtf3YAAAACXBIWXMAAArvAAAK7wF9dopIAAAABGdBTUEAALGOfPtRkwAAACBjSFJNAAB6JQAAgIMAAPn/AACA6QAAdTAAAOpgAAA6mAAAF2+SX8VGAAADdklEQVR42mL8//8/A6UAIICYGKgAAAKIKoYABBALNkFWVtb/nJycDMheBbF//PjB8OfPH0Z09QABhGFIWFjY/1OnTjFISkoy3Lt3j0FCQgIsfv/+fYazZ88y2Nvb/z948CCKQQABBLYBhkEWAg34DwNPnjz5D9T4/+7du/+fP38Opo8cOfJfRUXlP7I+gACChwkjI+P/PXv2MJiamsIt4OPjY/j37x/D+/fvGb59+8bAxcUFdqGzszNYPUwdQACheAekCRlwc3MzcHBwMHz//h1sEAyoq6ujqAMIILyxw8TEhGEwyDXoACCACEYxsiHIrkEGAAFE0BB2dnZQlDPgS9kAAUTQEFCYgAzCZwhAABE0BBgLYEPwAYAAIirZYwtMZAAQQEQZgp4F0AFAABFlCChgmZmZcRoEEEBEG4IPAAQQUYawsLDA8xk2ABBARBkCiiF8ACCAqFIoAQQQVQwBCCCqGAIQQFQxBCCAqGIIQACRZAiofMEGAAKIKoYABBBJhoCSPjYAEEBUCROAACLJkN+/f2MVBwggqrgEIICoYghAAFHFEIAAooohAAFEFUMAAogqhgAEEFUMAQggqhgCEEBUMQQggKhiCEAAUcUQgACiiiEAAUQVQwACiGRDYK1JZAAQQCQb8uLFCwwxgACiSnkCEEBEGfLx40cwDWqGCgkJYcgDBBBVAhYggKhiCEAAUcUQgACiiiEAAUQVQwACiCqGAAQQSYZ8+PABHt3IACCASHYJqIWNDgACiGhD3r59C274YWtdAwQQ0YaAKnNg/4+BjY0NQw4ggIg2BNSqfvr0KVY5gAAiyhBQzwvkDZBLsAGAAKJKFAMEEFUMAQggqhgCEEBUMQQggKhiCEAAUcUQgACiiiEAAUQVQwACiCqGAAQQVQwBCCCqGAIQQCQZAuoLYqsBAQKIoCEgTaDce/DgQQYZGRmsagACCMWQ/fv3w2s8kGaYAc+fP2cQExNjMDExAdeCN2/eRDEEIIAYkbupoNGZM2fOwMvTz58/M9y6dYuBl5eXQVtbm0FNTY3h4cOHDBYWFqBSDt5FBQggRvS+Lsigzs5OsP9BWFFRkUFcXJxBTk6OYdGiRQzl5eUoBoAAQABhjG6BFHBzc/8HFYMgC6ytrcG2P3nyBDxEhm4ACAAEECM1hg0BAogq6QQggKhiCECAAQASRP7B05pVHQAAAABJRU5ErkJggg==') no-repeat center center;
+				background-size: contain;             
+			}
+
+			#health-fill,
+			#powerup-fill {
+				position: absolute;
+				bottom: 0;
+				width: 17px;
+				height: 78px;
+				background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAABOCAYAAADGtf3YAAAACXBIWXMAAArwAAAK8AFCrDSYAAAABGdBTUEAALGOfPtRkwAAACBjSFJNAAB6JQAAgIMAAPn/AACA6QAAdTAAAOpgAAA6mAAAF2+SX8VGAAAFPUlEQVR42mL8//8/A6UAIICYGKgAAAKIKoYABBALnMWIEGRlYf3PxcXFAPIqzLsg+sePHwx//v5BqISGBEAAsaCbGhkR+f/3P3sGBk0FBoZL9xgYJPkZGH79ZGA4f4eB4ewrBns7+/8HDx1kRNYDEECM8IBlhLjgd6w3A0OoFwMDE9D8x68ZGG7cZmD4+xnI/8vA8AFI33nOoPrsO8PtO7cZYS4BCCAWhG+A5rlYMzDEhDEwqBgyMHz5yMDA+46B4TdQyf2bDAzf3jAw8HEB5SQZbhx6BVHP8B/sIoAAghvCxAQMY3UVBgYZdQYGERkGBk5eoNPYGRjkvjIwfAYaeOUZkP8brJaZ4RZKEAAEEBOKIcysDAz//kD8BvImKxsDg6AAAwMwkMFsEAC5Bg0ABBDckL9/gX7m5GRg4BdlYGABamABGfgXZC0wYH8xMPwBuuLFe6xRDBBAcEPAAfzsEQPD+1dADT8YGL5+AobLB2BYAPF7YHh8/YIznQAEEGpiew8MyHdPGBi+fwOGA1Dja6ChH54DxV8wMPz8gdMQgABCTScgJ38DuuA70NaPwOh9cZ+B4QcwWv8CDfgDDCsmRqyGAAQQqiG/gYZ8BHrnO9Cgz0D/fwV65TcwoXEwQwKaAbshAAGEmXd+AW39BfTOb2hgggKXFxjg/3DndoAAwp4B0YsHdmBMsTLjNAgggIjLxSBD8ACAACLOEFYW7C6EAoAAwjQEpo4RKRBxxAoMAAQQFpcwYhpCAAAEEH7vEGkQQABRpXgECCCqGAIQQFQxBCCASDOEGbtygADCIoqnMmPCbghAAOFwCQ6DQEkfCwAIIKqECUAAkWbIz99YhQECiCouAQggPIYQn+wBAgi7IX+BReH/f0QbAhBA2Eu2L8Ci8ccXog0CCCAmrK4AFdagspVIABBA2L3z7x9JAQsQQFSJHYAAYqKkHIEBgADCU9oT3yAECCDc3iGhUQkQQExUSGsMAAHERIkLYAAggKgSOwABRLohShIYQgABRLoh915gCAEEEBNJMfMDe3kCEEBMREXN648Q+hOwySEphKEaIICoUp4ABBBVYgcggJiw5xvS8g5AAFHFJQABhKfeIT7pAgQQEwMV0j1AAOFxCZZwefUBEd1IACCAmHDWuYxM2A3i5sAQAgggTEOYgY08dmBPgpkZtYR7+hbSBOVix9ACEEBYDGGF9Lp+fgeW/EjJnAVo6G9gTcDJhqEFIICwlCf/IK3on19Rm5ygVvV7qCVoACCAcJexyJH0+TvEG3zAfMPBhdFOAQggJqwGgMMCS1RzsEN6YGi1AUAAkZZiQY3i/5iVG0AAkZbYYC5Aa54DBBAe72Br+IGiHbPJBRBAeCovLAYJAHum7JiJDSCAcCd7bI7hBfaV2TATG0AA4am8iA9zgADCXVBjCxcuoFdYQRg1wQEEEGlRzMkF6fozowYuQAARXxSAUikLM9beF0AAEVdlgFvTwJTKyw1xCVpiAwgg4r3DAQwLFSVgN5cNwzUAAUTYEFC1eespA8NVYGNQQQIyEIEGAAII1ZCddyD0mzcMDA9fIgx4BjTA1piBQQqY2G7fADYwlVC0AQQQCyIo/zOCR2fW7mNgEBJhYLhxl4HhLVDzc6DTVYEukBZmYHh8k4Fh924Glv/nGWCjOCAAEEAoY0rwYSEGftDoAwTryjIwmBsAw0OKgaF+BQPjz1cIA6BaAQIIwxBwWczF/Z+NjQ08pmJtbc3w4sULhidPnjB8/PiR4cfPHxhDZAABxEiNYUOAAKJKNQoQQFQxBCDAAOEWXIFj2p34AAAAAElFTkSuQmCC') no-repeat bottom center;
+			}
+
+			#bottom {
+				position: fixed;
+				right: 10px;                
+				bottom: 10px;
+				text-align: right;
+			}
+
+			#hyperjump-text {
+				display: inline-block;
+				vertical-align: middle;
+				
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#hyperjump-bar {
+				display: inline-block;
+				vertical-align: middle;
+				
+				width: 78px;
+				height: 17px;
+				background: url('/game/assets/longbar-white-DPTpQAoW.png') no-repeat center center;
+				background-size: contain;             
+			}
+
+			#hyperjump-fill {
+				bottom: 0;
+				width: 78px;
+				height: 17px;
+				background: url('/game/assets/longbar-blue-BylVGnPc.png') no-repeat center left;
+			}
+
+			#time-text {
+				display: inline-block;
+				vertical-align: middle;
+				
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#time-bar {
+				display: inline-block;
+				vertical-align: middle;
+				
+				width: 78px;
+				height: 17px;
+				background: url('/game/assets/longbar-white-DPTpQAoW.png') no-repeat center center;
+				background-size: contain;             
+			}
+
+			#time-fill {
+				bottom: 0;
+				width: 78px;
+				height: 17px;
+				background: url('/game/assets/longbar-green-DXU6aBl1.png') no-repeat center left;
+			}
+
+			#reload-text {
+				display: inline-block;
+				vertical-align: middle;
+				
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#reload-bar {
+				display: inline-block;
+				vertical-align: middle;
+				
+				width: 42px;
+				height: 17px;
+				background: url('/game/assets/bar-white-KicnbymT.png') no-repeat center center;
+				background-size: contain;
+			}
+
+			#reload-fill {
+				width: 42px;
+				height: 17px;
+				background: url('/game/assets/bar-yellow-ChEZeeYT.png') no-repeat center left;
+			}
+
+			#bullets-text {
+				display: inline-block;
+				vertical-align: bottom;
+
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#bullets-box {
+				display: inline-block;
+				vertical-align: bottom;
+				width: 33px;
+				height: 33px;
+				background-image: url('/game/assets/box-RXLCjWdP.png');
+				background-size: 528px 33px;
+				background-position: 0 0;
+				background-repeat: no-repeat;
+			}
+
+			#powerup-text {
+				display: inline-block;
+				vertical-align: bottom;
+
+				filter: drop-shadow(1px 1px 0px black);
+			}
+
+			#powerup-box {
+				display: inline-block;
+				vertical-align: bottom;
+				width: 33px;
+				height: 33px;
+				background-image: url('/game/assets/box-RXLCjWdP.png');
+				background-size: 528px 33px;
+				background-position: -462px 0;
+				background-repeat: no-repeat;
+			}
+
+			.nobreak {
+				display: inline-block;
+			}
+		</style>
+		<script type="module" crossorigin src="/game/assets/index-1nfGKX8z.js"></script>
+	</head>
+	<body>
+        <div id="container"></div>
+		<div id="ui">
+			<div id="info"></div>
+			<div id="health">
+				<div id="health-text">
+					Health:
+				</div>
+				<div id="health-bar">
+					<div id="health-fill"></div>
+				</div>
+			</div>
+			<div id="bottom">
+				<div id="powerup-bar">
+					<div id="powerup-fill"></div>
+				</div>
+				<div id="powerup">
+					<div id="powerup-text">
+						Predator Mode
+					</div>
+					<div id="powerup-box"></div>
+				</div>
+				<div>
+					<div id="bullets-text">
+						Infinite x 
+					</div>
+					<div id="bullets-box"></div>
+				</div>
+				<div>
+					<div class="nobreak">
+						<div id="hyperjump-text">
+							Hyper Jump:
+						</div>
+						<div id="hyperjump-bar">
+							<div id="hyperjump-fill"></div>
+						</div>
+					</div>
+					<div class="nobreak">
+						<div id="time-text">
+							Time Distort:
+						</div>
+						<div id="time-bar">
+							<div id="time-fill"></div>
+						</div>
+					</div>
+					<div class="nobreak">
+						<div id="reload-text">
+							Reload:
+						</div>
+						<div id="reload-bar">
+							<div id="reload-fill"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
