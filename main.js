@@ -1,7 +1,5 @@
-import * as THREE from 'three';
+import { BufferGeometry, Color, ColorManagement, DirectionalLight, Line, LineBasicMaterial, PerspectiveCamera, Scene, ShaderMaterial, SRGBColorSpace, Vector3, WebGLRenderer } from 'three';
 import WebGL from 'three/addons/capabilities/WebGL.js';
-// import { FontLoader } from 'three/addons/loaders/FontLoader.js';
-// import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
@@ -11,19 +9,19 @@ import WordListener from './wordlistener.ts';
 import HeliAttack from './heliattack.ts';
 import { createTintShader, manageRaycasterIntersections } from './utils';
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+const scene = new Scene();
+const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
 
 camera.position.set(0, 0, 300);
 camera.lookAt(0, 0, 0);
 
-THREE.ColorManagement.enabled = true;
+ColorManagement.enabled = true;
 
-const renderer = new THREE.WebGLRenderer();
+const renderer = new WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.gammaOutput = true;
 renderer.gammaFactor = 2.2;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.outputColorSpace = SRGBColorSpace;
 
 // Set up EffectComposer
 const composer = new EffectComposer(renderer);
@@ -34,12 +32,12 @@ const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
 
 // Add the inversion shader pass
-const shaderPass = new ShaderPass(new THREE.ShaderMaterial({
+const shaderPass = new ShaderPass(new ShaderMaterial({
     uniforms: {
         tDiffuse: { value: null },              // Rendered texture
         invertEnabled: { value: 0.0 },         // Toggle inversion (0 = off, 1 = on)
         tintEnabled: { value: 0.0 },           // Toggle tinting (0 = off, 1 = on)
-        tintColor: { value: new THREE.Color(1, 0.5, 0.5) }, // Red tint
+        tintColor: { value: new Color(1, 0.5, 0.5) }, // Red tint
     },
     vertexShader: `
         varying vec2 vUv;
@@ -83,21 +81,21 @@ composer.addPass(shaderPass);
 
 document.getElementById('game').appendChild(renderer.domElement);
 
-const dirLight = new THREE.DirectionalLight( 0xffffff, 0.4 );
+const dirLight = new DirectionalLight( 0xffffff, 0.4 );
 dirLight.position.set( 0, 0, 1 ).normalize();
 scene.add( dirLight );
 
 function createBlueLine(x, y, object) {
     //create a blue LineBasicMaterial
-    const material2 = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+    const material2 = new LineBasicMaterial( { color: 0x0000ff } );
 
     const points = [];
-    points.push( new THREE.Vector3( x - 10, y - 10, -0 ) );
-    points.push( new THREE.Vector3( x, y, -0 ) );
-    points.push( new THREE.Vector3( x + 10, y - 10, -0 ) );
+    points.push( new Vector3( x - 10, y - 10, -0 ) );
+    points.push( new Vector3( x, y, -0 ) );
+    points.push( new Vector3( x + 10, y - 10, -0 ) );
 
-    const geometry2 = new THREE.BufferGeometry().setFromPoints( points );
-    const line = new THREE.Line( geometry2, material2 );
+    const geometry2 = new BufferGeometry().setFromPoints( points );
+    const line = new Line( geometry2, material2 );
     object.add(line);
 }
 let heliattack;
@@ -158,11 +156,12 @@ function debug() {
     }
 }
 
-const ENABLE_VIDEO_GESTURES = true;
+const ENABLE_VIDEO_GESTURES = false;
 
 let videoGestures = ENABLE_VIDEO_GESTURES ? new VideoGestures(window, document) : null;
-videoGestures?.resize(window.innerWidth, window.innerHeight);
-
+if (videoGestures) {
+    videoGestures.resize(window.innerWidth, window.innerHeight);
+}
 function getAvatar() {
     // TODO: Write Avatar Creator.
 
@@ -186,10 +185,23 @@ function getAvatar() {
     xhr.send(data);
 }
 
+const i = new WordListener("k");
+i.onWordDetected((word) => {
+    heliattack.restart();
+});
+
+
+
 const iopred = new WordListener("iopred");
 iopred.onWordDetected((word) => {
-    videoGestures = new VideoGestures(window, document);
-    heliattack.initVideoGestures(videoGestures);
+    if (!videoGestures) {
+        videoGestures = new VideoGestures(window, document);
+        videoGestures.resize(window.innerWidth, window.innerHeight);
+    }
+    if (heliattack) {
+        heliattack.initVideoGestures(videoGestures);
+    }
+    document.getElementById('error-container').style.display = 'initial';
 });
 
 // Key handling
@@ -214,7 +226,8 @@ const history = [];
 window.addEventListener('keydown', (e) => {
     keyIsPressed[e.key] = true;
     history.push(e.key);
-    iopred.emit(history.join(""));
+    i.listen(e.key);
+    iopred.listen(history.join(""));
 });
 window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });
 window.addEventListener('blur', () => {
@@ -237,7 +250,17 @@ function output() {
     audioManager.masterVolume = 0.2;
 
     if (!heliattack) {
-        heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager);
-        heliattack.init();
+        createHeliAttack();
+    }
+}
+
+function createHeliAttack() {
+    if (heliattack) {
+        heliattack.destroy();
+    }
+    heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager);
+    heliattack.init();
+    if (videoGestures) {
+        heliattack.initVideoGestures(videoGestures);
     }
 }

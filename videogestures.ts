@@ -4,6 +4,14 @@ import {
     DrawingUtils,
   } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
 
+const INDEX_FINGER = [5, 6, 8];
+const MIDDLE_FINGER = [9, 10, 12];
+const RING_FINGER = [13, 14, 16];
+const PINKY_FINGER = [17, 18, 20];
+const THUMB = [0, 1, 4];
+
+const DRAW_HAND = false;
+
 class VideoGestures {
     private window: Window;
     private document: Document;
@@ -47,7 +55,13 @@ class VideoGestures {
 
       this.enabled = false;
       this.aim = {x: 0, y: 0};
+      this.aiming = false;
+      this.firing = true;
+      this.thumbUp = {0: false, 1: false, 2: false, 3: false, 4: false, 5: false};
+      this.switching = false;
+      this.gestureHands = [];
       this.setup();
+      this.enable();
     }
 
     resize(width, height) {
@@ -71,7 +85,7 @@ class VideoGestures {
           delegate: "GPU"
       },
       runningMode: this.runningMode,
-      numHands: 2
+      numHands: 6,
       });
   
       await this.getStream().then(() => this.getDevices()).then((deviceInfos) => this.gotDevices(deviceInfos));
@@ -194,32 +208,20 @@ class VideoGestures {
         this.canvasElement.height
       );
   
-      if (this.results?.landmarks) {
-        for (const landmarks of this.results.landmarks) {
-          const flipped = this.flipLandmarks(landmarks)
-          this.drawingUtils.drawConnectors(flipped, HandLandmarker.HAND_CONNECTIONS, {
-            color: "#00FF00",
-            lineWidth: 5
-          });
-          this.drawingUtils.drawLandmarks(flipped, { color: "#FF0000", lineWidth: 2 });
-        }
-        if (this.results.landmarks.length) {
-
-          let landmarks = this.results.landmarks[0];
-          if (this.results.landmarks.length > 1) {
-            for (const handedness of this.results.handednesses) {
-              const hand = handedness[0];
-              if (hand.categoryName == "Right") {
-                landmarks = this.results.landmarks[hand.index];
-              }
-            }
+      if (this.results?.landmarks.length) {
+        if (DRAW_HAND) {
+          for (const landmarks of this.results.landmarks) {
+            const flipped = this.flipLandmarks(landmarks)
+            this.drawingUtils.drawConnectors(flipped, HandLandmarker.HAND_CONNECTIONS, {
+              color: "#00FF00",
+              lineWidth: 5
+            });
+            this.drawingUtils.drawLandmarks(flipped, { color: "#FF0000", lineWidth: 2 });
           }
-          let flipped = this.flipLandmarks(this.results.landmarks[0]);
-          this.dispatchAim(flipped);
         }
+        this.dispatchAim(this.results?.landmarks, this.results?.worldLandmarks);
       } else {
-        this.aiming = false;
-        this.firing = false;
+        this.dispatchAim([]);
       }
   
       this.canvasCtx.restore();
@@ -230,19 +232,100 @@ class VideoGestures {
       }
     }
 
-    dispatchAim(landmarks) {
-      this.aim = this.detectAimFromPointer(landmarks);
-      this.aiming = true;
-      this.firing = this.detectFiringFromPointer(landmarks, this.aim);
-      this.restart = this.detectFiringFromPointer(landmarks, this.aim).length >= 2;
+    getPalmCenter(handLandmarks): { x: number; y: number; z: number } {
+      const PALM_LANDMARKS = [0, 1, 5, 9, 13, 17]; // Wrist + MCP joints of all fingers
+  
+      let center = { x: 0, y: 0, z: 0 };
+  
+      // Calculate the centroid of the specified landmarks
+      PALM_LANDMARKS.forEach((index) => {
+          center.x += handLandmarks[index].x;
+          center.y += handLandmarks[index].y;
+          center.z += handLandmarks[index].z;
+      });
+  
+      const numPoints = PALM_LANDMARKS.length;
+      center.x /= numPoints;
+      center.y /= numPoints;
+      center.z /= numPoints;
+  
+      return center;
+  }
+
+    dispatchAim(landmarks, worldLandmarks) {
+      if (landmarks?.length && landmarks?.length == worldLandmarks?.length) {
+        let firings = [];
+        let aimings = [];
+        let gestureHands = [];
+        
+        for (var i = 0; i < landmarks.length; i++) {
+          var l = landmarks[i];
+          var wl = worldLandmarks[i];
+
+          const wristAim = this.detectAimFromWrist(l);
+
+          const isPointerExtended = this.isFingerExtendedWorld(wl, INDEX_FINGER) || this.isFingerExtended(l, INDEX_FINGER);
+
+          if (isPointerExtended) {
+            aimings.push(wristAim);
+          } else {
+            firings.push(wristAim);
+          }
+
+          const wasThumbUp = this.thumbUp[i];
+
+          this.thumbUp[i] = this.isThumbExtended(wl, THUMB);
+
+          this.switching = wasThumbUp && !this.thumbUp[i];
+
+          
+          gestureHands.push(this.getPalmCenter(l));
+        }
+
+        this.aiming = false;
+        // this.aim = null;
+
+        if (aimings.length) {
+          let aim = {x: 0, y: 0};
+          for (let a of aimings) {
+            aim.x += a.x;
+            aim.y += a.y;
+          }
+          aim.x /= aimings.length;
+          aim.y /= aimings.length;
+          this.aim = aim;
+          this.aiming = true;
+        } else if (firings.length) {
+          let aim = {x: 0, y: 0};
+          for (let f of firings) {
+            aim.x += f.x;
+            aim.y += f.y;
+          }
+          aim.x /= firings.length;
+          aim.y /= firings.length;
+          this.aim = aim;
+          this.aiming = true;
+        }
+
+        this.firing = aimings.length >= 1;
+        this.restart = firings.length >= 2;
+        this.gestureHands = gestureHands;
+
+        // console.log(this.aim, this.aiming, this.firing, this.restart)
+      } else {
+        this.firing = true;
+        this.aiming = false;
+        this.gestureHands = [];
+      }
     }
 
     detectAimFromPointer(landmarks) {
-      const wrist = landmarks[0];
-      const index_finger_ip = landmarks[6];
+      
+      const index_finger_mcp = landmarks[5];
+      const index_finger_tip = landmarks[8];
 
-      const x = index_finger_ip.x - wrist.x;
-      const y = index_finger_ip.y - wrist.y;
+      const x = index_finger_mcp.x - index_finger_tip.x;
+      const y = index_finger_mcp.y - index_finger_tip.y;
 
       let length = Math.sqrt(x * x + y * y);
       if (length == 0) {
@@ -252,24 +335,106 @@ class VideoGestures {
       return {x: x/length, y: y/length, length: length};
     }
 
-    detectFiringFromPointer(landmarks, aim) {
+    detectAimFromWrist(landmarks) {
       const wrist = landmarks[0];
-      const index_finger_mcp = landmarks[5];
       const index_finger_ip = landmarks[6];
-      const index_finger_tip = landmarks[8];
+
+      const x = wrist.x - index_finger_ip.x;
+      const y = wrist.y - index_finger_ip.y;
+
+      let length = Math.sqrt(x * x + y * y);
+      if (length == 0) {
+        return {x: 0, y: 0}
+      }
+      
+      return {x: x/length, y: y/length, length: length};
+    }
+
+    isFingerExtended(landmarks, finger) {
+      const wrist = landmarks[0];
+      const index_finger_mcp = landmarks[finger[0]];
+      const index_finger_ip = landmarks[finger[1]];
+      const index_finger_tip = landmarks[finger[2]];
 
       const vec1 = {
         x: index_finger_ip.x - wrist.x,
-        y: index_finger_ip.y - wrist.y
+        y: index_finger_ip.y - wrist.y,
+        z: index_finger_ip.z - wrist.z,
       }
       const vec2 = {
         x: index_finger_tip.x - index_finger_ip.x,
-        y: index_finger_tip.y - index_finger_ip.y
+        y: index_finger_tip.y - index_finger_ip.y,
+        z: index_finger_tip.z - index_finger_ip.z,
       }
 
-      const dot = vec1.x * vec2.x + vec1.y * vec2.y;
+      const vec1mag = Math.sqrt(vec1.x ** 2 + vec1.y ** 2 + vec1.z ** 2);
+      const vec2mag = Math.sqrt(vec2.x ** 2 + vec2.y ** 2 + vec2.z ** 2);
 
-      return dot < 0;
+      const dotProduct =
+          vec1.x * vec2.x +
+          vec1.y * vec2.y +
+          vec1.z * vec2.z;
+
+      return dotProduct > 0;
+    }
+
+    isThumbExtended(landmarks, finger) {
+      const wrist = landmarks[0];
+      const index_finger_mcp = landmarks[finger[0]];
+      const index_finger_ip = landmarks[finger[1]];
+      const index_finger_tip = landmarks[finger[2]];
+
+      const vec1 = {
+        x: index_finger_ip.x - wrist.x,
+        y: index_finger_ip.y - wrist.y,
+        z: index_finger_ip.z - wrist.z,
+      }
+      const vec2 = {
+        x: index_finger_tip.x - index_finger_ip.x,
+        y: index_finger_tip.y - index_finger_ip.y,
+        z: index_finger_tip.z - index_finger_ip.z
+      }
+
+      const vec1mag = Math.sqrt(vec1.x ** 2 + vec1.y ** 2 + vec1.z ** 2);
+      const vec2mag = Math.sqrt(vec2.x ** 2 + vec2.y ** 2 + vec2.z ** 2);
+
+      const dotProduct =
+          vec1.x * vec2.x +
+          vec1.y * vec2.y +
+          vec1.z * vec2.z;
+
+      return dotProduct / (vec1mag * vec2mag) > 0.95;
+    }
+
+    isFingerExtendedWorld(
+      handLandmarks,
+      finger: number[]
+    ): boolean {
+        const base = handLandmarks[finger[0]];
+        const mid = handLandmarks[finger[1]];
+        const tip = handLandmarks[finger[2]];
+    
+        // Calculate vectors
+        const baseToMid = { x: mid.x - base.x, y: mid.y - base.y, z: mid.z - base.z };
+        const midToTip = { x: tip.x - mid.x, y: tip.y - mid.y, z: tip.z - mid.z };
+    
+        // Check if the vectors are aligned (dot product and magnitude comparison)
+        const dotProduct =
+            baseToMid.x * midToTip.x +
+            baseToMid.y * midToTip.y +
+            baseToMid.z * midToTip.z;
+    
+        const baseToMidMag = Math.sqrt(baseToMid.x ** 2 + baseToMid.y ** 2 + baseToMid.z ** 2);
+        const midToTipMag = Math.sqrt(midToTip.x ** 2 + midToTip.y ** 2 + midToTip.z ** 2);
+    
+        // Cosine similarity threshold for alignment
+        const alignmentThreshold = finger == THUMB ? 0.5 : 0.95;
+        const aligned = dotProduct / (baseToMidMag * midToTipMag) > alignmentThreshold;
+
+        // Ensure the tip is farther away from the base along the finger's major direction
+        const extended = Math.abs(tip.z - base.z) > Math.abs(mid.z - base.z);
+    
+        return aligned && extended;
     }
 
     flipLandmarks(landmarks: any[]): any[] {
@@ -277,54 +442,6 @@ class VideoGestures {
         ...point,
         x: 1 - point.x,
       }));
-    }
-  
-    // Example method: Drawing a squiggle based on hand landmarks
-    private drawOutline(landmarks: any[]) {
-      this.canvasCtx.beginPath();
-      landmarks.forEach((point, index) => {
-        let px = 1 - point.x;
-        if (index === 0) {
-          this.canvasCtx.moveTo(
-            px * this.canvasElement.width,
-            point.y * this.canvasElement.height
-          );
-        } else {
-          this.canvasCtx.lineTo(
-            px * this.canvasElement.width,
-            point.y * this.canvasElement.height
-          );
-        }
-      });
-      this.canvasCtx.stroke();
-    }
-  
-    // Example method: Detecting color selection
-    private selectColor(x: number, y: number): string {
-      const pixel = this.canvasCtx.getImageData(x, y, 1, 1).data;
-      return `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-    }
-  
-    // Example method: Handling space-time gesture
-    private handleSpaceTimeGesture(landmarks: any[], timeDelta: number) {
-      const movement = this.calculateHandMovement(landmarks);
-      const scale = movement.y * timeDelta;
-      const rotation = movement.x * timeDelta;
-  
-      // Apply transformations to the object
-      this.transformObject(scale, rotation);
-    }
-  
-    // Placeholder method: Calculate hand movement
-    private calculateHandMovement(landmarks: any[]): { x: number; y: number } {
-      // Example implementation (replace with actual logic)
-      return { x: 0, y: 0 };
-    }
-  
-    // Placeholder method: Transform object
-    private transformObject(scale: number, rotation: number) {
-      // Example implementation (replace with actual logic)
-      console.log(`Transforming object with scale: ${scale}, rotation: ${rotation}`);
     }
   }
   

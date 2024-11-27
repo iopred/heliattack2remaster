@@ -1,9 +1,10 @@
 
 import AudioManager from './audiomanager.js';
 import Weapon from './weapon.ts';
-import { Box3, Clock, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, TextureLoader, Vector2, Vector3, Camera } from 'three';
+import { Box3, BufferGeometry, Clock, Color, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, TextureLoader, Vector2, Vector3, Camera } from 'three';
 import { calculateAngleToMouse, checkTileCollisions, createTintShader, loadTexture, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth } from './utils';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import VideoGestures from './videogestures.ts';
 
 
 const SCREEN_WIDTH = 500;
@@ -874,7 +875,7 @@ class Box extends Entity {
         if (this.type < game.weapons.length) {
             game.weapons[this.type].collect(game);
         } else if (this.type == game.weapons.length) {
-            game.player.collectPowerup(1+Math.floor(Math.random() * 5));
+            game.player.collectPowerup(1+Math.floor(Math.random() * 5), game);
         } else if (this.type == game.weapons.length + 1) {
             game.player.health = Math.min(100, game.player.health + 20);
             game.audioManager.playEffect('announcerHealth');
@@ -951,8 +952,6 @@ class Player {
     }
 
     init(game) {
-        this.game = game;
-
         const playerTexture = game.textures['game/images/player.png'];
 
         const size = this.size = 55;
@@ -1038,10 +1037,10 @@ class Player {
         if (this.powerup == PREDATOR_MODE) {
             return;
         }
-        let weapon = weapons[this.weapon + direction];
-        for (var i = 1; i < weapons.length; i++) {
-            const index = MathUtils.euclideanModulo(this.weapon + i*direction, weapons.length)
-            if (weapons[index].ammo > 0) {
+        let weapon = this.weapons[this.weapon + direction];
+        for (var i = 1; i < this.weapons.length; i++) {
+            const index = MathUtils.euclideanModulo(this.weapon + i*direction, this.weapons.length)
+            if (this.weapons[index].ammo > 0) {
                 this.selectWeapon(index);
                 break;
             }
@@ -1210,11 +1209,50 @@ class Player {
 
         }
         
-        this.aim = calculateAngleToMouse(this.game.camera, this.weaponObject, this.game.mouse);
+        this.aim = calculateAngleToMouse(game.camera, this.weaponObject, game.mouse);
 
-        if (this.game?.videoGestures) {
-            if (this.game.videoGestures.enabled && this.game.videoGestures.aiming) {
-                this.aim = Math.atan2(-this.game.videoGestures.aim.y, this.game.videoGestures.aim.x);
+        if (game.videoGestures) {
+            if (game.gestureHandsShowing != game.videoGestures.gestureHands.length) {
+                if (game.gestureHandsShowing > game.videoGestures.gestureHands.length) {
+                    // game.world.remove(game.gestureHands[game.gestureHandsShowing]);
+                    game.gestureHandsShowing--;
+                } else {
+                    game.gestureHandsShowing++;
+                    // game.world.add(game.gestureHands[game.gestureHandsShowing]);
+                }
+            }
+            for (var i = 0; i < game.videoGestures.gestureHands.length; i++) {
+                let gestureHand = game.videoGestures.gestureHands[i];
+                if (i < game.gestureHands.length) {
+                    game.gestureHands[i].position.x = gestureHand.x * game.window.innerWidth;
+                    game.gestureHands[i].position.y = -gestureHand.y * game.window.innerHeight;
+                }
+            }
+
+            if (game.videoGestures.aiming) {
+                this.aim = Math.atan2(game.videoGestures.aim.y, game.videoGestures.aim.x);
+            } else {
+                let targetAim = this.aim;
+                
+                if (game.enemy) {
+                    const enemyPosition = new Vector3();
+                    game.enemy.mesh.getWorldPosition(enemyPosition);
+
+                    targetAim = Math.atan2(
+                        -enemyPosition.y - this.position.y,
+                        enemyPosition.x - this.position.x
+                    );
+                }
+
+                let aim = this.aim;
+                let dif = targetAim - this.aim;
+                if (dif > Math.PI) {
+                    dif = -Math.PI*2 + dif;
+                } else if (dif < -Math.PI) {
+                    dif = Math.PI*2 + dif;
+                }
+
+                this.aim += dif / 15;
             }
         }
 
@@ -1227,18 +1265,28 @@ class Player {
         }
 
         if (move) {
-            if (this.game.mouse.wheel != 0) {
-                //this.selectWeapon(MathUtils.euclideanModulo(this.weapon - mouse.wheel, weapons.length));
-                this.selectWeaponDirection(this.game.mouse.wheel);
-                this.game.mouse.wheel = 0;
+            if (game.mouse.wheel != 0) {
+                this.selectWeaponDirection(game.mouse.wheel);
+                game.mouse.wheel = 0;
+            } else if (game.videoGestures?.switching) {
+                this.selectWeaponDirection(1);
+                game.videoGestures.switching = false;
             }
 
-            const weapon = this.game.weapons[this.weapon];
+            const weapon = game.weapons[this.weapon];
             weapon.reloading++;
-            if (this.game.mouse.down || (this.game.videoGestures?.firing)) {
+            let firing = game.mouse.down;
+            let forced = false;
+            if (game.videoGestures?.gestureHands.length) {
+                forced = game.videoGestures.firing;
+                firing = game.videoGestures.firing && !firing;
+            }
+            if (firing) {
                 if (weapon.reloading >= weapon.reloadTime) {
                     weapon.createBullet(game);
-                    weapon.ammo--;
+                    if (!weapon.free) {
+                        weapon.ammo--;
+                    }
                     weapon.reloading = 0;
                     if (weapon.ammo <= 0) {
                         this.selectWeaponDirection(1);
@@ -1291,35 +1339,35 @@ class Player {
         const powerupText = document.getElementById("powerup-text");
         if(type == TRI_DAMAGE){
             this.setTint(true, new Color(0, 0, 1));
-            audioManager.playEffect('announcerTridamage');
+            game.audioManager.playEffect('announcerTridamage');
             powerupText.innerHTML = 'TriDamage';
         }else if(type == INVULNERABILITY){
             this.setTint(true, new Color(1, 0, 0));
-            audioManager.playEffect('announcerInvulnerability');
+            game.audioManager.playEffect('announcerInvulnerability');
             powerupText.innerHTML = 'Invulnerability';
         }else if(type == PREDATOR_MODE){
             game.shaderPass.uniforms.invertEnabled.value = 1.0;
 
             this.previousWeapon = this.weapon;
-            const shoulderCannon = weapons[weapons.length-1];
+            const shoulderCannon = game.weapons[game.weapons.length-1];
             shoulderCannon.ammo = Number.POSITIVE_INFINITY;
             shoulderCannon.reloading = Number.POSITIVE_INFINITY;
-            this.selectWeapon(weapons.length-1);
-            audioManager.playEffect('announcerPredatormode');
+            this.selectWeapon(game.weapons.length-1);
+            game.audioManager.playEffect('announcerPredatormode');
             powerupText.innerHTML = 'Predator Mode';
         }else if(type == TIME_RIFT){
             this.setTint(true, new Color(0, 1, 0));
-            audioManager.playEffect('announcerTimerift');
+            game.audioManager.playEffect('announcerTimerift');
             powerupText.innerHTML = 'Time Rift';
         }else if(type == JETPACK){
-            audioManager.playEffect('announcerJetpack');
+            game.audioManager.playEffect('announcerJetpack');
             powerupText.innerHTML = 'Jetpack';
         }
     }
 
     endPowerup(game) {
         if (this.powerup == PREDATOR_MODE) {
-            const shoulderCannon = weapons[weapons.length-1];
+            const shoulderCannon = game.weapons[game.weapons.length-1];
             shoulderCannon.ammo = 0;
             this.selectWeapon(this.previousWeapon);
         }
@@ -1417,7 +1465,7 @@ function rpgUpdate(game, delta) {
 
         if (this.time == 8) {
             // play sound
-            this.audioManager.playEffect('rocketlauncher');
+            game.audioManager.playEffect('rocketlauncher');
         } else if (this.time > 8 && this.time < 16) {
             this.velocity.x *= 1.4;
             this.velocity.y *= 1.4;
@@ -1459,28 +1507,29 @@ function seekerUpdate(game, delta) {
     if (this.tick >= 1) {
         this.tick %= 1;
 
-        const enemyPosition = new Vector3();
-        game.enemy.mesh.getWorldPosition(enemyPosition);
+        if (game.enemy) {
+            const enemyPosition = new Vector3();
+            game.enemy.mesh.getWorldPosition(enemyPosition);
 
-        const targetAim = Math.atan2(
-            enemyPosition.y - this.object.position.y,
-            enemyPosition.x - this.object.position.x
-        );
+            const targetAim = Math.atan2(
+                enemyPosition.y - this.object.position.y,
+                enemyPosition.x - this.object.position.x
+            );
 
-        let aim = this.object.rotation.z;
-        let dif = targetAim - aim;
-        if (dif > Math.PI) {
-            dif = -Math.PI*2 + dif;
-        } else if (dif < -Math.PI) {
-            dif = Math.PI*2 + dif;
+            let aim = this.object.rotation.z;
+            let dif = targetAim - aim;
+            if (dif > Math.PI) {
+                dif = -Math.PI*2 + dif;
+            } else if (dif < -Math.PI) {
+                dif = Math.PI*2 + dif;
+            }
+
+            aim += dif / 15;
+            this.velocity.x = Math.cos(aim) * 3.5;
+            this.velocity.y = Math.sin(aim) * 3.5;
+            this.object.rotation.z = aim;
         }
 
-        aim += dif / 15;
-
-        this.velocity.x = Math.cos(aim) * 3.5;
-        this.velocity.y = Math.sin(aim) * 3.5;
-
-        this.object.rotation.z = aim;
 
         if (this.time % 4 == 0) {
             const pos = this.object.position.clone();
@@ -1559,17 +1608,19 @@ function flameUpdate(game, delta) {
     if (this.time > FLAME_TIME) {
         return true;
     } else {
-        this.audioManager.setLoopVolume('flame', 1.0);
+        game.audioManager.setLoopVolume('flame', 1.0);
     }
 
-    var bbox = new Box3().setFromObject(this.object).expandByScalar(-0.75);
-    var enemyBbox = new Box3().setFromObject(game.enemy.mesh);
-    bbox.min.z = enemyBbox.min.z = -5;
-    bbox.max.z = enemyBbox.max.z = 5;
-    if (bbox.intersectsBox(enemyBbox)) {
-        game.enemy.damage(this.damage*(1-Math.min(this.time / FLAME_TIME, 1))*game.timeScale, game);
-        this.time = Math.max(FLAME_TIME - 8, this.time);
-        return false;
+    if (game.enemy) {
+        var bbox = new Box3().setFromObject(this.object).expandByScalar(-0.75);
+        var enemyBbox = new Box3().setFromObject(game.enemy.mesh);
+        bbox.min.z = enemyBbox.min.z = -5;
+        bbox.max.z = enemyBbox.max.z = 5;
+        if (bbox.intersectsBox(enemyBbox)) {
+            game.enemy.damage(this.damage*(1-Math.min(this.time / FLAME_TIME, 1))*game.timeScale, game);
+            this.time = Math.max(FLAME_TIME - 8, this.time);
+            return false;
+        }
     }
 
     if (!game.mapBox.containsPoint(pos)) {
@@ -1681,15 +1732,17 @@ function fireMinesUpdate(game, delta) {
             flame.flame.scale.x = flame.flame.scale.y += getScaleDelta(FIRE_TIME, this.time, flame.flameScale, flame.flameScale * 1.25 ) * game.timeScale;
         }
 
-        var bbox = new Box3().setFromObject(this.object);
-        var enemyBbox = new Box3().setFromObject(game.enemy.mesh);
-        bbox.min.z = enemyBbox.min.z = -5;
-        bbox.max.z = enemyBbox.max.z = 5;
-        if (bbox.intersectsBox(enemyBbox)) {
-            game.enemy.damage(this.damage * game.timeScale, game);
+        if (game.enemy) {
+            var bbox = new Box3().setFromObject(this.object);
+            var enemyBbox = new Box3().setFromObject(game.enemy.mesh);
+            bbox.min.z = enemyBbox.min.z = -5;
+            bbox.max.z = enemyBbox.max.z = 5;
+            if (bbox.intersectsBox(enemyBbox)) {
+                game.enemy.damage(this.damage * game.timeScale, game);
+            }
         }
 
-        this.audioManager.setLoopVolume('flame', 1.0);
+        game.audioManager.setLoopVolume('flame', 1.0);
 
         return this.time >= FIRE_TIME;
     } else {
@@ -1781,7 +1834,7 @@ function railUpdate(game, delta) {
     if (this.time == 0) {
         this.object.geometry.translate(this.material.map.image.width/2, 0, 0);
         let pos = this.object.position.clone();
-        while(true) {
+        while(game.enemy) {
             if (checkPointCollisionWithBoxes(pos, game.enemy, heliBoxes)) {
                 game.enemy.damage(this.damage, game);
                 break;
@@ -1834,6 +1887,10 @@ function grappleUpdate(game, delta) {
     }
 
     if (this.grappled) {
+        if (!game.enemy) {
+            return true;
+        }
+
         const worldPosition = this.grappleOffset.clone().applyMatrix4(game.enemy.group.matrixWorld);
         this.object.position.copy(worldPosition);
 
@@ -1862,7 +1919,7 @@ function grappleUpdate(game, delta) {
         return true;
     }
 
-    if (checkPointCollisionWithBoxes(pos, game.enemy, heliBoxes) && !game.enemy.grappled) {
+    if (game.enemy && checkPointCollisionWithBoxes(pos, game.enemy, heliBoxes) && !game.enemy.grappled) {
         //game.enemy.damage(this.damage, game);
         game.enemy.grappled = true;
         this.grappled = game.enemy;
@@ -1893,7 +1950,23 @@ function grappleUpdate(game, delta) {
 const zero = new Vector3();
 
 class Game {
-    constructor(window: Window, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, audioManager: AudioManager, weapons:Weapon[]) {
+    constructor(windowOrGame: Window|Game, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, textures, audioManager: AudioManager, weapons:Weapon[]) {
+        if (windowOrGame instanceof Game) {
+            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures']) {
+                this[key] = windowOrGame[key];
+            }
+        } else {
+            this.window = window;
+            this.mouse = mouse;
+            this.keyIsPressed = keyIsPressed;
+            this.scene = scene;
+            this.camera = camera;
+            this.shaderPass = shaderPass;
+            this.textures = textures;
+            this.audioManager = audioManager;
+            this.weapons = weapons;
+        }
+        
         this.enemy = null;
         this.level = 0;
         this.score = 0;
@@ -1901,14 +1974,12 @@ class Game {
         this.nextHealth = 15;
         this.nextLevel = 10000;
 
-        this.window = window;
-        this.mouse = mouse;
-        this.keyIsPressed = keyIsPressed;
-        this.scene = scene;
-        this.camera = camera;
-        this.shaderPass = shaderPass;
-        this.audioManager = audioManager;
-        this.weapons = weapons;
+        this.gestureHands = [];
+        this.gestureHandsShowing = 0;
+
+        if (this.textures) {
+            this.init(this.textures, this.weapons);
+        }
     }
 
     init(textures, weapons) {
@@ -1951,6 +2022,32 @@ class Game {
         const mapBox = this.mapBox = new Box3(new Vector3(0, -mapHeight, 0), new Vector3(mapWidth, 0, 0));
         mapBox.expandByScalar(tileSize);
 
+        this.restart();
+    }
+
+    createGestureHand() {
+        var texture = this.textures['game/images/gesturehand.png'];
+        const geometry = new PlaneGeometry(texture.image.width, texture.image.height); // Adjust size as needed
+        const material = new MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+        });
+        return new Mesh(geometry, material);
+    }
+
+    initVideoGestures(gestures) {
+        this.videoGestures = gestures;
+
+        for (let i = 1; i < this.weapons.length-1; i++) {
+            this.weapons[i].ammo = 10;
+        }
+
+        for (var i = 0; i < 6; i++) {
+            this.gestureHands.push(this.createGestureHand());
+        }
+    }
+
+    restart() {
         const clock = this.clock = new Clock();
         let accumulator = this.accumulator = 0;
 
@@ -2115,16 +2212,16 @@ class Game {
             if (!this.player.dead && isPlayerCollision(bulletPos.x, -bulletPos.y, this.player)) {
                 if (this.player.powerup != INVULNERABILITY) {
                     this.player.health -= 10;
-                    updateHealthBar(game);
+                    updateHealthBar(this);
                     this.audioManager.playEffect('hurt');
-                }
-                for (let i = 0; i < 3; i++) {
-                    new Blood(game, new Vector3(bulletPos.x, -bulletPos.y, 0), i * 2);
-                }
-                if (this.player.health <= 0) {
-                    this.player.destroy(this);
-                    this.enemy.destroy(this);
-                    this.enemy = null;
+                    for (let i = 0; i < 3; i++) {
+                        new Blood(this, new Vector3(bulletPos.x, -bulletPos.y, 0), i * 2);
+                    }
+                    if (this.player.health <= 0) {
+                        this.player.destroy(this);
+                        this.enemy.destroy(this);
+                        this.enemy = null;
+                    }
                 }
                 remove = true; 
             }
@@ -2151,6 +2248,10 @@ class Game {
     }
 
     update() {
+        if (!this.clock) {
+            return;
+        }
+
         const delta = this.clock.getDelta();
 
         this.accumulator += delta;
@@ -2234,8 +2335,16 @@ class Game {
 
         this.enemy.destroy(this);
 
-        game.enemy = new Enemy()
-        game.enemy.init(this);
+        this.enemy = new Enemy()
+        this.enemy.init(this);
+    }
+
+    destroy() {
+        this.enemy?.destroy(this);
+        this.player?.destroy(this);
+        this.scene.remove(this.world);
+        this.shaderPass.uniforms.invertEnabled.value = 0.0;
+        this.shaderPass.uniforms.tintEnabled.value = 0.0;
     }
 }
 
@@ -2310,6 +2419,7 @@ function checkBoxCollisionWithBoxes(testBox, enemy, boxes) {
 }
 
 function updateUI(game) {
+    document.getElementById("ui").style.display = 'initial';
     updateInfo(game);
     updateHealthBar(game);
     updateReloadBar(game);
@@ -2406,6 +2516,7 @@ async function loadAssets(weapons) {
         loadTexture(loader, textureMap, 'game/images/blood.png'),
         loadTexture(loader, textureMap, 'game/images/parachute.png'),
         loadTexture(loader, textureMap, 'game/images/box.png'),
+        loadTexture(loader, textureMap, 'game/images/gesturehand.png'),
     ];
     for (const weapon of weapons) {
         if (weapon.textureUrl) {
@@ -2445,16 +2556,16 @@ class HeliAttack {
         private initialized: boolean;
     
         constructor(window: Window, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, audioManager: AudioManager) {
-            this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager, this.weapons);
             this.audioManager = audioManager;
+            this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, this.textures, audioManager, this.weapons);
             this.init();
         }
 
         init() {
             // Start loading assets
-            loadAssets(this.game.weapons).then((textures) => {
-                this.game.init(textures, this.game.weapons);
-                this.initialized = true;
+            loadAssets(this.weapons).then((textures) => {
+                this.textures = textures;
+                this.game.init(textures, this.weapons);
             }).catch(error => console.error('Error loading assets:', error));
 
             this.audioManager.preload([
@@ -2470,7 +2581,7 @@ class HeliAttack {
                 { key: 'metal1', url: 'game/sounds/game/metal1.wav'},
                 { key: 'metal2', url: 'game/sounds/game/metal2.wav'},
                 { key: 'metal3', url: 'game/sounds/game/metal3.wav'},
-                { key: 'music', url: 'game/sounds/music/ror.mp3'},
+                { key: 'music', url: 'game/sounds/music/heliattack.mp3'},
                 { key: 'pistol', url: 'game/sounds/game/pistol.wav'},
                 { key: 'railgun', url: 'game/sounds/game/railgun.wav'},
                 { key: 'rocketlauncher', url: 'game/sounds/game/rocketlauncher.wav'},
@@ -2500,22 +2611,57 @@ class HeliAttack {
                 this.audioManager.playLoop('music');
                 this.audioManager.playLoop('flame', 0);
                 this.audioManager.playLoop('helicopter', 0);
-                
             });
         }
 
         initVideoGestures(videoGestures) {
-            this.game.videoGestures = videoGestures;
+            this.videoGestures = videoGestures;
+            if (this.game) {
+                this.game.initVideoGestures(videoGestures);
+                this.audioManager.preload([
+                    { key: 'ror', url: 'game/sounds/music/ror.mp3'},
+                ]).then(() => {
+                    this.audioManager.stopLoop('music');
+                    this.audioManager.playLoop('ror');
+                });
+                
+            }
         }
 
         setSize(width: number, height: number) {
-            this.game.resizeBackground();
+            this.game?.resizeBackground();
         }
 
         render() {
-            if (this.initialized) {
-                this.game.update();
+            if (this.videoGestures?.restart && this.game.player.dead) {
+                this.videoGestures.restart = false;
+                this.restart();
             }
+            this.game?.update();
+        }
+
+        restart() {
+            if (!this.textures) {
+                return;
+            }
+            
+            const oldGame = this.game;
+
+            this.destroy();
+
+            if (oldGame) {
+                this.game = new Game(oldGame);
+                this.audioManager.stopLoop('music');
+                this.audioManager.stopLoop('ror');
+                this.audioManager.playLoop('music');
+            }
+        }
+
+        destroy() {
+            const oldVolume = this.audioManager.masterVolume;
+            this.audioManager.masterVolume = 0;
+            this.game?.destroy();
+            this.audioManager.masterVolume = oldVolume;
         }
 }
 
