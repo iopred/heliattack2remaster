@@ -190,7 +190,6 @@ i.onWordDetected((word) => {
     heliattack.restart();
 });
 
-
 const history = [];
 const iopred = new WordListener("iopred");
 iopred.onWordDetected((word) => {
