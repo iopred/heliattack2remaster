@@ -144,12 +144,23 @@ function resolveAxisCollision(entity, timeScale, axis, tilemap, tileSize) {
     const endOther = Math.floor((entity.position[otherAxis] + entity.bounds.max[otherAxis]) / tileSize);
 
     for (let otherTilePos = startOther; otherTilePos <= endOther; otherTilePos++) {
-        const xTile = axis === 'x' ? tilePos : otherTilePos;
-        const yTile = axis === 'y' ? tilePos : otherTilePos;
+        let xTile = axis === 'x' ? tilePos : otherTilePos;
+        let yTile = axis === 'y' ? tilePos : otherTilePos;
 
-        if (xTile < 0 || yTile < 0 || yTile >= tilemap.length || xTile >= tilemap[yTile].length) {
-            continue;
+        // if (xTile < 0 || yTile < 0 || yTile >= tilemap.length || xTile >= tilemap[yTile].length) {
+        //     continue;
+        // }
+        if (yTile < 0) {
+            yTile = 0;
+        } else if (yTile >= tilemap.length) {
+            yTile = tileMap.length - 1;
         }
+        if (xTile < 0) {
+            xTile = 0;
+        } else if (xTile >= tilemap[yTile].length) {
+            xTile = tileMap[yTile].length - 1;
+        }
+
 
         // Check if tile is solid
         if (tilemap[yTile][xTile][0] === 1) {

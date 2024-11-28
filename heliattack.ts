@@ -1972,7 +1972,7 @@ class Game {
         this.score = 0;
         this.helisDestroyed = 0;
         this.nextHealth = 15;
-        this.nextLevel = 10000;
+        this.nextLevel = 10;
 
         this.gestureHands = [];
         this.gestureHandsShowing = 0;
@@ -2038,13 +2038,14 @@ class Game {
     initVideoGestures(gestures) {
         this.videoGestures = gestures;
 
-        for (let i = 1; i < this.weapons.length-1; i++) {
-            this.weapons[i].ammo = 10;
-        }
-
         for (var i = 0; i < 6; i++) {
             this.gestureHands.push(this.createGestureHand());
         }
+
+        if (this.level == 0) {
+            this.pred();
+            this.level++;
+        }        
     }
 
     restart() {
@@ -2277,59 +2278,47 @@ class Game {
     }
 
     heliDestroyed() {
-        this.score += 300;
-        if (this.score > this.nextLevel) {
-            this.level++;
-            this.nextLevel *= 2;
-        }        
+        this.score += 300;     
         
         this.player.bulletTime = Math.min(MAX_BULLET_TIME, this.player.bulletTime + MAX_BULLET_TIME / 3);
+
+        let randomAmmo = false;
 
         this.helisDestroyed++;
         if (this.helisDestroyed == this.nextHealth) {
             new Box(this, this.enemy.position, this.weapons.length+1);
             this.nextHealth *= 2;
-        } else if ((this.helisDestroyed % 3) == 0) {
+        } else if ((this.helisDestroyed % 3) == 0 || this.helisDestroyed == 1) {
             // Account for shoulder cannon box and machinegun.
             let type = 1 + Math.floor(Math.random() * (this.weapons.length - 1));
             if (type == this.weapons.length - 1) {
                 type++;
             }
             new Box(this, this.enemy.position, type);
+        } else {
+            randomAmmo = true;
         }
 
-        if (this.player.position.y < this.enemy.position.y || (this.player.powerup == JETPACK && this.player.inAir) || this.player.hyperJumping) {
-            const weapon = 1 + Math.floor(Math.random() * 8);
-            let ammo = 1;
-            switch (weapon) {
-                case 1:
-                    ammo = 10;
-                    break;
-                case 2:
-                    ammo = 3;
-                    break;
-                case 3:
-                    ammo = 3;
-                    break;
-                case 4:
-                    ammo = 2
-                    break;
-                case 5:
-                    ammo = 2;
-                    break;
-                case 6:
-                    ammo = 2;
-                    break;
-                case 7:
-                    ammo = 1;
-                    break;
-                case 8:
-                    ammo = 30;
-                    break;
-                case 9:
-                    ammo = 1;
-                    break
+        if (this.helisDestroyed >= this.nextLevel) {
+            
+            if (this.player.health == 100 && this.level == 0) {
+                this.pred();
             }
+            this.level++;
+            this.nextLevel += 10;
+        }
+        
+        if (this.player.hyperJumping) {
+            new Box(this, this.enemy.position, this.weapons.length);
+        }
+
+        const weapon = 1 + Math.floor(Math.random() * 8);
+        let ammo = this.ammoForRandomWeapon(weapon);
+        if (this.player.position.y < this.enemy.position.y || (this.player.powerup == JETPACK && this.player.inAir) || this.player.hyperJumping) {
+            ammo *= 2;
+            randomAmmo = true;
+        }
+        if (randomAmmo) {
             this.weapons[weapon].ammo += ammo;
         }
 
@@ -2337,6 +2326,46 @@ class Game {
 
         this.enemy = new Enemy()
         this.enemy.init(this);
+    }
+
+    ammoForRandomWeapon(weapon) {
+        let ammo = 1;
+        switch (weapon) {
+            case 1:
+                ammo = 10;
+                break;
+            case 2:
+                ammo = 3;
+                break;
+            case 3:
+                ammo = 3;
+                break;
+            case 4:
+                ammo = 2
+                break;
+            case 5:
+                ammo = 2;
+                break;
+            case 6:
+                ammo = 2;
+                break;
+            case 7:
+                ammo = 1;
+                break;
+            case 8:
+                ammo = 30;
+                break;
+            case 9:
+                ammo = 1;
+                break
+        }
+        return ammo;
+    }
+
+    pred() {
+        for (let i = 1; i < this.weapons.length-1; i++) {
+            this.weapons[i].ammo = this.ammoForRandomWeapon(i) * 3;
+        }
     }
 
     destroy() {
@@ -2352,13 +2381,17 @@ function isTileCollision(x, y, tilemap, tileSize) {
     x = Math.floor(x/tileSize);
     y = Math.floor(y/tileSize);
 
-    if (x < 0 || y < 0) {
-        return true;
+    if (y < 0) {
+        y = 0;
+    } else if (y >= tilemap.length) {
+        y = tilemap.length - 1;
+    }
+    if (x < 0) {
+        x = 0;
+    } else if (x >= tilemap[y].length) {
+        x = tilemap[y].length - 1;
     }
 
-    if (y >= tilemap.length || x >= tilemap[y].length) {
-        return true;
-    }
 
     return tilemap[y][x][0] == 1;
 }
@@ -2554,6 +2587,8 @@ class HeliAttack {
         private game: Game;
         private audioManager: AudioManager;
         private initialized: boolean;
+        private audioPreloaded = false;
+        private loadedFunc = null;
     
         constructor(window: Window, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, audioManager: AudioManager) {
             this.audioManager = audioManager;
@@ -2561,11 +2596,17 @@ class HeliAttack {
             this.init();
         }
 
-        init() {
+        ready() {
+            return this.textures && this.audioPreloaded;
+        }
+
+        init(loadedFunc) {
+            this.loadedFunc = loadedFunc;
+
             // Start loading assets
             loadAssets(this.weapons).then((textures) => {
                 this.textures = textures;
-                this.game.init(textures, this.weapons);
+                this.start();
             }).catch(error => console.error('Error loading assets:', error));
 
             this.audioManager.preload([
@@ -2611,7 +2652,18 @@ class HeliAttack {
                 this.audioManager.playLoop('music');
                 this.audioManager.playLoop('flame', 0);
                 this.audioManager.playLoop('helicopter', 0);
+                this.audioPreloaded = true;
+                this.start();
             });
+        }
+
+        start() {
+            if (this.ready()) {
+                this.game.init(this.textures, this.weapons);
+                if (this.loadedFunc) {
+                    this.loadedFunc();
+                }
+            }
         }
 
         initVideoGestures(videoGestures) {

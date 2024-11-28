@@ -131,7 +131,7 @@ function onDocumentMouseMove(event) {
 }
 
 function onMouseDown(event){
-    output();
+    init();
     manageRaycasterIntersections(scene, camera, mouse);
     mouse.down = true;
 }
@@ -191,7 +191,7 @@ i.onWordDetected((word) => {
 });
 
 
-
+const history = [];
 const iopred = new WordListener("iopred");
 iopred.onWordDetected((word) => {
     if (!videoGestures) {
@@ -201,6 +201,7 @@ iopred.onWordDetected((word) => {
     if (heliattack) {
         heliattack.initVideoGestures(videoGestures);
     }
+    history.splice(0, history.length);
     document.getElementById('error-container').style.display = 'initial';
 });
 
@@ -222,7 +223,6 @@ document.addEventListener('mousedown', onMouseDown, false);
 document.addEventListener('mouseup', onMouseUp, false);
 window.addEventListener('wheel', onMouseWheel, false);
 
-const history = [];
 window.addEventListener('keydown', (e) => {
     keyIsPressed[e.key] = true;
     history.push(e.key);
@@ -244,14 +244,22 @@ if (WebGL.isWebGL2Available()) {
 }
 
 const audioManager = new AudioManager();
-
-function output() {
+let initialized = false;
+function init() {
+    if (initialized) {
+        return;
+    }
+    initialized = true;
     audioManager.init();
     audioManager.masterVolume = 0.2;
 
-    if (!heliattack) {
-        createHeliAttack();
-    }
+    setMessage("Loading...");
+
+    createHeliAttack();
+}
+
+function loaded() {
+    setMessage("");
 }
 
 function createHeliAttack() {
@@ -259,8 +267,20 @@ function createHeliAttack() {
         heliattack.destroy();
     }
     heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager);
-    heliattack.init();
+    heliattack.init(loaded);
     if (videoGestures) {
         heliattack.initVideoGestures(videoGestures);
     }
+}
+
+setMessage('Tap to continue');
+
+function setMessage(text) {
+    const message = document.getElementById("message");
+    if (text) {
+        message.style.display = 'inherit';
+    } else {
+        message.style.display = 'none';
+    }
+    message.innerHTML = text;
 }
