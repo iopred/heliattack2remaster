@@ -26,6 +26,7 @@ class Enemy {
         this.nextXReposition = Number.POSITIVE_INFINITY;
         this.nextYReposition = Number.POSITIVE_INFINITY;
 
+        this.shooting = false;
         this.shoot = 0;
 
         this.health = 300;
@@ -296,7 +297,7 @@ class Enemy {
             this.enemyWeapon.rotation.z = this.aim;
         }
 
-        if ((this.shoot++%Math.max(20,32-game.level*2)) == 1) {
+        if (this.shooting && (this.shoot++%Math.max(20,32-game.level*2)) == 1) {
             this.createBullet(game);
         }
     }
@@ -898,6 +899,7 @@ const INVULNERABILITY = 2;
 const PREDATOR_MODE = 3;
 const TIME_RIFT = 4;
 const JETPACK = 5;
+const MINI_PREDATOR_MODE = 6;
 
 const POWERUP_TIME = 1000;
 const MAX_BULLET_TIME = 120;
@@ -949,6 +951,8 @@ class Player {
         this.powerupTime = 0;
 
         this.weapons = weapons;
+
+        this.shooting = false;
     }
 
     init(game) {
@@ -1071,7 +1075,8 @@ class Player {
                 this.velocity.y = 2;
                 if (map1[Math.floor((this.position.y + 6 * game.tileSize) / game.tileSize)][Math.floor(this.position.x / game.tileSize)][0] == 1) {
                     this.parachute.opened = false;
-                    game.enemy = new Enemy()
+                    game.enemy = new Enemy();
+                    game.enemy.shooting = true;
                     game.enemy.init(game);
                 }
             }
@@ -1119,7 +1124,7 @@ class Player {
 
                 if (this.hyperJump < HYPERJUMP_RECHARGE){
                     this.hyperJump++;
-                } else if (game.keyIsPressed['Control'] && this.canJump) {
+                } else if (game.keyIsPressed['Space'] && this.canJump) {
                     this.velocity.y = Math.min(this.velocity.y, -25);
                     this.inAir = true;
                     this.canJump = false;
@@ -1127,6 +1132,7 @@ class Player {
                     this.hyperJump = 0;
                     this.hyperJumping = true;
                     game.audioManager.playEffect('hyperjump');
+                    game.pred();
                 }
 
                 if (game.keyIsPressed['ArrowUp']) { 
@@ -1276,12 +1282,15 @@ class Player {
             const weapon = game.weapons[this.weapon];
             weapon.reloading++;
             let firing = game.mouse.down;
+            if (firing) {
+                this.shooting = false;
+            }
             let forced = false;
             if (game.videoGestures?.gestureHands.length) {
                 forced = game.videoGestures.firing;
                 firing = game.videoGestures.firing && !firing;
             }
-            if (firing) {
+            if (this.shooting || firing) {
                 if (weapon.reloading >= weapon.reloadTime) {
                     weapon.createBullet(game);
                     if (!weapon.free) {
@@ -1297,6 +1306,7 @@ class Player {
             if (this.powerup != POWERUP_NONE) {
                 this.powerupTime--;
                 if (this.powerupTime <= 0) {
+                    this.powerupTime = 0;
                     this.endPowerup(game);
                 }
                 if (this.powerup == PREDATOR_MODE) {
@@ -1345,7 +1355,7 @@ class Player {
             this.setTint(true, new Color(1, 0, 0));
             game.audioManager.playEffect('announcerInvulnerability');
             powerupText.innerHTML = 'Invulnerability';
-        }else if(type == PREDATOR_MODE){
+        }else if(type == PREDATOR_MODE || type == MINI_PREDATOR_MODE){
             game.shaderPass.uniforms.invertEnabled.value = 1.0;
 
             this.previousWeapon = this.weapon;
@@ -1353,8 +1363,13 @@ class Player {
             shoulderCannon.ammo = Number.POSITIVE_INFINITY;
             shoulderCannon.reloading = Number.POSITIVE_INFINITY;
             this.selectWeapon(game.weapons.length-1);
-            game.audioManager.playEffect('announcerPredatormode');
-            powerupText.innerHTML = 'Predator Mode';
+
+            if(type == PREDATOR_MODE) {
+                game.audioManager.playEffect('announcerPredatormode');
+                powerupText.innerHTML = 'Predator Mode';
+            } else {
+                this.powerupTime /= 2;
+            }
         }else if(type == TIME_RIFT){
             this.setTint(true, new Color(0, 1, 0));
             game.audioManager.playEffect('announcerTimerift');
@@ -1384,6 +1399,10 @@ class Player {
         game.world.remove(this.group);
         new DestroyedEnemy(game, this, true);
         new Explosion(game, this.position.clone(), 500);
+    }
+
+    shooting() {
+        this.shooting = true;
     }
 }
 
@@ -1950,9 +1969,9 @@ function grappleUpdate(game, delta) {
 const zero = new Vector3();
 
 class Game {
-    constructor(windowOrGame: Window|Game, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, textures, audioManager: AudioManager, weapons:Weapon[]) {
+    constructor(windowOrGame: Window|Game, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, textures, audioManager: AudioManager, weapons:Weapon[], overSetter) {
         if (windowOrGame instanceof Game) {
-            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures']) {
+            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter']) {
                 this[key] = windowOrGame[key];
             }
         } else {
@@ -1965,6 +1984,7 @@ class Game {
             this.textures = textures;
             this.audioManager = audioManager;
             this.weapons = weapons;
+            this.overSetter = overSetter;
         }
         
         this.enemy = null;
@@ -2021,8 +2041,6 @@ class Game {
         
         const mapBox = this.mapBox = new Box3(new Vector3(0, -mapHeight, 0), new Vector3(mapWidth, 0, 0));
         mapBox.expandByScalar(tileSize);
-
-        this.restart();
     }
 
     createGestureHand() {
@@ -2064,6 +2082,8 @@ class Game {
         this.updateCameraPosition(Number.POSITIVE_INFINITY);
 
         this.audioManager.playEffect('bigboom');
+
+        this.overSetter(false);
     }
 
     resizeBackground() {
@@ -2220,6 +2240,9 @@ class Game {
                     }
                     if (this.player.health <= 0) {
                         this.player.destroy(this);
+
+                        this.overSetter(true);
+
                         this.enemy.destroy(this);
                         this.enemy = null;
                     }
@@ -2301,7 +2324,7 @@ class Game {
 
         if (this.helisDestroyed >= this.nextLevel) {
             
-            if (this.player.health == 100 && this.level == 0) {
+            if (this.player.health == 100) {
                 this.pred();
             }
             this.level++;
@@ -2326,6 +2349,7 @@ class Game {
 
         this.enemy = new Enemy()
         this.enemy.init(this);
+        this.enemy.shooting = true;
     }
 
     ammoForRandomWeapon(weapon) {
@@ -2363,9 +2387,14 @@ class Game {
     }
 
     pred() {
-        for (let i = 1; i < this.weapons.length-1; i++) {
-            this.weapons[i].ammo = this.ammoForRandomWeapon(i) * 3;
+        if (player.health == 100) {
+            for (let i = 1; i < this.weapons.length-1; i++) {
+                this.weapons[i].ammo = this.ammoForRandomWeapon(i) * 3;
+            }
+            this.level++;
         }
+        
+        this.player.collectPowerup(MINI_PREDATOR_MODE, this);
     }
 
     destroy() {
@@ -2374,6 +2403,10 @@ class Game {
         this.scene.remove(this.world);
         this.shaderPass.uniforms.invertEnabled.value = 0.0;
         this.shaderPass.uniforms.tintEnabled.value = 0.0;
+    }
+
+    shooting() {
+        this.player?.shooting();
     }
 }
 
@@ -2584,15 +2617,18 @@ class HeliAttack {
             new Weapon("Grapple Cannon", 'game/images/weapons/grapplecannon.png', 'announcerGrapplecannon', 'grapple', new Vector2(18, 23), new Vector2(33, -11), 250, 20, 300, 2, 'game/images/grapplebullet.png').setUpdate(grappleUpdate),
             new Weapon("Shoulder Cannon", null, null, 'railgun', new Vector2(0, 0), new Vector2(16, 0), 100, 20, 300, 0, 'game/images/shouldercannon.png').setUpdate(railUpdate),
         ];
-        private game: Game;
         private audioManager: AudioManager;
+        private settings: Object;
+        private game: Game;
         private initialized: boolean;
         private audioPreloaded = false;
         private loadedFunc = null;
+        private startedFunc = null;
     
-        constructor(window: Window, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, audioManager: AudioManager) {
+        constructor(window: Window, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, audioManager: AudioManager, settings:Object) {
             this.audioManager = audioManager;
-            this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, this.textures, audioManager, this.weapons);
+            this.settings = settings;
+            this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = true; });
             this.init();
         }
 
@@ -2600,13 +2636,14 @@ class HeliAttack {
             return this.textures && this.audioPreloaded;
         }
 
-        init(loadedFunc) {
+        init(loadedFunc, startedFunc) {
             this.loadedFunc = loadedFunc;
+            this.startedFunc = startedFunc;
 
             // Start loading assets
             loadAssets(this.weapons).then((textures) => {
                 this.textures = textures;
-                this.start();
+                this.isLoaded();
             }).catch(error => console.error('Error loading assets:', error));
 
             this.audioManager.preload([
@@ -2622,6 +2659,7 @@ class HeliAttack {
                 { key: 'metal1', url: 'game/sounds/game/metal1.wav'},
                 { key: 'metal2', url: 'game/sounds/game/metal2.wav'},
                 { key: 'metal3', url: 'game/sounds/game/metal3.wav'},
+                { key: 'menu', url: 'game/sounds/game/music.wav'},
                 { key: 'music', url: 'game/sounds/music/heliattack.mp3'},
                 { key: 'pistol', url: 'game/sounds/game/pistol.wav'},
                 { key: 'railgun', url: 'game/sounds/game/railgun.wav'},
@@ -2649,19 +2687,40 @@ class HeliAttack {
                 { key: 'announcerTimerift', url: 'game/sounds/announcer/timerift.wav'},
                 { key: 'announcerTridamage', url: 'game/sounds/announcer/tridamage.wav'},
             ]).then(() => {
-                this.audioManager.playLoop('music');
+                this.audioManager.playLoop('menu', 0.8);
                 this.audioManager.playLoop('flame', 0);
                 this.audioManager.playLoop('helicopter', 0);
                 this.audioPreloaded = true;
-                this.start();
+                this.isLoaded();
             });
         }
 
-        start() {
-            if (this.ready()) {
-                this.game.init(this.textures, this.weapons);
+        isLoaded() {
+            const ready = this.ready()
+            if (ready) {
+                if (!this.initialized) {
+                    this.game.init(this.textures, this.weapons);
+                }
                 if (this.loadedFunc) {
                     this.loadedFunc();
+                }
+            }
+            return ready;
+        }
+
+        start() {
+            if (this.isLoaded()) {
+                if (!this.initialized) {
+                    this.initialized = true;
+                    this.game.init(this.textures, this.weapons);
+                } else {
+                    this.restart();
+                }
+                this.audioManager.stopLoop('menu');
+                this.audioManager.playLoop('music', 0.8);
+                this.game.restart();
+                if (this.startedFunc) {
+                    this.startedFunc();
                 }
             }
         }
@@ -2674,7 +2733,7 @@ class HeliAttack {
                     { key: 'ror', url: 'game/sounds/music/ror.mp3'},
                 ]).then(() => {
                     this.audioManager.stopLoop('music');
-                    this.audioManager.playLoop('ror');
+                    this.audioManager.playLoop('ror', 0.9);
                 });
                 
             }
@@ -2703,9 +2762,8 @@ class HeliAttack {
 
             if (oldGame) {
                 this.game = new Game(oldGame);
-                this.audioManager.stopLoop('music');
-                this.audioManager.stopLoop('ror');
-                this.audioManager.playLoop('music');
+                this.initialized = true;
+                this.audioManager.playLoop('music', 0.8);
             }
         }
 
@@ -2714,6 +2772,16 @@ class HeliAttack {
             this.audioManager.masterVolume = 0;
             this.game?.destroy();
             this.audioManager.masterVolume = oldVolume;
+        }
+
+        playSong(song) {
+            this.game?.pred();
+            this.audioManager.crossFadeLoop('music', 'ror', 0.9)
+        }
+
+        set shooting(value) {
+            this.shooting = value;
+            this.game.shooting();
         }
 }
 

@@ -168,41 +168,118 @@ function getAvatar() {
     const kit = new Kit();
     kit.pulse()
     // WARNING: For POST requests, body is set to null by browsers.
-    var data = "{\r\n    \"launcherJwt\": {{JWT}}\r\n}";
+    var data = '{\r\n    \"launcherJwt\": {{JWT}}\r\n}';
 
     var xhr = new XMLHttpRequest();
     xhr.withCredentials = true;
 
-    xhr.addEventListener("readystatechange", function() {
+    xhr.addEventListener('readystatechange', function() {
     if(this.readyState === 4) {
         console.log(this.responseText);
     }
     });
 
-    xhr.open("POST", "https://api.basement.fun/launcher/");
-    xhr.setRequestHeader("X-Service-Method", "channelStatus");
+    xhr.open('POST', 'https://api.basement.fun/launcher/');
+    xhr.setRequestHeader('X-Service-Method', 'channelStatus');
 
     xhr.send(data);
 }
 
-const i = new WordListener("k");
-i.onWordDetected((word) => {
+const k = new WordListener('k');
+k.onWordDetected((word) => {
     heliattack.restart();
+    heliattack.start();
+    setVisible(menu, false);
 });
 
+let showErrors = false;
 const history = [];
-const iopred = new WordListener("iopred");
-iopred.onWordDetected((word) => {
+const i = new WordListener('i');
+i.onWordDetected((word) => {
+    history.splice(0, history.length);
+
+    showErrors = !showErrors;
+    
+    setVisible(document.getElementById('error-container'), showErrors);
+
+    showCheat("errors");
+});
+
+let showWebcam = false;
+const o = new WordListener('io');
+o.onWordDetected((word) => {
+    history.splice(0, history.length);
+    showWebcam = !showWebcam;
+    
+    setVisible(document.getElementById('webcam'), showWebcam);
+
+    showCheat("webcam");
+
+    console.error('show video for next bar');
+});
+
+
+const io = new WordListener('io');
+io.onWordDetected((word) => {
+    history.splice(0, history.length);
+
     if (!videoGestures) {
         videoGestures = new VideoGestures(window, document);
         videoGestures.resize(window.innerWidth, window.innerHeight);
     }
-    if (heliattack) {
+    if (heliattack.isLoaded()) {
         heliattack.initVideoGestures(videoGestures);
     }
-    history.splice(0, history.length);
-    document.getElementById('error-container').style.display = 'initial';
+    
+    heliattack.shooting = true;
+
+    showCheat("gestures");
 });
+
+const playing = false;
+const h = new WordListener('h');
+h.onWordDetected((word) => {
+    history.splice(0, history.length);
+    this.createHeliAttack();
+    playing = !playing
+    setVisible(document.getElementById('error-container'), showErrors);
+
+    showCheat("heli attack")
+});
+
+const a = new WordListener('a');
+a.onWordDetected((word) => {
+    history.splice(0, history.length);
+    playing = !playing
+    heliattack.restart();
+    heliattack.start();
+    console.error("could not load heli attack 1 assets.")
+    setVisible(document.getElementById('error-container'), showErrors);
+
+    showCheat("assets")
+});
+
+const ror = new WordListener('ror');
+ror.onWordDetected((word) => {
+    playing = true;
+    if (heliattack) {
+        heliattack.playSong('ror');
+    }
+
+    showCheat("remnants of rebellion");
+});
+
+const pred = new WordListener('pred');
+pred.onWordDetected((word) => {
+    heliattack.pred();
+    history.splice(0, history.length);
+
+    showCheat("gl hf dd")
+});
+
+function showCheat(text) {
+
+}
 
 // Key handling
 const keyIsPressed = {
@@ -225,8 +302,15 @@ window.addEventListener('wheel', onMouseWheel, false);
 window.addEventListener('keydown', (e) => {
     keyIsPressed[e.key] = true;
     history.push(e.key);
-    i.listen(e.key);
-    iopred.listen(history.join(""));
+    if (e.key.length == 1) {
+        k.listen(e.key);
+        i.listen(e.key);
+        o.listen(e.key);
+        h.listen(e.key);
+        a.listen(e.key);
+    }
+    ror.listen(history.join(''));
+    pred.listen(history.join(''));
 });
 window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });
 window.addEventListener('blur', () => {
@@ -244,6 +328,12 @@ if (WebGL.isWebGL2Available()) {
 
 const audioManager = new AudioManager();
 let initialized = false;
+
+const menu = document.getElementById('menu');
+const mainMenu = document.getElementById('main-menu');
+
+setVisible(menu, true);
+
 function init() {
     if (initialized) {
         return;
@@ -251,35 +341,93 @@ function init() {
     initialized = true;
     audioManager.init();
     audioManager.masterVolume = 0.2;
+    
+    setVisible(menu, true);
 
-    setMessage("Loading...");
+    setMessage('Loading...');
 
+    createMainMenu();
     createHeliAttack();
+
+    setMenuVisible(true);
 }
 
 function loaded() {
-    setMessage("");
+    setMessage('');
+
+    setVisible(mainMenu, true);
+}
+
+function started() {
+    setMessage('');
+
+    setMenuVisible(false);
+    setVisible(mainMenu, false);
+}
+
+function setMenuVisible(value) {
+    setVisible(menu, value);
+}
+
+function createMainMenu() {
+    const startButton = document.getElementById('start-game');
+
+    startButton.onclick = () => {
+        if (heliattack.isLoaded()) {
+            heliattack.start();
+        }
+    }
+
+    if (playing) {
+        if (heliattack.isLoaded()) {
+            heliattack.start();
+        }
+    }
 }
 
 function createHeliAttack() {
     if (heliattack) {
         heliattack.destroy();
     }
-    heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager);
-    heliattack.init(loaded);
+    const settings = {
+        set menu(value) {
+            setVisible(menu, value);
+        },
+        set over(value) {
+            setVisible(menu, !value);
+            setVisible(mainMenu, value);
+        },
+        set playing(value) {
+            heliattack.playing = value;
+            if (this.startedFunc) {
+                this.startedFunc();
+            }
+        }
+    }
+
+    heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager, settings);
+    heliattack.init(loaded, started);
     if (videoGestures) {
         heliattack.initVideoGestures(videoGestures);
+    }
+
+    setVisible(menu, false);
+}
+
+function setVisible(element, visible) {
+    if (visible) {
+        element.style.display = 'inherit';
+    } else {
+        element.style.display = 'none';
     }
 }
 
 setMessage('Tap to continue');
 
+setVisible(menu, true);
+
 function setMessage(text) {
-    const message = document.getElementById("message");
-    if (text) {
-        message.style.display = 'inherit';
-    } else {
-        message.style.display = 'none';
-    }
+    const message = document.getElementById('message');
+    setVisible(message, text);
     message.innerHTML = text;
 }

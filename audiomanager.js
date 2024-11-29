@@ -6,6 +6,7 @@ class AudioManager {
         this.toPreload = [];
         this.preloadPromise = null; // Stores the promise for the preload process
         this.masterVolume = 1.0;
+        this.looping = null;
     }
 
     /**
@@ -118,11 +119,70 @@ class AudioManager {
     }
 
     /**
+     * Crossfades to a new looping audio track.
+     * @param {string} currentKey - The key of the current audio file (to fade out).
+     * @param {string} newKey - The key of the new audio file (to fade in and retain position).
+     * @param {number} [volume=1.0] - Volume for the new track (0.0 to 1.0).
+     * @param {number} [fadeDuration=1.0] - Duration of the crossfade in seconds.
+     */
+    crossFadeLoop(currentKey, newKey, volume = 1.0, fadeDuration = 1.0) {
+        if (!this.looping) {
+            this.playLoop(newKey, volume);
+        }
+        if (!this.audioCache.has(newKey)) {
+            console.warn(`Audio key "${newKey}" not found in cache.`);
+            return;
+        }
+
+        const now = this.context.currentTime;
+
+        // Fade out the current track
+        if (this.gainNodes.has(currentKey)) {
+            const { source: currentSource, gainNode: currentGain } = this.gainNodes.get(currentKey);
+            currentGain.gain.setValueAtTime(currentGain.gain.value, now);
+            currentGain.gain.linearRampToValueAtTime(0, now + fadeDuration);
+
+            // Stop the old source after fading out
+            currentSource.stop(now + fadeDuration);
+
+            this.gainNodes.delete(currentKey);
+        }
+
+        // Start the new track, aligned with its playback position
+        const newBuffer = this.audioCache.get(newKey);
+        const newSource = this.context.createBufferSource();
+        newSource.buffer = newBuffer;
+        newSource.loop = true;
+
+        const newGain = this.context.createGain();
+        newGain.gain.value = 0; // Start at 0 for fade-in
+        newGain.gain.setValueAtTime(0, now);
+        newGain.gain.linearRampToValueAtTime(volume * this.masterVolume, now + fadeDuration);
+
+        // Align playback position of new loop
+        const newPosition = now % newBuffer.duration; // Calculate playback position
+        newSource.start(now, newPosition);
+
+        // Connect the new source
+        newSource.connect(newGain).connect(this.context.destination);
+
+        // Save the new source and gainNode
+        this.gainNodes.set(newKey, { source: newSource, gainNode: newGain });
+    }
+
+    /**
      * Starts looping audio (e.g., background music).
-     * @param {string} key - The key of the audio file to play.
+     * @param {string?} key - The key of the audio file to play.
      * @param {number} [volume=1.0] - Volume (0.0 to 1.0).
      */
     playLoop(key, volume = 1.0) {
+        if (!key) {
+            return;
+        }
+        if (this.looping) {
+            this.stopLoop(this.looping);
+        }
+        this.looping = key
         if (!this.audioCache.has(key)) {
             return;
         }
@@ -150,6 +210,9 @@ class AudioManager {
      * @param {string} key - The key of the looping audio to stop.
      */
     stopLoop(key) {
+        if (!key && this.looping) {
+            this.stopLoop(this.looping);
+        }
         if (!this.gainNodes.has(key)) {
             return;
         }
@@ -165,6 +228,9 @@ class AudioManager {
      * @param {number} volume - Volume (0.0 to 1.0).
      */
     setLoopVolume(key, volume) {
+        if (!key && this.looping) {
+            return this.setLoopVolume(this.looping, volume);
+        }
         if (!this.gainNodes.has(key)) {
             return;
         }
