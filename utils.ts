@@ -25,6 +25,8 @@ function calculateAngleToMouse(camera, object, mouse) {
 }
 
 function manageRaycasterIntersections(scene, camera, vector) {
+    return;
+    
     camera.updateMatrixWorld();
     raycaster.setFromCamera(vector, camera);
     var intersects = raycaster.intersectObjects(scene.children);

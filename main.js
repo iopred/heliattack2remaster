@@ -149,7 +149,7 @@ function onMouseWheel(event){
     }
 };
 
-const ENABLE_DEBUGGER = true;
+const ENABLE_DEBUGGER = false;
 function debug() {
     if (ENABLE_DEBUGGER) {
         debugger;
@@ -189,7 +189,7 @@ const k = new WordListener('k');
 k.onWordDetected((word) => {
     heliattack.restart();
     heliattack.start();
-    setVisible(menu, false);
+    setMenuVisible(false);
 });
 
 let showErrors = false;
@@ -206,9 +206,10 @@ i.onWordDetected((word) => {
 });
 
 let showWebcam = false;
-const o = new WordListener('io');
+const o = new WordListener('o');
 o.onWordDetected((word) => {
     history.splice(0, history.length);
+
     showWebcam = !showWebcam;
     
     setVisible(document.getElementById('webcam'), showWebcam);
@@ -233,34 +234,25 @@ io.onWordDetected((word) => {
     
     heliattack.shooting = true;
 
-    showCheat("gestures");
+    showCheat("enable gestures");
 });
 
-const playing = false;
-const h = new WordListener('h');
-h.onWordDetected((word) => {
+const retro = new WordListener('retro');
+retro.onWordDetected((word) => {
     history.splice(0, history.length);
-    this.createHeliAttack();
-    playing = !playing
-    setVisible(document.getElementById('error-container'), showErrors);
-
-    showCheat("heli attack")
-});
-
-const a = new WordListener('a');
-a.onWordDetected((word) => {
-    history.splice(0, history.length);
-    playing = !playing
+    
     heliattack.restart();
     heliattack.start();
     console.error("could not load heli attack 1 assets.")
     setVisible(document.getElementById('error-container'), showErrors);
 
-    showCheat("assets")
+    showCheat("retro assets")
 });
 
 const ror = new WordListener('ror');
 ror.onWordDetected((word) => {
+    history.splice(0, history.length);
+
     playing = true;
     if (heliattack) {
         heliattack.playSong('ror');
@@ -271,8 +263,9 @@ ror.onWordDetected((word) => {
 
 const pred = new WordListener('pred');
 pred.onWordDetected((word) => {
-    heliattack.pred();
     history.splice(0, history.length);
+
+    heliattack.pred();
 
     showCheat("gl hf dd")
 });
@@ -280,6 +273,8 @@ pred.onWordDetected((word) => {
 function showCheat(text) {
 
 }
+
+let playing = true;
 
 // Key handling
 const keyIsPressed = {
@@ -289,6 +284,7 @@ const keyIsPressed = {
     'ArrowDown': false,
     'Control': false,
     'Shift': false,
+    'Space': false,
 };
 
 window.addEventListener('resize', onWindowResize);
@@ -306,11 +302,10 @@ window.addEventListener('keydown', (e) => {
         k.listen(e.key);
         i.listen(e.key);
         o.listen(e.key);
-        h.listen(e.key);
-        a.listen(e.key);
     }
     ror.listen(history.join(''));
     pred.listen(history.join(''));
+    retro.listen(history.join(''));
 });
 window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });
 window.addEventListener('blur', () => {
@@ -327,6 +322,7 @@ if (WebGL.isWebGL2Available()) {
 }
 
 const audioManager = new AudioManager();
+
 let initialized = false;
 
 const menu = document.getElementById('menu');
@@ -350,6 +346,16 @@ function init() {
     createHeliAttack();
 
     setMenuVisible(true);
+
+    scc();
+}
+
+function scc() {
+    audioManager.preload([
+        { key: 'scc', url: 'sounds/scc.mp3'},
+    ]).then(() => {
+        audioManager.playEffect('scc');
+    });
 }
 
 function loaded() {
@@ -379,7 +385,7 @@ function createMainMenu() {
     }
 
     if (playing) {
-        if (heliattack.isLoaded()) {
+        if (heliattack && heliattack.isLoaded()) {
             heliattack.start();
         }
     }
@@ -391,10 +397,10 @@ function createHeliAttack() {
     }
     const settings = {
         set menu(value) {
-            setVisible(menu, value);
+            setMenuVisible(value);
         },
         set over(value) {
-            setVisible(menu, !value);
+            setMenuVisible(value);
             setVisible(mainMenu, value);
         },
         set playing(value) {
@@ -410,24 +416,21 @@ function createHeliAttack() {
     if (videoGestures) {
         heliattack.initVideoGestures(videoGestures);
     }
-
-    setVisible(menu, false);
 }
 
 function setVisible(element, visible) {
-    if (visible) {
-        element.style.display = 'inherit';
-    } else {
-        element.style.display = 'none';
-    }
+    element.hidden = !visible;
 }
 
 setMessage('Tap to continue');
-
-setVisible(menu, true);
 
 function setMessage(text) {
     const message = document.getElementById('message');
     setVisible(message, text);
     message.innerHTML = text;
 }
+
+let utterance = new SpeechSynthesisUtterance("kit");
+speechSynthesis.speak(utterance);
+
+setMenuVisible(true);
