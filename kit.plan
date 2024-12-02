@@ -1,0 +1,15 @@
+Convert to Progressive Web App (application, install on mobile): https://vite-pwa-org.netlify.app/guide/
+
+Disable Sound & Music menu
+Pause Menu
+Die screen needs highscores
+Design highscores
+
+Add Asset switching (a)
+
+Add Rhythm Game (Kit) - Timeline now controls timed events including enabling powerups (TODO enable powerups).
+
+
+GetCurrentTime vs GetCurrentPosition in timeline.ts & heliattack.ts.
+
+Bullet Surfing

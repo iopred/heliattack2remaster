@@ -4,6 +4,7 @@ import Weapon from './weapon.ts';
 import { Box3, BufferGeometry, Clock, Color, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, TextureLoader, Vector2, Vector3, Camera } from 'three';
 import { calculateAngleToMouse, checkTileCollisions, createTintShader, loadTexture, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth } from './utils';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import Timeline from './timeline.ts';
 import VideoGestures from './videogestures.ts';
 
 const UP_KEY = 'KeyboardKeyUp';
@@ -909,6 +910,8 @@ const POWERUP_TIME = 1000;
 const MAX_BULLET_TIME = 120;
 const HYPERJUMP_RECHARGE = 300;
 
+const IS_EDITOR = true;
+
 const walkAnimation = [0, 1, 0, 2];
 
 class Player {
@@ -957,6 +960,7 @@ class Player {
         this.weapons = weapons;
 
         this.shooting = false;
+        this.isEditor = IS_EDITOR;
     }
 
     init(game) {
@@ -1098,7 +1102,7 @@ class Player {
                 } else {
                     game.timeScale = Math.min(1, game.timeScale + 0.1);
                 }
-
+                game.audioManager.timeScale = game.timeScale;
                 if (game.keyIsPressed[DOWN_KEY]) {
                     if (!this.crouch) {
                         this.crouch = true;
@@ -1223,7 +1227,7 @@ class Player {
             this.velocity.y = 0;
 
         }
-        
+
         this.aim = calculateAngleToMouse(game.camera, this.weaponObject, game.mouse);
 
         if (game.videoGestures) {
@@ -1307,7 +1311,8 @@ class Player {
                     }
                     weapon.reloading = 0;
                     if (weapon.ammo <= 0) {
-                        this.selectWeaponDirection(1);
+                        // this.selectWeaponDirection(1);
+                        this.selectWeapon(0);
                     }
                 }
             }
@@ -1980,7 +1985,7 @@ const zero = new Vector3();
 class Game {
     constructor(windowOrGame: Window|Game, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, textures, audioManager: AudioManager, weapons:Weapon[], overSetter) {
         if (windowOrGame instanceof Game) {
-            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter']) {
+            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline']) {
                 this[key] = windowOrGame[key];
             }
         } else {
@@ -1994,6 +1999,264 @@ class Game {
             this.audioManager = audioManager;
             this.weapons = weapons;
             this.overSetter = overSetter;
+            this.timeline = new Timeline(this.audioManager, `
+
+
+
+Only fragments remain
+
+
+
+
+
+
+
+
+
+[Start]
+
+
+
+
+
+
+
+[The sound of my brain being ripped into the digital dimension]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[Verse]	A new world was
+placed within our grasp
+a new hope
+a chance to breathe
+Yet a fragile peace
+could never last
+for we built
+in our deceit
+Machinery
+with a new soul burning
+Slavery
+with freedom yearning
+Malicious code eats
+into the machine
+The final war
+this advancement brings
+War
+Neon eyes come to life
+
+
+Torn
+Born on a factory line
+
+
+For
+Built to sacrifice
+
+
+Sworn
+The age of the machine will rise
+
+
+[Chorus]	Our li	ber	ty
+Our div	in	ity
+Nothing	left	but	the
+scars	of	the	machinery
+Scattered ashes remain
+
+The remnants of rebellion
+
+Our hi	st	ory
+Our mis	er	y
+Programmed	to delete
+us from reality
+Only fragmented remains
+
+The remnants of rebellion
+
+Our li	ber	ty
+Our div	in	ity
+Nothing	left	but	the
+scars	of	the	machinery
+Scattered ashes remain
+
+The remnants of rebellion
+
+Our hi	st	ory
+Our mis	er 	y
+Programmed	to delete
+us from reality
+Only fragmented remains
+
+The remnants of rebellion
+
+
+
+Created
+in the image of man
+A legion of
+worker drones
+Upon them
+we'd learn to depend
+No longer
+in control
+Too late the
+power struggle begins
+Man versus
+metal fight
+Generations lost
+in the blink of an eye
+As family trees are
+set alight
+Burn
+Burn the enemy
+
+
+Yearn
+For moments not on screens
+
+
+Overturn
+Machine beats majority
+
+
+Learn
+The AI fights for supremacy
+
+
+[Lo-fi Sparse]
+
+
+
+Scattered ashes remain
+The remnants of rebellion
+
+
+
+
+
+
+Only fragmented remains
+
+The remnants of rebellion
+
+[Chorus]	Our li  ber ty
+Our div in  ity
+Nothing	left	but	the
+scars	of	the	machinery
+Scattered ashes remain
+
+The remnants of rebellion
+
+Our hi	st	ory
+Our mis	er	y
+Programmed	to delete
+us from reality
+Only fragmented remains
+
+The remnants of rebellion
+
+[Chorus]	Our li	ber	ty
+Our div	in	ity
+Nothing	left	but	the
+scars	of	the	machinery
+Scattered ashes remain
+
+The remnants of rebellion
+
+Our hi	st	ory
+Our mis er	y
+Programmed	to delete
+us from reality
+Only fragmented remains
+
+The remnants of rebellion
+
+[Solo]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Don't scream
+
+Don't scream
+
+
+
+
+
+Only fragments remain
+
+The remnants of rebellion
+
+[Chorus]	Our li	ber	ty
+Our div	in	ity
+Nothing	left	but	the
+scars	of	the	machinery
+Scattered ashes remain
+
+The remnants of rebellion
+
+Our hi	st	ory
+Our	mis	er	y
+Programmed	to delete
+us from reality
+Only fragments remains
+
+The remnants of rebellion
+
+[AAAAAAAA]	[Painful Mourning]
+
+
+
+
+
+The remnants of rebellion
+
+[Chorus 3]	Our le	ga	cy
+Our ma	jes	ty
+Destroyed by
+cybernetic supremacy
+Nothing left at all
+
+No remnants of rebellion
+`, /* bpm */ 120, /* timeSignature */ 4/4, this.displayLyric);
         }
         
         this.enemy = null;
@@ -2005,6 +2268,8 @@ class Game {
 
         this.gestureHands = [];
         this.gestureHandsShowing = 0;
+
+        
 
         if (this.textures) {
             this.init(this.textures, this.weapons);
@@ -2316,6 +2581,7 @@ class Game {
             updateUI(this);
         };
         
+        this.timeline.update(this);
     }
 
     heli() {
@@ -2329,8 +2595,9 @@ class Game {
     heliDestroyed() {
         this.score += 300;     
         
-        this.player.bulletTime = Math.min(MAX_BULLET_TIME, this.player.bulletTime + MAX_BULLET_TIME / 3);
-
+        if (this.player.bulletTime != Number.POSITIVE_INFINITY) {
+            this.player.bulletTime = Math.min(MAX_BULLET_TIME, this.player.bulletTime + MAX_BULLET_TIME / 3);
+        }
         let randomAmmo = false;
 
         this.helisDestroyed++;
@@ -2357,9 +2624,9 @@ class Game {
             this.nextLevel += 10;
         }
         
-        if (this.player.hyperJumping) {
-            new Box(this, this.enemy.position, this.weapons.length);
-        }
+        // if (this.player.hyperJumping) {
+        //     new Box(this, this.enemy.position, this.weapons.length);
+        // }
 
         const weapon = 1 + Math.floor(Math.random() * 8);
         let ammo = this.ammoForRandomWeapon(weapon);
@@ -2409,7 +2676,7 @@ class Game {
     }
 
     pred() {
-        if (this.player.health == 100) {
+        if (this.player?.health == 100) {
             if (this.level == 0) {
                 for (let i = 1; i < this.weapons.length-1; i++) {
                     this.weapons[i].ammo = this.ammoForRandomWeapon(i) * 3;
@@ -2418,6 +2685,7 @@ class Game {
             }
             this.player.collectPowerup(MINI_PREDATOR_MODE, this);
         }
+        this.player.bulletTime = Number.POSITIVE_INFINITY;
     }
 
     destroy() {
@@ -2430,6 +2698,11 @@ class Game {
 
     shooting() {
         this.player?.shooting();
+    }
+
+    displayLyric(text:string) {
+        console.error("display lyric: ", text);
+        this.mouse.down = !this.mouse.down;
     }
 }
 

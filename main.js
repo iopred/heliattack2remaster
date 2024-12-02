@@ -7,6 +7,7 @@ import AudioManager from './audiomanager.js';
 import VideoGestures from './videogestures.ts';
 import WordListener from './wordlistener.ts';
 import HeliAttack from './heliattack.ts';
+import TouchInputHandler from './touchinputhandler.ts';
 import { createTintShader, manageRaycasterIntersections } from './utils';
 
 const scene = new Scene();
@@ -132,7 +133,7 @@ function onDocumentMouseMove(event) {
 
 function onMouseDown(event){
     init();
-    manageRaycasterIntersections(scene, camera, mouse);
+    //manageRaycasterIntersections(scene, camera, mouse);
     mouse.down = true;
 }
 
@@ -148,6 +149,26 @@ function onMouseWheel(event){
         mouse.wheel = -1;
     }
 };
+
+const touchInputHandler = new TouchInputHandler(document);
+
+touchInputHandler.onStart((event, position) => {
+    init();
+    mouse.down = true;
+    mouse.x = (position.x / window.innerWidth) * 2 - 1;
+    mouse.y = -(position.y / window.innerHeight) * 2 + 1;
+});
+
+touchInputHandler.onEnd((event, position) => {
+    mouse.down = false;
+    mouse.x = (position.x / window.innerWidth) * 2 - 1;
+    mouse.y = -(position.y / window.innerHeight) * 2 + 1;
+})
+
+touchInputHandler.onMove((event, position) => {
+    mouse.x = (position.x / window.innerWidth) * 2 - 1;
+    mouse.y = -(position.y / window.innerHeight) * 2 + 1;
+})
 
 const ENABLE_DEBUGGER = false;
 function debug() {
@@ -306,6 +327,19 @@ window.addEventListener('keydown', (e) => {
     ror.listen(history.join(''));
     pred.listen(history.join(''));
     retro.listen(history.join(''));
+    console.error("support all time jumps")
+    switch (keyIsPressed[e.key]) {
+        case '0':
+            this.heliattack.game.currentTime = 0;
+            break;
+        case '1':
+            this.heliattack.game.currentTime = 0.1;
+            this.heliattack.game.pred();
+            break;
+        case '9':
+            this.heliattack.game.currentTime = 0.9;
+            break;
+    }
 });
 window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });
 window.addEventListener('blur', () => {
@@ -378,11 +412,17 @@ function setMenuVisible(value) {
 function createMainMenu() {
     const startButton = document.getElementById('start-game');
 
-    startButton.onclick = () => {
+    startButton.addEventListener('click', () => {
         if (heliattack.isLoaded()) {
             heliattack.start();
         }
-    }
+    });
+
+    startButton.addEventListener('touchstart', () => {
+        if (heliattack.isLoaded()) {
+            heliattack.start();
+        }
+    });
 
     if (playing) {
         if (heliattack && heliattack.isLoaded()) {

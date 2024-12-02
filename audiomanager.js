@@ -248,6 +248,42 @@ class AudioManager {
         const { gainNode } = this.gainNodes.get(key);
         gainNode.gain.value = volume * this.masterVolume;
     }
+
+    set timeScale(value) {
+        const { source, gainNode } = this.gainNodes.get(this.looping);
+
+        if (source) {
+            source.playbackRate.value = value; // Adjust playback rate to control speed
+        }
+    }
+
+    get currentTime() {
+        if (!this.looping) {
+            return;
+        }
+
+        const { source, gainNode } = this.gainNodes.get(this.looping);
+
+        if (source) {
+            return source.currentTime;
+        }
+
+        return 0.0;
+    }
+
+    getCurrentTime() {
+        if (!this.looping) {
+            return;
+        }
+
+        const { source, gainNode } = this.gainNodes.get(this.looping);
+
+        if (source) {
+            return source.currentTime;
+        }
+
+        return 0.0;
+    }
 }
 
 export default AudioManager;
