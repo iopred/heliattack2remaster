@@ -149,9 +149,6 @@ function resolveAxisCollision(entity, timeScale, axis, tilemap, tileSize) {
         let xTile = axis === 'x' ? tilePos : otherTilePos;
         let yTile = axis === 'y' ? tilePos : otherTilePos;
 
-        // if (xTile < 0 || yTile < 0 || yTile >= tilemap.length || xTile >= tilemap[yTile].length) {
-        //     continue;
-        // }
         if (yTile < 0) {
             yTile = 0;
         } else if (yTile >= tilemap.length) {
