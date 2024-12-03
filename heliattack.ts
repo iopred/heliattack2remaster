@@ -46,10 +46,10 @@ class Enemy {
     
 
     init(game) {
-        const heliTexture = this.heliTexture = game.textures['images/heli/heli.png'];
-        const destroyedTexture = this.destroyedTexture = game.textures['images/heli/helidestroyed.png'];
-        const enemyTexture = this.enemyTexture = game.textures['images/heli/enemy.png'];
-        this.bulletTexture = game.textures['images/enemybullet.png'];
+        const heliTexture = this.heliTexture = game.textures['./images/heli/heli.png'];
+        const destroyedTexture = this.destroyedTexture = game.textures['./images/heli/helidestroyed.png'];
+        const enemyTexture = this.enemyTexture = game.textures['./images/heli/enemy.png'];
+        this.bulletTexture = game.textures['./images/enemybullet.png'];
 
         this.group = new Group();
 
@@ -432,7 +432,7 @@ class Entity {
 
 class DestroyedEnemy extends Entity {
     constructor(game, enemy, permanent) {
-        super(game, 'images/guyburned.png');
+        super(game, './images/guyburned.png');
 
         this.position.copy(enemy.position);
 		this.velocity.set(-3 + Math.random() * 6, -5 + Math.random()*5, 0);
@@ -482,7 +482,7 @@ let shardBounces = 0;
 
 class Shard extends Entity {
     constructor(game, position) {
-        super(game, 'images/shard' + Math.floor(Math.random() * 3) + '.png');
+        super(game, './images/shard' + Math.floor(Math.random() * 3) + '.png');
 
         this.position.copy(position);
 		this.velocity.set(-5 + Math.random() * 10, -5 + Math.random()*10);
@@ -535,7 +535,7 @@ class Shard extends Entity {
 
 class DestroyedHeli extends Entity {
     constructor(game, enemy) {
-        super(game, 'images/heli/helidestroyed.png');
+        super(game, './images/heli/helidestroyed.png');
 
         this.position.copy(enemy.position);
         this.velocity.copy(enemy.velocity);
@@ -571,7 +571,7 @@ class DestroyedHeli extends Entity {
 
 class Explosion extends Entity {
     constructor(game, position, size) {
-        super(game, 'images/explosion.png');
+        super(game, './images/explosion.png');
 
         this.position.copy(position);
         this.position.z = 1;
@@ -616,7 +616,7 @@ class Explosion extends Entity {
 
 class Smoke extends Entity {
     constructor(game, position, size) {
-        super(game, 'images/smoke.png');
+        super(game, './images/smoke.png');
 
         this.position.copy(position);
         this.targetSize = size * 0.5 / 27;
@@ -652,7 +652,7 @@ class Smoke extends Entity {
 
 class Fire extends Entity {
     constructor(game, position, size) {
-        super(game, 'images/flame.png');
+        super(game, './images/flame.png');
 
         this.position.copy(position);
         this.targetSize = size * 0.5 / 42;
@@ -688,7 +688,7 @@ class Fire extends Entity {
 
 class Blood extends Entity {
     constructor(game, position, pause) {
-        super(game, 'images/blood.png');
+        super(game, './images/blood.png');
 
         this.position.copy(position);
         this.targetSize = 14 / 30;
@@ -743,7 +743,7 @@ class Parachute {
         
         this.parent = parent; 
     
-        const texture = this.texture = game.textures['images/parachute.png'];
+        const texture = this.texture = game.textures['./images/parachute.png'];
 
         const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
         geometry.translate(0, texture.image.height - 20, 0); 
@@ -790,7 +790,7 @@ const BOX_SIZE = 33;
 
 class Box extends Entity {
     constructor(game, position, type) {
-        super(game, 'images/box.png');
+        super(game, './images/box.png');
         this.position.copy(position);
 
         if (this.position.x < BOX_SIZE/2) {
@@ -964,7 +964,7 @@ class Player {
     }
 
     init(game) {
-        const playerTexture = game.textures['images/player.png'];
+        const playerTexture = game.textures['./images/player.png'];
 
         const size = this.size = 55;
         this.textureWidth = playerTexture.image.width;
@@ -1805,7 +1805,7 @@ function fireMinesUpdate(game, delta) {
 }
 
 function constructFirePillarSegment(game, heightOffset) {
-    const texture = game.textures['images/flamepillar.png'];
+    const texture = game.textures['./images/flamepillar.png'];
     const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
     const material = new MeshBasicMaterial({ 
         map: texture,
@@ -1816,7 +1816,7 @@ function constructFirePillarSegment(game, heightOffset) {
 }
 
 function constructFlame(game) {
-    const texture = game.textures['images/flame.png'];
+    const texture = game.textures['./images/flame.png'];
     const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
     const material = new MeshBasicMaterial({ 
         map: texture,
@@ -1983,9 +1983,9 @@ function grappleUpdate(game, delta) {
 const zero = new Vector3();
 
 class Game {
-    constructor(windowOrGame: Window|Game, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, textures, audioManager: AudioManager, weapons:Weapon[], overSetter) {
+    constructor(windowOrGame: Window|Game, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, textures, audioManager: AudioManager, weapons:Weapon[], overSetter, updateFunction) {
         if (windowOrGame instanceof Game) {
-            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline']) {
+            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction']) {
                 this[key] = windowOrGame[key];
             }
         } else {
@@ -1999,6 +1999,7 @@ class Game {
             this.audioManager = audioManager;
             this.weapons = weapons;
             this.overSetter = overSetter;
+            this.updateFunction = updateFunction;
             this.timeline = new Timeline(this.audioManager, `
 
 
@@ -2279,9 +2280,9 @@ No remnants of rebellion
     init(textures, weapons) {
         this.textures = textures;
 
-        const tilesheet = this.tilesheet = textures['images/tilesheet.png'];
-        const bgTexture = this.bgTexture = textures['images/bg.png'];
-        const bulletTexture = this.bulletTexture = textures['images/bullet.png'];
+        const tilesheet = this.tilesheet = textures['./images/tilesheet.png'];
+        const bgTexture = this.bgTexture = textures['./images/bg.png'];
+        const bulletTexture = this.bulletTexture = textures['./images/bullet.png'];
 
         const tileSize = this.tileSize = 50;
 
@@ -2318,7 +2319,7 @@ No remnants of rebellion
     }
 
     createGestureHand() {
-        var texture = this.textures['images/gesturehand.png'];
+        var texture = this.textures['./images/gesturehand.png'];
         const geometry = new PlaneGeometry(texture.image.width, texture.image.height); // Adjust size as needed
         const material = new MeshBasicMaterial({
             map: texture,
@@ -2582,6 +2583,7 @@ No remnants of rebellion
         };
         
         this.timeline.update(this);
+        this.updateFunction();
     }
 
     heli() {
@@ -2676,6 +2678,10 @@ No remnants of rebellion
     }
 
     pred() {
+        if (!this.player) {
+            return;
+        }
+
         if (this.player?.health == 100) {
             if (this.level == 0) {
                 for (let i = 1; i < this.weapons.length-1; i++) {
@@ -2697,7 +2703,9 @@ No remnants of rebellion
     }
 
     shooting() {
-        this.player?.shooting();
+        if (this.player) {
+            this.player.shooting = true;
+        }
     }
 
     displayLyric(text:string) {
@@ -2860,25 +2868,25 @@ async function loadAssets(weapons) {
     // Load the spritesheet
     const loader = new TextureLoader();
     const textures = [
-        loadTexture(loader, textureMap, 'images/tilesheet.png'),
-        loadTexture(loader, textureMap, 'images/player.png'),
-        loadTexture(loader, textureMap, 'images/bg.png'),
-        loadTexture(loader, textureMap, 'images/bullet.png'),
-        loadTexture(loader, textureMap, 'images/enemybullet.png'),
-        loadTexture(loader, textureMap, 'images/heli/heli.png'),
-        loadTexture(loader, textureMap, 'images/heli/helidestroyed.png'),
-        loadTexture(loader, textureMap, 'images/heli/enemy.png'),
-        loadTexture(loader, textureMap, 'images/guyburned.png'),
-        loadTexture(loader, textureMap, 'images/shard0.png'),
-        loadTexture(loader, textureMap, 'images/shard1.png'),
-        loadTexture(loader, textureMap, 'images/shard2.png'),
-        loadTexture(loader, textureMap, 'images/explosion.png'),
-        loadTexture(loader, textureMap, 'images/smoke.png'),
-        loadTexture(loader, textureMap, 'images/flamepillar.png'),
-        loadTexture(loader, textureMap, 'images/blood.png'),
-        loadTexture(loader, textureMap, 'images/parachute.png'),
-        loadTexture(loader, textureMap, 'images/box.png'),
-        loadTexture(loader, textureMap, 'images/gesturehand.png'),
+        loadTexture(loader, textureMap, './images/tilesheet.png'),
+        loadTexture(loader, textureMap, './images/player.png'),
+        loadTexture(loader, textureMap, './images/bg.png'),
+        loadTexture(loader, textureMap, './images/bullet.png'),
+        loadTexture(loader, textureMap, './images/enemybullet.png'),
+        loadTexture(loader, textureMap, './images/heli/heli.png'),
+        loadTexture(loader, textureMap, './images/heli/helidestroyed.png'),
+        loadTexture(loader, textureMap, './images/heli/enemy.png'),
+        loadTexture(loader, textureMap, './images/guyburned.png'),
+        loadTexture(loader, textureMap, './images/shard0.png'),
+        loadTexture(loader, textureMap, './images/shard1.png'),
+        loadTexture(loader, textureMap, './images/shard2.png'),
+        loadTexture(loader, textureMap, './images/explosion.png'),
+        loadTexture(loader, textureMap, './images/smoke.png'),
+        loadTexture(loader, textureMap, './images/flamepillar.png'),
+        loadTexture(loader, textureMap, './images/blood.png'),
+        loadTexture(loader, textureMap, './images/parachute.png'),
+        loadTexture(loader, textureMap, './images/box.png'),
+        loadTexture(loader, textureMap, './images/gesturehand.png'),
     ];
     for (const weapon of weapons) {
         if (weapon.textureUrl) {
@@ -2898,20 +2906,20 @@ async function loadAssets(weapons) {
 class HeliAttack {
         // Weapons list initialized inline
         private weapons: Weapon[] = [
-            new Weapon("Machine Gun", 'images/weapons/machinegun.png', null, 'pistol', new Vector2(5, 12), new Vector2(23, -7.5), 5, 8, 10, 0).setSpread(2),
-            new Weapon("Akimbo Mac10's", 'images/weapons/mac10s.png', 'announcerMac10', 'pistol', new Vector2(-2, 21), new Vector2(28, -8.5), 4, 8, 9, 50).setSpread(8).setBullets(2, 0, 8),
-            new Weapon("Shotgun", 'images/weapons/shotgun.png', 'announcerShotgun', 'shotgun', new Vector2(5, 12), new Vector2(30, -7), 25, 8, 15, 14).setBullets(5, 5),
-            new Weapon("Shotgun Rockets", 'images/weapons/shotgunrockets.png', 'announcerShotgunrockets', 'shotgunrockets', new Vector2(7, 19), new Vector2(34, -8), 40, 7, 40, 8, 'images/shotgunrocketbullet.png').setBullets(3, 10).setUpdate(shotgunRocketUpdate).setDestroy(shotgunRocketDestroy),
-            new Weapon("Grenade Launcher", 'images/weapons/grenadelauncher.png', 'announcerGrenadelauncher', 'grenade', new Vector2(13, 18), new Vector2(29, -7), 30, 25, 75, 12, 'images/grenade.png').setUpdate(grenadeUpdate).setDestroy(explosionDestroy),
-            new Weapon("RPG", 'images/weapons/rpg.png', 'announcerRpg', 'grenade', new Vector2(18, 20), new Vector2(32, -7), 40, 4, 75, 10, 'images/rpgbullet.png').setUpdate(rpgUpdate).setDestroy(explosionDestroy),
-            new Weapon("Rocket Launcher", 'images/weapons/rocketlauncher.png', 'announcerRocketlauncher', 'rocketlauncher', new Vector2(19, 23), new Vector2(25, -9.5), 50, 7, 100, 8, 'images/rocketbullet.png').setUpdate(rocketUpdate).setDestroy(explosionDestroy),
-            new Weapon("Seeker Launcher", 'images/weapons/seekerlauncher.png', 'announcerSeekerlauncher', 'rocketlauncher', new Vector2(24, 28), new Vector2(24, -9.5), 55, 7, 100, 6, 'images/seekerbullet.png').setUpdate(seekerUpdate).setDestroy(explosionDestroy),
-            new Weapon("Flame Thrower", 'images/weapons/flamethrower.png', 'announcerFlamethrower', null, new Vector2(9, 16), new Vector2(29, -7), 1, 9, 5, 150, 'images/flame.png').setSpread(10).setUpdate(flameUpdate),
-            new Weapon("Fire Mines", 'images/weapons/mine.png', 'announcerFiremines', null, new Vector2(-9, 15), new Vector2(20, -5.5), 100, 3, 4, 3, 'images/minebullet.png').setUpdate(fireMinesUpdate),
-            new Weapon("A-Bomb Launcher", 'images/weapons/abomb.png', 'announcerAbomb', 'rocketlauncher', new Vector2(22, 30), new Vector2(36, -13), 150, 3, 300, 2, 'images/abombbullet.png').setUpdate(abombUpdate).setDestroy(abombDestroy),
-            new Weapon("Rail Gun", 'images/weapons/railgun.png', 'announcerRailgun', 'railgun', new Vector2(23, 27), new Vector2(32, -8), 75, 20, 150, 4, 'images/rail.png').setUpdate(railUpdate),
-            new Weapon("Grapple Cannon", 'images/weapons/grapplecannon.png', 'announcerGrapplecannon', 'grapple', new Vector2(18, 23), new Vector2(33, -11), 250, 20, 300, 2, 'images/grapplebullet.png').setUpdate(grappleUpdate),
-            new Weapon("Shoulder Cannon", null, null, 'railgun', new Vector2(0, 0), new Vector2(16, 0), 100, 20, 300, 0, 'images/shouldercannon.png').setUpdate(railUpdate),
+            new Weapon("Machine Gun", './images/weapons/machinegun.png', null, 'pistol', new Vector2(5, 12), new Vector2(23, -7.5), 5, 8, 10, 0).setSpread(2),
+            new Weapon("Akimbo Mac10's", './images/weapons/mac10s.png', 'announcerMac10', 'pistol', new Vector2(-2, 21), new Vector2(28, -8.5), 4, 8, 9, 50).setSpread(8).setBullets(2, 0, 8),
+            new Weapon("Shotgun", './images/weapons/shotgun.png', 'announcerShotgun', 'shotgun', new Vector2(5, 12), new Vector2(30, -7), 25, 8, 15, 14).setBullets(5, 5),
+            new Weapon("Shotgun Rockets", './images/weapons/shotgunrockets.png', 'announcerShotgunrockets', 'shotgunrockets', new Vector2(7, 19), new Vector2(34, -8), 40, 7, 40, 8, './images/shotgunrocketbullet.png').setBullets(3, 10).setUpdate(shotgunRocketUpdate).setDestroy(shotgunRocketDestroy),
+            new Weapon("Grenade Launcher", './images/weapons/grenadelauncher.png', 'announcerGrenadelauncher', 'grenade', new Vector2(13, 18), new Vector2(29, -7), 30, 25, 75, 12, './images/grenade.png').setUpdate(grenadeUpdate).setDestroy(explosionDestroy),
+            new Weapon("RPG", './images/weapons/rpg.png', 'announcerRpg', 'grenade', new Vector2(18, 20), new Vector2(32, -7), 40, 4, 75, 10, './images/rpgbullet.png').setUpdate(rpgUpdate).setDestroy(explosionDestroy),
+            new Weapon("Rocket Launcher", './images/weapons/rocketlauncher.png', 'announcerRocketlauncher', 'rocketlauncher', new Vector2(19, 23), new Vector2(25, -9.5), 50, 7, 100, 8, './images/rocketbullet.png').setUpdate(rocketUpdate).setDestroy(explosionDestroy),
+            new Weapon("Seeker Launcher", './images/weapons/seekerlauncher.png', 'announcerSeekerlauncher', 'rocketlauncher', new Vector2(24, 28), new Vector2(24, -9.5), 55, 7, 100, 6, './images/seekerbullet.png').setUpdate(seekerUpdate).setDestroy(explosionDestroy),
+            new Weapon("Flame Thrower", './images/weapons/flamethrower.png', 'announcerFlamethrower', null, new Vector2(9, 16), new Vector2(29, -7), 1, 9, 5, 150, './images/flame.png').setSpread(10).setUpdate(flameUpdate),
+            new Weapon("Fire Mines", './images/weapons/mine.png', 'announcerFiremines', null, new Vector2(-9, 15), new Vector2(20, -5.5), 100, 3, 4, 3, './images/minebullet.png').setUpdate(fireMinesUpdate),
+            new Weapon("A-Bomb Launcher", './images/weapons/abomb.png', 'announcerAbomb', 'rocketlauncher', new Vector2(22, 30), new Vector2(36, -13), 150, 3, 300, 2, './images/abombbullet.png').setUpdate(abombUpdate).setDestroy(abombDestroy),
+            new Weapon("Rail Gun", './images/weapons/railgun.png', 'announcerRailgun', 'railgun', new Vector2(23, 27), new Vector2(32, -8), 75, 20, 150, 4, './images/rail.png').setUpdate(railUpdate),
+            new Weapon("Grapple Cannon", './images/weapons/grapplecannon.png', 'announcerGrapplecannon', 'grapple', new Vector2(18, 23), new Vector2(33, -11), 250, 20, 300, 2, './images/grapplebullet.png').setUpdate(grappleUpdate),
+            new Weapon("Shoulder Cannon", null, null, 'railgun', new Vector2(0, 0), new Vector2(16, 0), 100, 20, 300, 0, './images/shouldercannon.png').setUpdate(railUpdate),
         ];
         private audioManager: AudioManager;
         private settings: Object;
@@ -2924,7 +2932,7 @@ class HeliAttack {
         constructor(window: Window, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, audioManager: AudioManager, settings:Object) {
             this.audioManager = audioManager;
             this.settings = settings;
-            this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; });
+            this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
             this.init();
         }
 
@@ -2943,46 +2951,46 @@ class HeliAttack {
             }).catch(error => console.error('Error loading assets:', error));
 
             this.audioManager.preload([
-                { key: 'boom', url: 'sounds/game/boom.wav'},
-                { key: 'flame', url: 'sounds/game/flame.wav'},
-                { key: 'grapple', url: 'sounds/game/grapple.wav'},
-                { key: 'grenade', url: 'sounds/game/grenade.wav'},
-                { key: 'helicopter', url: 'sounds/game/helicopter.wav'},
-                { key: 'helidestroyed', url: 'sounds/game/helidestroyed.wav'},
-                { key: 'hurt', url: 'sounds/game/hurt.wav'},
-                { key: 'hyperjump', url: 'sounds/game/hyperjump.wav'},
-                { key: 'metal0', url: 'sounds/game/metal0.wav'},
-                { key: 'metal1', url: 'sounds/game/metal1.wav'},
-                { key: 'metal2', url: 'sounds/game/metal2.wav'},
-                { key: 'metal3', url: 'sounds/game/metal3.wav'},
-                { key: 'menu', url: 'sounds/game/music.wav'},
-                { key: 'music', url: 'sounds/music/heliattack.mp3'},
-                { key: 'pistol', url: 'sounds/game/pistol.wav'},
-                { key: 'railgun', url: 'sounds/game/railgun.wav'},
-                { key: 'rocketlauncher', url: 'sounds/game/rocketlauncher.wav'},
-                { key: 'shotgun', url: 'sounds/game/shotgun.wav'},
-                { key: 'shotgunrockets', url: 'sounds/game/shotgunrockets.wav'},
-                { key: 'bigboom', url: 'sounds/game/bigboom.wav'},
-                { key: 'boom', url: 'sounds/game/boom.wav'},
-                { key: 'announcerAbomb', url: 'sounds/announcer/abomb.wav'},
-                { key: 'announcerFiremines', url: 'sounds/announcer/firemines.wav'},
-                { key: 'announcerFlamethrower', url: 'sounds/announcer/flamethrower.wav'},
-                { key: 'announcerGrapplecannon', url: 'sounds/announcer/grapplecannon.wav'},
-                { key: 'announcerGrenadelauncher', url: 'sounds/announcer/grenadelauncher.wav'},
-                { key: 'announcerHealth', url: 'sounds/announcer/health.wav'},
-                { key: 'announcerInvulnerability', url: 'sounds/announcer/invulnerability.wav'},
-                { key: 'announcerJetpack', url: 'sounds/announcer/jetpack.wav'},
-                { key: 'announcerMac10', url: 'sounds/announcer/mac10.wav'},
-                { key: 'announcerPredatormode', url: 'sounds/announcer/predatormode.wav'},
-                { key: 'announcerRailgun', url: 'sounds/announcer/railgun.wav'},
-                { key: 'announcerRocketlauncher', url: 'sounds/announcer/rocketlauncher.wav'},
-                { key: 'announcerRpg', url: 'sounds/announcer/rpg.wav'},
-                { key: 'announcerSeekerlauncher', url: 'sounds/announcer/seekerlauncher.wav'},
-                { key: 'announcerShotgun', url: 'sounds/announcer/shotgun.wav'},
-                { key: 'announcerShotgunrockets', url: 'sounds/announcer/shotgunrockets.wav'},
-                { key: 'announcerTimerift', url: 'sounds/announcer/timerift.wav'},
-                { key: 'announcerTridamage', url: 'sounds/announcer/tridamage.wav'},
-                { key: 'scc', url: 'sounds/scc.mp3'}
+                { key: 'boom', url: './sounds/game/boom.wav'},
+                { key: 'flame', url: './sounds/game/flame.wav'},
+                { key: 'grapple', url: './sounds/game/grapple.wav'},
+                { key: 'grenade', url: './sounds/game/grenade.wav'},
+                { key: 'helicopter', url: './sounds/game/helicopter.wav'},
+                { key: 'helidestroyed', url: './sounds/game/helidestroyed.wav'},
+                { key: 'hurt', url: './sounds/game/hurt.wav'},
+                { key: 'hyperjump', url: './sounds/game/hyperjump.wav'},
+                { key: 'metal0', url: './sounds/game/metal0.wav'},
+                { key: 'metal1', url: './sounds/game/metal1.wav'},
+                { key: 'metal2', url: './sounds/game/metal2.wav'},
+                { key: 'metal3', url: './sounds/game/metal3.wav'},
+                { key: 'menu', url: './sounds/game/music.wav'},
+                { key: 'music', url: './sounds/music/heliattack.mp3'},
+                { key: 'pistol', url: './sounds/game/pistol.wav'},
+                { key: 'railgun', url: './sounds/game/railgun.wav'},
+                { key: 'rocketlauncher', url: './sounds/game/rocketlauncher.wav'},
+                { key: 'shotgun', url: './sounds/game/shotgun.wav'},
+                { key: 'shotgunrockets', url: './sounds/game/shotgunrockets.wav'},
+                { key: 'bigboom', url: './sounds/game/bigboom.wav'},
+                { key: 'boom', url: './sounds/game/boom.wav'},
+                { key: 'announcerAbomb', url: './sounds/announcer/abomb.wav'},
+                { key: 'announcerFiremines', url: './sounds/announcer/firemines.wav'},
+                { key: 'announcerFlamethrower', url: './sounds/announcer/flamethrower.wav'},
+                { key: 'announcerGrapplecannon', url: './sounds/announcer/grapplecannon.wav'},
+                { key: 'announcerGrenadelauncher', url: './sounds/announcer/grenadelauncher.wav'},
+                { key: 'announcerHealth', url: './sounds/announcer/health.wav'},
+                { key: 'announcerInvulnerability', url: './sounds/announcer/invulnerability.wav'},
+                { key: 'announcerJetpack', url: './sounds/announcer/jetpack.wav'},
+                { key: 'announcerMac10', url: './sounds/announcer/mac10.wav'},
+                { key: 'announcerPredatormode', url: './sounds/announcer/predatormode.wav'},
+                { key: 'announcerRailgun', url: './sounds/announcer/railgun.wav'},
+                { key: 'announcerRocketlauncher', url: './sounds/announcer/rocketlauncher.wav'},
+                { key: 'announcerRpg', url: './sounds/announcer/rpg.wav'},
+                { key: 'announcerSeekerlauncher', url: './sounds/announcer/seekerlauncher.wav'},
+                { key: 'announcerShotgun', url: './sounds/announcer/shotgun.wav'},
+                { key: 'announcerShotgunrockets', url: './sounds/announcer/shotgunrockets.wav'},
+                { key: 'announcerTimerift', url: './sounds/announcer/timerift.wav'},
+                { key: 'announcerTridamage', url: './sounds/announcer/tridamage.wav'},
+                { key: 'scc', url: './sounds/scc.mp3'}
             ]).then(() => {
                 this.audioManager.playMusic('menu', 0.8);
                 this.audioManager.playLoop('flame', 0);
@@ -3065,7 +3073,7 @@ class HeliAttack {
 
         playSong(song) {
             this.audioManager.preload([
-                { key: 'ror', url: `sounds/music/${song}.mp3`},
+                { key: 'ror', url: `./sounds/music/${song}.mp3`},
             ]).then(() => {
                 this.audioManager.crossFadeMusic(song, 0.9)
             });
@@ -3073,7 +3081,6 @@ class HeliAttack {
         }
 
         set shooting(value) {
-            this.shooting = value;
             this.game.shooting();
         }
 

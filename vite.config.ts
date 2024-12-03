@@ -1,6 +1,6 @@
 // https://vitejs.dev/config/
 module.exports = {
-    base: '/game',
+    // base: '/game',
     outDir: '/game',
     devServer: {
         port: 3264,

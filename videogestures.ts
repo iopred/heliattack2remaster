@@ -10,7 +10,7 @@ const RING_FINGER = [13, 14, 16];
 const PINKY_FINGER = [17, 18, 20];
 const THUMB = [0, 1, 4];
 
-const DRAW_HAND = false;
+const DRAW_HAND = true;
 
 class VideoGestures {
     private window: Window;
@@ -225,10 +225,11 @@ class VideoGestures {
       }
   
       this.canvasCtx.restore();
-  
-      // Continue predicting if webcam is running
+    }
+
+    update() {
       if (this.webcamRunning) {
-        this.window.requestAnimationFrame(() => this.predictWebcam());
+        this.predictWebcam();
       }
     }
 

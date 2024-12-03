@@ -217,8 +217,6 @@ let showErrors = false;
 const history = [];
 const i = new WordListener('i');
 i.onWordDetected((word) => {
-    history.splice(0, history.length);
-
     showErrors = !showErrors;
     
     setVisible(document.getElementById('error-container'), showErrors);
@@ -229,8 +227,6 @@ i.onWordDetected((word) => {
 let showWebcam = false;
 const o = new WordListener('o');
 o.onWordDetected((word) => {
-    history.splice(0, history.length);
-
     showWebcam = !showWebcam;
     
     setVisible(document.getElementById('webcam'), showWebcam);
@@ -249,6 +245,7 @@ io.onWordDetected((word) => {
         videoGestures = new VideoGestures(window, document);
         videoGestures.resize(window.innerWidth, window.innerHeight);
     }
+    videoGestures.enable();
     if (heliattack.isLoaded()) {
         heliattack.initVideoGestures(videoGestures);
     }
@@ -323,10 +320,12 @@ window.addEventListener('keydown', (e) => {
         k.listen(e.key);
         i.listen(e.key);
         o.listen(e.key);
+        
     }
     ror.listen(history.join(''));
     pred.listen(history.join(''));
     retro.listen(history.join(''));
+    io.listen(history.join(''));
     console.error("support all time jumps")
     switch (keyIsPressed[e.key]) {
         case '0':
@@ -386,7 +385,7 @@ function init() {
 
 function scc() {
     audioManager.preload([
-        { key: 'scc', url: 'sounds/scc.mp3'},
+        { key: 'scc', url: './sounds/scc.mp3'},
     ]).then(() => {
         audioManager.playEffect('scc');
     });
@@ -445,8 +444,10 @@ function createHeliAttack() {
         },
         set playing(value) {
             heliattack.playing = value;
-            if (this.startedFunc) {
-                this.startedFunc();
+        },
+        update() {
+            if (videoGestures) {
+                videoGestures.update();
             }
         }
     }

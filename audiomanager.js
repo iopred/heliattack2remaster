@@ -7,6 +7,7 @@ class AudioManager {
         this.preloadPromise = null; // Stores the promise for the preload process
         this.masterVolume = 1.0;
         this.looping = null;
+        this.playingEffects = [];
     }
 
     /**
@@ -123,6 +124,8 @@ class AudioManager {
 
         source.connect(gainNode).connect(this.context.destination);
         source.start();
+
+        this.playingEffects.push({source: source, gainNode: gainNode});
     }
 
     /**
@@ -142,7 +145,7 @@ class AudioManager {
 
         const now = this.context.currentTime;
 
-        // Fade out the current track
+        // Fade out the current track.
         if (this.looping && this.gainNodes.has(this.looping)) {
             const { source: currentSource, gainNode: currentGain } = this.gainNodes.get(this.looping);
             currentGain.gain.setValueAtTime(currentGain.gain.value, now);
@@ -154,7 +157,7 @@ class AudioManager {
             this.gainNodes.delete(this.looping);
         }
 
-        // Start the new track, aligned with its playback position
+        // Start the new track, aligned with its playback position.
         const newBuffer = this.audioCache.get(newKey);
         const newSource = this.context.createBufferSource();
         newSource.buffer = newBuffer;
@@ -165,14 +168,14 @@ class AudioManager {
         newGain.gain.setValueAtTime(0, now);
         newGain.gain.linearRampToValueAtTime(volume * this.masterVolume, now + fadeDuration);
 
-        // Align playback position of new loop
+        // Align playback position of new loop.
         const newPosition = now % newBuffer.duration; // Calculate playback position
         newSource.start(now, newPosition);
 
-        // Connect the new source
+        // Connect the new source.
         newSource.connect(newGain).connect(this.context.destination);
 
-        // Save the new source and gainNode
+        // Save the new source and gainNode.
         this.gainNodes.set(newKey, { source: newSource, gainNode: newGain });
     }
 
@@ -250,10 +253,22 @@ class AudioManager {
     }
 
     set timeScale(value) {
-        const { source, gainNode } = this.gainNodes.get(this.looping);
-
-        if (source) {
-            source.playbackRate.value = value; // Adjust playback rate to control speed
+        value = Math.min(1, value+value);
+        for (let [key, object] of this.gainNodes) {
+            let source = object.source;
+            let gainNode = object.gainNode;
+            source.playbackRate.value = value;
+        }
+        let i = this.playingEffects.length - 1;
+        for (;i >= 0; i--) {
+            let {source, gainNode} = this.playingEffects[i];
+            source.playbackRate.value = value;
+            if (!source.loop && source.currentTime >= source.duration) {
+                break;
+              }
+        }
+        if (i >= 0) {
+            this.playingEffects.splice(0, i);
         }
     }
 
@@ -262,10 +277,12 @@ class AudioManager {
             return;
         }
 
-        const { source, gainNode } = this.gainNodes.get(this.looping);
+        if (this.gainNodes.has(this.looping)) {
+            const { source, gainNode } = this.gainNodes.get(this.looping);
 
-        if (source) {
-            return source.currentTime;
+            if (source) {
+                return source.currentTime;
+            }
         }
 
         return 0.0;
@@ -276,10 +293,12 @@ class AudioManager {
             return;
         }
 
-        const { source, gainNode } = this.gainNodes.get(this.looping);
+        if (this.gainNodes.has(this.looping)) {
+            const { source, gainNode } = this.gainNodes.get(this.looping);
 
-        if (source) {
-            return source.currentTime;
+            if (source) {
+                return source.currentTime;
+            }
         }
 
         return 0.0;
