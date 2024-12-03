@@ -60,7 +60,10 @@ class VideoGestures {
       this.thumbUp = {0: false, 1: false, 2: false, 3: false, 4: false, 5: false};
       this.switching = false;
       this.gestureHands = [];
-      this.setup();
+      
+      this.enableWebcamButton = document.querySelector('#enable-webcam-button');
+      this.enableWebcamButton.style.hidden = true;
+    
       this.enable();
     }
 
@@ -89,6 +92,11 @@ class VideoGestures {
       });
   
       await this.getStream().then(() => this.getDevices()).then((deviceInfos) => this.gotDevices(deviceInfos));
+
+      this.enableWebcamButton.style.hidden = false;
+      this.enableWebcamButton.addEventListener("click", (e) => {
+        this.enableCam(e);
+      });  
     }
 
 
@@ -146,21 +154,6 @@ class VideoGestures {
 
     private handleError(error) {
         console.error('Error: ', error);
-    }
-
-  
-    private setup() {
-      // Check if webcam access is supported
-      const hasGetUserMedia = () =>
-        !!this.window.navigator.mediaDevices?.getUserMedia;
-  
-      if (hasGetUserMedia()) {
-        this.enableWebcamButton.addEventListener("click", (e) => {
-          this.enableCam(e);
-        });
-      } else {
-        console.warn("getUserMedia() is not supported by your browser");
-      }
     }
   
     private async enableCam(e:Event) {

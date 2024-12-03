@@ -177,7 +177,7 @@ function debug() {
     }
 }
 
-const ENABLE_VIDEO_GESTURES = true;
+const ENABLE_VIDEO_GESTURES = false;
 
 let videoGestures = ENABLE_VIDEO_GESTURES ? new VideoGestures(window, document) : null;
 if (videoGestures) {
@@ -245,7 +245,6 @@ io.onWordDetected((word) => {
         videoGestures = new VideoGestures(window, document);
         videoGestures.resize(window.innerWidth, window.innerHeight);
     }
-    videoGestures.enable();
     if (heliattack?.isLoaded()) {
         heliattack.initVideoGestures(videoGestures);
         heliattack.shooting = true;

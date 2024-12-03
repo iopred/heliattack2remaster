@@ -2334,8 +2334,10 @@ No remnants of rebellion
     initVideoGestures(gestures) {
         this.videoGestures = gestures;
 
-        for (var i = 0; i < 6; i++) {
-            this.gestureHands.push(this.createGestureHand());
+        if (!this.gestureHands.length) {       
+            for (var i = 0; i < 6; i++) {
+                this.gestureHands.push(this.createGestureHand());
+            }
         }
 
         if (this.level == 0) {
