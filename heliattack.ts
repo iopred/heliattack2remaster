@@ -2319,6 +2319,9 @@ No remnants of rebellion
     }
 
     createGestureHand() {
+        if (!this.textures) {
+            return;
+        }
         var texture = this.textures['./images/gesturehand.png'];
         const geometry = new PlaneGeometry(texture.image.width, texture.image.height); // Adjust size as needed
         const material = new MeshBasicMaterial({

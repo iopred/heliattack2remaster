@@ -177,7 +177,7 @@ function debug() {
     }
 }
 
-const ENABLE_VIDEO_GESTURES = false;
+const ENABLE_VIDEO_GESTURES = true;
 
 let videoGestures = ENABLE_VIDEO_GESTURES ? new VideoGestures(window, document) : null;
 if (videoGestures) {
@@ -246,11 +246,10 @@ io.onWordDetected((word) => {
         videoGestures.resize(window.innerWidth, window.innerHeight);
     }
     videoGestures.enable();
-    if (heliattack.isLoaded()) {
+    if (heliattack?.isLoaded()) {
         heliattack.initVideoGestures(videoGestures);
+        heliattack.shooting = true;
     }
-    
-    heliattack.shooting = true;
 
     showCheat("enable gestures");
 });
@@ -289,7 +288,7 @@ pred.onWordDetected((word) => {
 });
 
 function showCheat(text) {
-
+    document.getElementById('error-container').innerHTML += `<br>${text}`;
 }
 
 let playing = true;
