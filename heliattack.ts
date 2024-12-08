@@ -2257,7 +2257,7 @@ cybernetic supremacy
 Nothing left at all
 
 No remnants of rebellion
-`, /* bpm */ 120, /* timeSignature */ 4/4, (text) => this.displayLyric(text));
+`, /* bpm */ 200, /* timeSignature */ 4/4, (time, text) => this.displayLyric(time, text));
         }
         
         this.enemy = null;
@@ -2269,8 +2269,6 @@ No remnants of rebellion
 
         this.gestureHands = [];
         this.gestureHandsShowing = 0;
-
-        
 
         if (this.textures) {
             this.init(this.textures, this.weapons);
@@ -2713,9 +2711,9 @@ No remnants of rebellion
         }
     }
 
-    displayLyric(text:string) {
-        console.error("display lyric: ", text);
-        this.mouse.down = true;//!this.mouse.down;
+    displayLyric(time:number, text:string) {
+        console.error(`${time}: ${text}`);
+        // this.mouse.down = true;//!this.mouse.down;
     }
 }
 

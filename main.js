@@ -324,18 +324,8 @@ window.addEventListener('keydown', (e) => {
     pred.listen(history.join(''));
     retro.listen(history.join(''));
     io.listen(history.join(''));
-    console.error("support all time jumps")
-    switch (e.key) {
-        case '0':
-            heliattack.currentTime = 0;
-            break;
-        case '1':
-            heliattack.currentTime = 0.1;
-            // heliattack.game.pred();
-            break;
-        case '9':
-            heliattack.currentTime = 0.9;
-            break;
+    if (e.key >= '0' && e.key <= '9') {
+        heliattack.currentTime = (e.key.charCodeAt(0) - '0'.charCodeAt(0)) / 10
     }
 });
 window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });

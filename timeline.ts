@@ -45,7 +45,7 @@ class Timeline {
         this.lyrics = entries.map(entry => {
             // Calculate the time for this lyric using the BPM
             const timePerBeat = 60 / this.bpm; // Time for each beat in seconds
-            currentTime += timePerBeat; // Increment the time based on the beats
+            currentTime += timePerBeat * this.timeSignature * 4; // Increment the time based on the beats
 
             return { time: currentTime, text: entry };
         });
@@ -65,7 +65,7 @@ class Timeline {
         const lyricsToShow = this.lyrics.filter(lyric => lyric.time >= startTime && lyric.time <= endTime);
         
         // Display each lyric
-        lyricsToShow.forEach(lyric => this.displayLyric(lyric.text));
+        lyricsToShow.forEach(lyric => this.displayLyric(lyric.time, lyric.text));
     }
 
     // Starts playback of lyrics based on the current time of audio playback
@@ -77,9 +77,9 @@ class Timeline {
     public dispatchLyrics(startTime:number, endTime:number);
 
     // Displays the lyric (can be replaced with custom logic to render lyrics on screen)
-    private displayLyric(text: string): void {
+    private displayLyric(time:number, text: string): void {
         if (text && this.listener) {
-            this.listener(text);
+            this.listener(time, text);
         }
     }
 
