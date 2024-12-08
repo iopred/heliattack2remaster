@@ -354,6 +354,29 @@ if (WebGL.isWebGL2Available()) {
 
 const audioManager = new AudioManager();
 
+const settings = {
+    set menu(value) {
+        setMenuVisible(value);
+    },
+    set over(value) {
+        setMenuVisible(value);
+        setVisible(mainMenu, value);
+    },
+    set playing(value) {
+        heliattack.playing = value;
+    },
+    update() {
+        if (videoGestures) {
+            videoGestures.update();
+        }
+    },
+    set musicVolume(value) {
+        audioManager.musicVolume = value;
+    },
+}
+
+settings.musicVolume = 0.0;
+
 let initialized = false;
 
 const menu = document.getElementById('menu');
@@ -432,23 +455,7 @@ function createHeliAttack() {
     if (heliattack) {
         heliattack.destroy();
     }
-    const settings = {
-        set menu(value) {
-            setMenuVisible(value);
-        },
-        set over(value) {
-            setMenuVisible(value);
-            setVisible(mainMenu, value);
-        },
-        set playing(value) {
-            heliattack.playing = value;
-        },
-        update() {
-            if (videoGestures) {
-                videoGestures.update();
-            }
-        }
-    }
+
 
     heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager, settings);
     heliattack.init(loaded, started);

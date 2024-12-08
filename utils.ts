@@ -152,12 +152,12 @@ function resolveAxisCollision(entity, timeScale, axis, tilemap, tileSize) {
         if (yTile < 0) {
             yTile = 0;
         } else if (yTile >= tilemap.length) {
-            yTile = tileMap.length - 1;
+            yTile = tilemap.length - 1;
         }
         if (xTile < 0) {
             xTile = 0;
         } else if (xTile >= tilemap[yTile].length) {
-            xTile = tileMap[yTile].length - 1;
+            xTile = tilemap[yTile].length - 1;
         }
 
 

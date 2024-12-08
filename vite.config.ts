@@ -2,6 +2,7 @@
 module.exports = PROD;
 
 const DEV = {
+    base: '/game',
     outDir: '/game',
     devServer: {
         port: 3264,

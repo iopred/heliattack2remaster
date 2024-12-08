@@ -1,4 +1,7 @@
 class AudioManager {
+
+
+
     constructor() {
         this.audioCache = new Map(); // Stores preloaded audio buffers
         this.context = null; // Audio context (created in init)
@@ -6,6 +9,8 @@ class AudioManager {
         this.toPreload = [];
         this.preloadPromise = null; // Stores the promise for the preload process
         this.masterVolume = 1.0;
+        /** @private */
+        this.musicVolume_ = 1.0; // Start playing, we want to hear things before we're initialized to catch bugs!
         this.looping = null;
         this.playingEffects = [];
     }
@@ -210,7 +215,7 @@ class AudioManager {
         source.loop = true;
 
         const gainNode = this.context.createGain();
-        gainNode.gain.value = volume * this.masterVolume;
+        gainNode.gain.value = volume * this.masterVolume *  this.musicVolume_;
 
         source.connect(gainNode).connect(this.context.destination);
         source.start();
@@ -281,7 +286,7 @@ class AudioManager {
             const { source, gainNode } = this.gainNodes.get(this.looping);
 
             if (source) {
-                return source.currentTime;
+                return source.context.currentTime;
             }
         }
 
@@ -302,6 +307,18 @@ class AudioManager {
         }
 
         return 0.0;
+    }
+
+    /** @param {number} value */
+    set musicVolume(value) {
+        this.musicVolume_ = value;
+        if (this.looping) {
+            const { source, gainNode } = this.gainNodes.get(this.looping);
+
+            if (gainNode) {
+                gainNode.gain.value = value;
+            }
+        }
     }
 }
 
