@@ -325,7 +325,7 @@ window.addEventListener('keydown', (e) => {
     retro.listen(history.join(''));
     io.listen(history.join(''));
     console.error("support all time jumps")
-    switch (keyIsPressed[e.key]) {
+    switch (e.key) {
         case '0':
             this.heliattack.game.currentTime = 0;
             break;
