@@ -3,7 +3,7 @@ import WebGL from 'three/addons/capabilities/WebGL.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import AudioManager from './audiomanager.js';
+import AudioManager from './audiomanager.ts';
 import VideoGestures from './videogestures.ts';
 import WordListener from './wordlistener.ts';
 import HeliAttack from './heliattack.ts';
@@ -327,14 +327,14 @@ window.addEventListener('keydown', (e) => {
     console.error("support all time jumps")
     switch (e.key) {
         case '0':
-            this.heliattack.game.currentTime = 0;
+            heliattack.currentTime = 0;
             break;
         case '1':
-            this.heliattack.game.currentTime = 0.1;
-            this.heliattack.game.pred();
+            heliattack.currentTime = 0.1;
+            // heliattack.game.pred();
             break;
         case '9':
-            this.heliattack.game.currentTime = 0.9;
+            heliattack.currentTime = 0.9;
             break;
     }
 });
@@ -375,7 +375,7 @@ const settings = {
     },
 }
 
-settings.musicVolume = 0.0;
+// settings.musicVolume = 0.0;
 
 let initialized = false;
 

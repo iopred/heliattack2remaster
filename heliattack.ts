@@ -2715,7 +2715,7 @@ No remnants of rebellion
 
     displayLyric(text:string) {
         console.error("display lyric: ", text);
-        this.mouse.down = !this.mouse.down;
+        this.mouse.down = true;//!this.mouse.down;
     }
 }
 
@@ -3083,6 +3083,10 @@ class HeliAttack {
                 this.audioManager.crossFadeMusic(song, 0.9)
             });
             
+        }
+
+        set currentTime(value) {
+            this.audioManager.currentTime = value * this.audioManager.totalTime;
         }
 
         set shooting(value) {
