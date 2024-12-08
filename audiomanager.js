@@ -281,28 +281,11 @@ class AudioManager {
         if (!this.looping) {
             return;
         }
-
         if (this.gainNodes.has(this.looping)) {
             const { source, gainNode } = this.gainNodes.get(this.looping);
 
             if (source) {
                 return source.context.currentTime;
-            }
-        }
-
-        return 0.0;
-    }
-
-    getCurrentTime() {
-        if (!this.looping) {
-            return;
-        }
-
-        if (this.gainNodes.has(this.looping)) {
-            const { source, gainNode } = this.gainNodes.get(this.looping);
-
-            if (source) {
-                return source.currentTime;
             }
         }
 

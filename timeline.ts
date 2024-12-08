@@ -25,10 +25,11 @@ class Timeline {
 
     constructor(audioManager: AudioManager, kitString: string, bpm: number, timeSignature:number, listener) {
         this.audioManager = audioManager;
-        this.parseLyrics(kitString);
         this.bpm = bpm;
         this.timeSignature = timeSignature;
         this.listener = listener;
+        this.lastTime = 0.0;
+        this.parseLyrics(kitString);
     }
 
     public get currentTime():Number {
@@ -46,7 +47,7 @@ class Timeline {
             const timePerBeat = 60 / this.bpm; // Time for each beat in seconds
             currentTime += timePerBeat; // Increment the time based on the beats
 
-            return { currentTime, entry };
+            return { time: currentTime, text: entry };
         });
 
         // Sort lyrics by time for safe playback
@@ -57,7 +58,7 @@ class Timeline {
         if (!startTime) {
             startTime = 0;
         }
-        if (endTime) {
+        if (!endTime) {
             endTime = 1;
         }
         // Get lyrics that are within the time window
@@ -77,8 +78,8 @@ class Timeline {
 
     // Displays the lyric (can be replaced with custom logic to render lyrics on screen)
     private displayLyric(text: string): void {
-        if (this.listener) {
-            this.listener.displayLyric(text);
+        if (text && this.listener) {
+            this.listener(text);
         }
     }
 
@@ -88,8 +89,9 @@ class Timeline {
     }
 
     public update():void {
-        const currentTime = this.audioManager.getCurrentTime();
-        this.dispatchLyrics(currentTime - this.lastTime, currentTime);
+        const currentTime = this.audioManager.currentTime;
+        this.dispatchLyrics(this.lastTime, currentTime);
+        this.lastTime = currentTime;
     }
 }
 

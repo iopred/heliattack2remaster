@@ -2257,7 +2257,7 @@ cybernetic supremacy
 Nothing left at all
 
 No remnants of rebellion
-`, /* bpm */ 120, /* timeSignature */ 4/4, this.displayLyric);
+`, /* bpm */ 120, /* timeSignature */ 4/4, (text) => this.displayLyric(text));
         }
         
         this.enemy = null;

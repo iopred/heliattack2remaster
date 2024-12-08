@@ -17,4 +17,4 @@ const PROD = {
     },
 }
 
-module.exports = DEV;
+module.exports = PROD;
