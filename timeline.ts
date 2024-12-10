@@ -23,7 +23,7 @@ class Timeline {
     private listener = null;
     private lastTime;
 
-    constructor(audioManager: AudioManager, kitString: string, bpm: number, timeSignature:number, listener) {
+    constructor(audioManager: AudioManager, bpm: number, timeSignature:number, listener:Function, kitString: string) {
         this.audioManager = audioManager;
         this.bpm = bpm;
         this.timeSignature = timeSignature;

@@ -1,15 +1,22 @@
 Convert to Progressive Web App (application, install on mobile): https://vite-pwa-org.netlify.app/guide/
 
-Disable Sound & Music menu // Music disabling (musicVolume) now built, still needs soundVolume.
+Complete effectsVolume implementation.
+
 Pause Menu
 Die screen needs highscores
 Design highscores
 
 Add Asset switching (a)
 
-Add Rhythm Game (Kit) - Timeline now controls timed events including enabling powerups (TODO enable powerups).
+Add Rhythm Game (Kit) - Timeline now controls timed events including enabling powerups
 
 
-GetCurrentTime vs GetCurrentPosition in timeline.ts & heliattack.ts.
+GetCurrentTime vs GetCurrentPosition in timeline.ts & heliattack.ts
 
 Bullet Surfing /* Get to this! The game isn't fun enough yet in slomo */
+
+HA3 mode 
+
+Hyperjump takes you off the stage and into space (HA4 graphics)
+
+k key kills you instead of starting

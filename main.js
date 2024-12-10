@@ -8,7 +8,9 @@ import VideoGestures from './videogestures.ts';
 import WordListener from './wordlistener.ts';
 import HeliAttack from './heliattack.ts';
 import TouchInputHandler from './touchinputhandler.ts';
-import { createTintShader, manageRaycasterIntersections } from './utils';
+import { sayMessage } from './utils';
+
+import SmoothScrollHandler from './smoothscrollhandler.ts';
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
@@ -237,6 +239,23 @@ o.onWordDetected((word) => {
 });
 
 
+const m = new WordListener('m');
+m.onWordDetected((word) => {
+    audioManager.musicVolume = (audioManager.musicVolume === 0.0 ? settings.musicVolume : 0.0);
+
+    showCheat("music");
+});
+
+const s = new WordListener('s');
+s.onWordDetected((word) => {
+    audioManager.effectVolume = (audioManager.effectVolume === 0.0 ? settings.effectVolume : 0.0);
+
+    showCheat("music");
+
+    console.error('show video for next bar');
+});
+
+
 const io = new WordListener('io');
 io.onWordDetected((word) => {
     history.splice(0, history.length);
@@ -265,8 +284,21 @@ retro.onWordDetected((word) => {
     showCheat("retro assets")
 });
 
-const ror = new WordListener('ror');
-ror.onWordDetected((word) => {
+const xylander = new WordListener('xylander');
+xylander.onWordDetected((word) => {
+    debugger;
+    history.splice(0, history.length);
+
+    playing = true;
+    if (heliattack) {
+        heliattack.playSong('https://player-widget.mixcloud.com/widget/iframe/?hide_cover=1&feed=%2FAudioInterface%2Fforgotten-futures-8-december-2024%2F');
+    }
+
+    showCheat("go outside and breathe the fumes");
+});
+
+const kit = new WordListener('kit');
+kit.onWordDetected((word) => {
     history.splice(0, history.length);
 
     playing = true;
@@ -288,6 +320,8 @@ pred.onWordDetected((word) => {
 
 function showCheat(text) {
     document.getElementById('error-container').innerHTML += `<br>${text}`;
+
+    setMessage(text);
 }
 
 let playing = true;
@@ -318,12 +352,14 @@ window.addEventListener('keydown', (e) => {
         k.listen(e.key);
         i.listen(e.key);
         o.listen(e.key);
-        
+        m.listen(e.key);
+        s.listen(e.key);
     }
-    ror.listen(history.join(''));
+    xylander.listen(history.join(''));
     pred.listen(history.join(''));
     retro.listen(history.join(''));
     io.listen(history.join(''));
+    kit.listen(history.join(''));
     if (e.key >= '0' && e.key <= '9') {
         heliattack.currentTime = (e.key.charCodeAt(0) - '0'.charCodeAt(0)) / 10
     }
@@ -333,6 +369,18 @@ window.addEventListener('blur', () => {
     for (const key in keyIsPressed) {
         keyIsPressed[key] = false;
     }
+    audioManager.pause();
+    if (heliattack) {
+        heliattack.pause();
+    }
+    playing = false
+});
+window.addEventListener('focus', () => {
+    playing = true
+    if (heliattack) {
+        heliattack.play();
+    }
+    audioManager.play();
 });
 
 if (WebGL.isWebGL2Available()) {
@@ -362,6 +410,17 @@ const settings = {
     },
     set musicVolume(value) {
         audioManager.musicVolume = value;
+        // TODO(Store in localstorage)
+    },
+    get musicVolume() {
+        return 0.8;
+    },
+    set effectVolume(value) {
+        audioManager.effectVolume = value;
+        // TODO(Store in localstorage)
+    },
+    get effectVolume() {
+        return 0.8;
     },
 }
 
@@ -374,7 +433,7 @@ const mainMenu = document.getElementById('main-menu');
 
 setVisible(menu, true);
 
-function init() {
+async function init() {
     if (initialized) {
         return;
     }
@@ -391,14 +450,15 @@ function init() {
 
     setMenuVisible(true);
 
-    scc();
+    await scc();
 }
 
-function scc() {
-    audioManager.preload([
+async function scc() {
+    await audioManager.preload([
         { key: 'scc', url: './sounds/scc.mp3'},
     ]).then(() => {
         audioManager.playEffect('scc');
+        setMessage("kit");
     });
 }
 
@@ -464,9 +524,10 @@ function setMessage(text) {
     const message = document.getElementById('message');
     setVisible(message, text);
     message.innerHTML = text;
-}
 
-let utterance = new SpeechSynthesisUtterance("kit");
-speechSynthesis.speak(utterance);
+    if (showErrors) {
+        sayMessage(text);
+    }
+}
 
 setMenuVisible(true);

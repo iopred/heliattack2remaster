@@ -9,6 +9,7 @@ class AudioManager {
     private preloadPromise: { promise: Promise<void>; resolve: () => void; reject: (error: any) => void } | null;
     private masterVolume: number;
     private musicVolume_: number;
+    private effectVolume_: number;
     private looping: string | null;
     private playingEffects: AudioNodeInfo[];
     private preloading: Promise<any> | null;
@@ -21,6 +22,7 @@ class AudioManager {
         this.preloadPromise = null;
         this.masterVolume = 1.0;
         this.musicVolume_ = 1.0;
+        this.effectVolume_ = 1.0;
         this.looping = null;
         this.loopingVolume_ = 1.0;
         this.playingEffects = [];
@@ -165,7 +167,30 @@ class AudioManager {
         this.musicVolume_ = value;
         if (this.looping && this.gainNodes.has(this.looping)) {
             const { gainNode } = this.gainNodes.get(this.looping)!;
-            gainNode.gain.value = value * this.masterVolume;
+            gainNode.gain.value = value * this.masterVolume * this.musicVolume_;
+        }
+    }
+
+    get effectVolume(): number {
+        return this.effectVolume_;
+    }
+
+    set effectVolume(value: number) {
+        this.effectVolume_ = value;
+
+        let loopingGainNode
+        if (this.looping && this.gainNodes.has(this.looping)) {
+            const { gainNode } = this.gainNodes.get(this.looping)!;
+            loopingGainNode = gainNode;
+        }
+
+        let i = this.playingEffects.length - 1;
+        for (; i >= 0; i--) {
+            let { source, gainNode } = this.playingEffects[i];
+            if (gainNode == loopingGainNode) {
+                return;
+            }
+            gainNode.gain.value = value * this.masterVolume * this.effectVolume_;
         }
     }
 
@@ -232,6 +257,9 @@ class AudioManager {
 
     stopLoop(key?: string): void {
         const targetKey = key || this.looping;
+        if (targetKey === this.looping) {
+            this.looping = null;
+        }
 
         if (!targetKey || !this.gainNodes.has(targetKey)) {
             console.warn(`No loop is currently playing for key: ${key}`);
@@ -311,6 +339,26 @@ class AudioManager {
         gainNode.gain.value = volume * this.masterVolume * this.musicVolume_;
     }
 
+    pause(): void {
+        if (this.context) {
+            this.context.suspend().then(() => {
+                console.log('AudioContext paused.');
+            }).catch(error => {
+                console.error('Failed to pause AudioContext:', error);
+            });
+        }
+    }
+    
+    play(): void {
+        if (this.context) {
+            this.context.resume().then(() => {
+                console.log('AudioContext resumed.');
+            }).catch(error => {
+                console.error('Failed to resume AudioContext:', error);
+            });
+        }
+    }
+    
 }
 
 export default AudioManager;
