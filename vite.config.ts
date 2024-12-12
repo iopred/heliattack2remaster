@@ -1,14 +1,13 @@
 /** @type {import('vite').UserConfig} */
-const DEV = {
+const MAC = {
     base: '/game',
-    outDir: '/game',
     devServer: {
         port: 3264,
     },
 };
 
 /** @type {import('vite').UserConfig} */
-const PROD = {
+const PC = {
     base: '/game',
     outDir: '/game',
     devServer: {
@@ -16,4 +15,4 @@ const PROD = {
     },
 }
 
-export default PROD;
+export default MAC;

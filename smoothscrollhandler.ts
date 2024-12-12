@@ -12,9 +12,9 @@ class SmoothScrollHandler {
     this.debounceDelay = debounceDelay;
 
     // Bind event listeners
-    this.element.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
-    this.element.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
-    this.element.addEventListener('touchend', this.handleTouchEnd.bind(this));
+    this.element.addEventListener('touchstart', event => this.handleTouchStart(event), { passive: false });
+    this.element.addEventListener('touchmove', event => this.handleTouchMove(event), { passive: false });
+    this.element.addEventListener('touchend', event => this.handleTouchEnd());
   }
 
   private handleTouchStart(event: TouchEvent) {

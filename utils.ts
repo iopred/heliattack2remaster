@@ -126,7 +126,7 @@ function loadTexture(loader, textures, url) {
             textures[url] = texture;
             resolve(texture);
         }, undefined, (error) => {
-            console.log(url)
+            console.log("Error loading texture: ", url)
             reject({url, error});
         });
     });

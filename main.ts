@@ -141,7 +141,7 @@ function onMouseDown(event){
 
 const BPM = 200;
 
-const smoothScrollHandler = new SmoothScrollHandler(document, BPM * 4)
+const smoothScrollHandler = new SmoothScrollHandler(document.body, BPM * 4)
 smoothScrollHandler.onScroll((direction: 'up' | 'down') => {
     mouse.wheel = 1 * (direction === "up" ? 1 : -1);
 })
@@ -349,8 +349,14 @@ document.addEventListener('mousemove', onDocumentMouseMove, false);
 window.addEventListener('resize', onWindowResize, false);
 document.addEventListener('mousedown', onMouseDown, false);
 document.addEventListener('mouseup', onMouseUp, false);
-window.addEventListener('wheel', onMouseWheel, false);
 
+const TOUCH_CONTROLS = true;
+
+if (TOUCH_CONTROLS) {
+    window.addEventListener("wheel", e => e.preventDefault(), { passive:false })
+} else {
+    window.addEventListener('wheel', onMouseWheel, false);
+}
 window.addEventListener('keydown', (e) => {
     keyIsPressed[e.key] = true;
     history.push(e.key);
@@ -375,6 +381,7 @@ window.addEventListener('blur', () => {
     for (const key in keyIsPressed) {
         keyIsPressed[key] = false;
     }
+    mouse.down = false;
     audioManager.pause();
     if (heliattack) {
         heliattack.pause();

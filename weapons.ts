@@ -1,5 +1,5 @@
 
-import { Box3, BufferGeometry, LineBasicMaterial, Vector3, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry } from 'three';
+import { Box3, BufferGeometry, LineBasicMaterial, Vector3, Line, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry } from 'three';
 
 import { Explosion, Fire, Shard, Smoke } from './entities';
 import { isTileCollision, checkPointCollisionWithBoxes, getScaleDelta, heliBoxes, setOpacity } from './utils';
