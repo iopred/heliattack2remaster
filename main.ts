@@ -142,6 +142,7 @@ function onMouseDown(event){
 const BPM = 200;
 
 const smoothScrollHandler = new SmoothScrollHandler(document.body, BPM * 4)
+smoothScrollHandler.on
 smoothScrollHandler.onScroll((direction: 'up' | 'down') => {
     mouse.wheel = 1 * (direction === "up" ? 1 : -1);
 })
@@ -160,22 +161,35 @@ function onMouseWheel(event){
 
 const touchInputHandler = new TouchInputHandler(document);
 
-touchInputHandler.onStart((event, position) => {
+touchInputHandler.onStart((event) => {
     init();
+
+    const touch = event.touches[0];
+    if (!touch) {
+        console.error("no touches while in on start.");
+        return;
+    }
+
     mouse.down = true;
-    mouse.x = (position.x / window.innerWidth) * 2 - 1;
-    mouse.y = -(position.y / window.innerHeight) * 2 + 1;
+    mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
 });
 
-touchInputHandler.onEnd((event, position) => {
-    mouse.down = false;
-    mouse.x = (position.x / window.innerWidth) * 2 - 1;
-    mouse.y = -(position.y / window.innerHeight) * 2 + 1;
+touchInputHandler.onEnd((event) => {
+    if (!event.touches.length) {
+        mouse.down = false;
+    }
 })
 
-touchInputHandler.onMove((event, position) => {
-    mouse.x = (position.x / window.innerWidth) * 2 - 1;
-    mouse.y = -(position.y / window.innerHeight) * 2 + 1;
+touchInputHandler.onMove((event) => {
+    const touch = event.touches[0];
+    if (!touch) {
+        console.error("no touches while in on start.");
+        return;
+    }
+
+    mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
 })
 
 const ENABLE_DEBUGGER = false;
@@ -350,7 +364,8 @@ window.addEventListener('resize', onWindowResize, false);
 document.addEventListener('mousedown', onMouseDown, false);
 document.addEventListener('mouseup', onMouseUp, false);
 
-const TOUCH_CONTROLS = true;
+const TOUCH_CONTROLS = false;
+let inGame = false;
 
 if (TOUCH_CONTROLS) {
     window.addEventListener("wheel", e => e.preventDefault(), { passive:false })
@@ -375,9 +390,31 @@ window.addEventListener('keydown', (e) => {
     if (e.key >= '0' && e.key <= '9') {
         heliattack.currentTime = (e.key.charCodeAt(0) - '0'.charCodeAt(0)) / 10
     }
+    if (e.key == "Escape") {
+        if (heliattack.playing) {
+            if (playing) {
+                audioManager.pause();
+                heliattack.pause();
+                playing = false;
+                setMenuVisible(true);
+            } else {
+                playing = true
+                if (heliattack) {
+                    heliattack.play();
+                }
+                audioManager.play();
+                setMenuVisible(false);           
+            }
+        }
+    }
 });
 window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });
+
+let wasPlaying = false;
 window.addEventListener('blur', () => {
+    if (playing) {
+        wasPlaying = true;
+    }
     for (const key in keyIsPressed) {
         keyIsPressed[key] = false;
     }
@@ -389,11 +426,13 @@ window.addEventListener('blur', () => {
     playing = false
 });
 window.addEventListener('focus', () => {
-    playing = true
-    if (heliattack) {
-        heliattack.play();
+    if (wasPlaying) {
+        playing = true
+        if (heliattack) {
+            heliattack.play();
+        }
+        audioManager.play();
     }
-    audioManager.play();
 });
 
 if (WebGL.isWebGL2Available()) {
@@ -412,9 +451,6 @@ const settings = {
     set over(value) {
         setMenuVisible(value);
         setVisible(mainMenu, value);
-    },
-    set playing(value) {
-        heliattack.playing = value;
     },
     update() {
         if (videoGestures) {
@@ -492,6 +528,8 @@ function started() {
 
     setMenuVisible(false);
     setVisible(mainMenu, false);
+
+    heliattack.playing = true;
 }
 
 function setMenuVisible(value) {

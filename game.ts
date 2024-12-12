@@ -1219,6 +1219,8 @@ Nothing left at all
 No remnants of rebellion
 `);
         }
+
+        this.paused = false;
         
         this.enemy = null;
         this.level = 0;
@@ -1236,6 +1238,8 @@ No remnants of rebellion
         if (this.textures) {
             this.init(this.textures, this.weapons);
         }
+
+        this.spidersAttacked = false;
     }
 
     init(textures, weapons) {
@@ -1540,6 +1544,10 @@ No remnants of rebellion
     }
 
     update() {
+        if (this.paused) {
+            return;
+        }
+
         if (!this.clock) {
             return;
         }
@@ -1557,6 +1565,7 @@ No remnants of rebellion
         
         this.timeline.update(this);
         this.updateFunction();
+        
     }
 
     heli() {
@@ -1681,21 +1690,26 @@ No remnants of rebellion
 
     shooting() {
         if (this.player) {
+            debugger;
+            // Do we need this, check next debug.
             this.player.shooting = true;
         }
     }
 
     displayLyric(time:number, text:string) {
+        if (text === '[start]') {
+            this.spidersAttacked = true;
+        }
         //console.error(`${time}: ${text}`);
         sayMessage(text);
     }
 
     pause() {
-
+        this.paused = true;
     }
 
     play() {
-
+        this.paused = false;
     }
 
     backward() {

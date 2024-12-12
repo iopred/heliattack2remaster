@@ -223,6 +223,8 @@ class HeliAttack {
             this.game = new Game(oldGame);
             this.initialized = true;
             this.audioManager.playMusic('music', 0.8);
+            this.audioManager.playLoop('flame');
+            this.audioManager.playLoop('helicopter');
         }
     }
 

@@ -15,4 +15,4 @@ const PC = {
     },
 }
 
-export default MAC;
+export default PC;

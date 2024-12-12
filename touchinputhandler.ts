@@ -24,7 +24,7 @@ class TouchInputHandler {
 
   // Event Handlers
   private handleTouchStart(event: TouchEvent) {
-    event.preventDefault(); // Prevent overscroll
+    
     Array.from(event.touches).forEach(touch => {
       this.activeTouches.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
     });
@@ -38,7 +38,7 @@ class TouchInputHandler {
   }
 
   private handleTouchMove(event: TouchEvent) {
-    event.preventDefault(); // Prevent overscroll
+    
     Array.from(event.touches).forEach(touch => {
       this.activeTouches.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
     });
