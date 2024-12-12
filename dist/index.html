@@ -5,6 +5,7 @@
 		<title>Heli Attack</title>
 		<link rel="preconnect" href="https://fonts.cdnfonts.com">
 		<link href="https://fonts.cdnfonts.com/css/sf-pixelate" rel="stylesheet">
+		<meta name="viewport" content="width=device-width">
 		<style>
 			body {
 				margin: 0;
@@ -62,7 +63,7 @@
    				background-size: contain; /* Ensures the image scales to fit */
 			}
 
-			#ui {
+			#ui :not([paused]) {
 				pointer-events: none;
 				-webkit-user-select: none; /* Safari */
 				-ms-user-select: none; /* IE 10 and IE 11 */
@@ -221,11 +222,17 @@
 				background-repeat: no-repeat;
 			}
 
+			#pause {
+				position: fixed;
+				left: 10px;                
+				bottom: 10px;  
+			}
+
 			.nobreak {
 				display: inline-block;
 			}
 		</style>
-		<script type="module" crossorigin src="/game/assets/index-DjbhqFCn.js"></script>
+		<script type="module" crossorigin src="/game/assets/index-DLvQSM0e.js"></script>
 	</head>
 	<body>
 		<video id="webcam" autoplay muted></video>
@@ -238,6 +245,10 @@
 		</div>
 		<div id="ui" hidden>
 			<div id="info"></div>
+			<div id="pause">
+				<button id="music-enable">Music</button>
+				<button id="effects-enable">Effects</button>
+			</div>
 			<div id="health">
 				<div id="health-text">
 					Health:

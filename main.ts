@@ -261,17 +261,24 @@ o.onWordDetected((word) => {
     console.error('show video for next bar');
 });
 
+function toggleMusic() {
+    audioManager.musicVolume = (audioManager.musicVolume === 0.0 ? settings.musicVolume : 0.0);
+}
+
+function toggleEffects() {
+    audioManager.effectVolume = (audioManager.effectVolume === 0.0 ? settings.effectVolume : 0.0);
+}
 
 const m = new WordListener('m');
 m.onWordDetected((word) => {
-    audioManager.musicVolume = (audioManager.musicVolume === 0.0 ? settings.musicVolume : 0.0);
+    toggleMusic();
 
     showCheat(audioManager.musicVolume === 0.0 ? "music off" : "music on");
 });
 
 const n = new WordListener('n');
 n.onWordDetected((word) => {
-    audioManager.effectVolume = (audioManager.effectVolume === 0.0 ? settings.effectVolume : 0.0);
+    toggleEffects();
 
     showCheat(audioManager.effectVolume === 0.0 ? "sound off" : "sound on");
 });
@@ -309,7 +316,6 @@ xylander.onWordDetected((word) => {
     debugger;
     history.splice(0, history.length);
 
-    playing = true;
     if (heliattack) {
         heliattack.playSong('https://player-widget.mixcloud.com/widget/iframe/?hide_cover=1&feed=%2FAudioInterface%2Fforgotten-futures-8-december-2024%2F');
     }
@@ -321,7 +327,6 @@ const kit = new WordListener('kit');
 kit.onWordDetected((word) => {
     history.splice(0, history.length);
 
-    playing = true;
     if (heliattack) {
         heliattack.playSong('ror');
     }
@@ -364,6 +369,25 @@ window.addEventListener('resize', onWindowResize, false);
 document.addEventListener('mousedown', onMouseDown, false);
 document.addEventListener('mouseup', onMouseUp, false);
 
+function setPlaying(value) {
+    if (!value) {
+        audioManager.pause();
+        heliattack.pause();
+        playing = false;
+        setMenuVisible(true);
+        document.getElementById('ui')?.removeAttribute('playing');
+    } else {
+        playing = true
+        if (heliattack) {
+            heliattack.play();
+        }
+        audioManager.play();
+        setMenuVisible(false);
+        
+        document.getElementById('ui')?.setAttribute('playing', 'true');
+    }
+}
+
 const TOUCH_CONTROLS = false;
 let inGame = false;
 
@@ -392,19 +416,7 @@ window.addEventListener('keydown', (e) => {
     }
     if (e.key == "Escape") {
         if (heliattack.playing) {
-            if (playing) {
-                audioManager.pause();
-                heliattack.pause();
-                playing = false;
-                setMenuVisible(true);
-            } else {
-                playing = true
-                if (heliattack) {
-                    heliattack.play();
-                }
-                audioManager.play();
-                setMenuVisible(false);           
-            }
+            setPlaying(!playing);
         }
     }
 });
@@ -435,6 +447,23 @@ window.addEventListener('focus', () => {
     }
 });
 
+document.getElementById('music-enable')?.addEventListener('touch', event => {
+    toggleMusic();
+});
+
+document.getElementById('music-enable')?.addEventListener('click', event => {
+    toggleMusic();
+});
+
+document.getElementById('effects-enable')?.addEventListener('touch', event => {
+    toggleEffects();
+});
+
+document.getElementById('effects-enable')?.addEventListener('click', event => {
+    toggleEffects();
+});
+
+
 if (WebGL.isWebGL2Available()) {
     renderer.setAnimationLoop(render);
 } else {
@@ -451,6 +480,8 @@ const settings = {
     set over(value) {
         setMenuVisible(value);
         setVisible(mainMenu, value);
+        heliattack.playing = !value;
+        document.getElementById('ui')?.removeAttribute('playing');
     },
     update() {
         if (videoGestures) {
@@ -529,7 +560,7 @@ function started() {
     setMenuVisible(false);
     setVisible(mainMenu, false);
 
-    heliattack.playing = true;
+    setPlaying(true);
 }
 
 function setMenuVisible(value) {
