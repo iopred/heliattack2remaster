@@ -63,7 +63,7 @@
    				background-size: contain; /* Ensures the image scales to fit */
 			}
 
-			#ui :not([paused]) {
+			#ui [playing] {
 				pointer-events: none;
 				-webkit-user-select: none; /* Safari */
 				-ms-user-select: none; /* IE 10 and IE 11 */
@@ -225,14 +225,27 @@
 			#pause {
 				position: fixed;
 				left: 10px;                
-				bottom: 10px;  
+				bottom: 10px;
+				display: none;  
+			}
+
+			#ui:not([playing]) #pause {
+				display: initial;
+			}
+
+			#ui:not([playing]) #health {
+				display: none;
+			}
+
+			#ui:not([playing]) #bottom {
+				display: none;
 			}
 
 			.nobreak {
 				display: inline-block;
 			}
 		</style>
-		<script type="module" crossorigin src="/game/assets/index-DLvQSM0e.js"></script>
+		<script type="module" crossorigin src="/game/assets/index-ciSpQR7T.js"></script>
 	</head>
 	<body>
 		<video id="webcam" autoplay muted></video>
@@ -243,7 +256,7 @@
 				<button id="start-game">Start Game</button>
 			</div>
 		</div>
-		<div id="ui" hidden>
+		<div id="ui">
 			<div id="info"></div>
 			<div id="pause">
 				<button id="music-enable">Music</button>

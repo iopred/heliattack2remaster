@@ -147,21 +147,36 @@ function onMouseDown(event){
 const BPM = 200;
 
 const smoothScrollHandler = new SmoothScrollHandler(document.body, BPM * 4)
-smoothScrollHandler.on
+//smoothScrollHandler.on
 smoothScrollHandler.onScroll((direction: 'up' | 'down') => {
     mouse.wheel = 1 * (direction === "up" ? 1 : -1);
 })
 
 function onMouseUp(event){
-    mouse.down = false;
+    if (event.button === 0) {
+        mouse.down = false;
+    } else if (event.button === 1) {
+        mouse.wheel = 1;
+    } else if (event.button === 2) {
+        mouse.down = true;
+    }
 }
+
+let lastWheelMove = 0;
 
 function onMouseWheel(event){
     if (event.deltaY < 0) {
+        if (lastWheelMove == 1) {
+            return;
+        }
         mouse.wheel = 1;
     } else if (event.deltaY > 0) {
+        if (lastWheelMove == 1) {
+            return;
+        }
         mouse.wheel = -1;
     }
+    lastWheelMove = mouse.wheel;
 };
 
 const touchInputHandler = new TouchInputHandler(document);
@@ -208,7 +223,7 @@ const ENABLE_VIDEO_GESTURES = false;
 
 let videoGestures = ENABLE_VIDEO_GESTURES ? new VideoGestures(window, document) : null;
 if (videoGestures) {
-    videoGestures.resize(window.innerWidth, window.innerHeight);
+    videoGestures.setSize(window.innerWidth, window.innerHeight);
 }
 function getAvatar() {
     // TODO: Write Avatar Creator.
@@ -290,7 +305,7 @@ io.onWordDetected((word) => {
 
     if (!videoGestures) {
         videoGestures = new VideoGestures(window, document);
-        videoGestures.resize(window.innerWidth, window.innerHeight);
+        videoGestures.setSize(window.innerWidth, window.innerHeight);
     }
     if (heliattack?.isLoaded()) {
         heliattack.initVideoGestures(videoGestures);
@@ -461,6 +476,11 @@ document.getElementById('effects-enable')?.addEventListener('touch', event => {
 
 document.getElementById('effects-enable')?.addEventListener('click', event => {
     toggleEffects();
+});
+
+document.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    mouse.down = true;
 });
 
 
