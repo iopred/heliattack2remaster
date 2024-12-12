@@ -1,6 +1,4 @@
-// https://vitejs.dev/config/
-module.exports = PROD;
-
+/** @type {import('vite').UserConfig} */
 const DEV = {
     base: '/game',
     outDir: '/game',
@@ -9,6 +7,7 @@ const DEV = {
     },
 };
 
+/** @type {import('vite').UserConfig} */
 const PROD = {
     base: '/game',
     outDir: '/game',
@@ -17,4 +16,4 @@ const PROD = {
     },
 }
 
-module.exports = PROD;
+export default PROD;

@@ -71,6 +71,10 @@ class SmoothScrollHandler {
     this.element.removeEventListener('touchmove', this.handleTouchMove.bind(this));
     this.element.removeEventListener('touchend', this.handleTouchEnd.bind(this));
   }
+
+  public update() {
+    
+  }
 }
 
 export default SmoothScrollHandler;
