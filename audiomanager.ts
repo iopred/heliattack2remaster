@@ -117,7 +117,7 @@ class AudioManager {
         source.buffer = buffer;
 
         const gainNode = this.context!.createGain();
-        gainNode.gain.value = volume * this.masterVolume;
+        gainNode.gain.value = volume * this.masterVolume * this.effectVolume_;
 
         const effectObject = { source, gainNode };
 
@@ -230,7 +230,7 @@ class AudioManager {
         this.playLoop(key, volume, startTime);
     }
 
-    playLoop(key: string, volume = 1.0, startTime = 0.0): void {
+    playLoop(key: string, volume = 1.0, startTime = 0.0, useMusicVolume = true): void {
         if (!key || !this.context || !this.audioCache.has(key)) {
             console.warn(`Cannot play loop: invalid key or uninitialized context.`);
             return;
@@ -247,7 +247,7 @@ class AudioManager {
         source.loop = true;
 
         const gainNode = this.context!.createGain();
-        gainNode.gain.value = volume * this.masterVolume * this.musicVolume_;
+        gainNode.gain.value = volume * this.masterVolume * (useMusicVolume ? this.musicVolume_ : this.effectVolume_);
 
         source.connect(gainNode).connect(this.context!.destination);
         source.start(0, startTime);

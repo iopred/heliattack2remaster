@@ -895,6 +895,7 @@ class Player {
 
     destroy(game) {
         game.timeScale = 0.2;
+        game.audioManager.timeScale = game.timeScale;
         game.shaderPass.uniforms.tintEnabled.value = 1.0;
         this.dead = true;
         game.world.remove(this.group);
@@ -1303,12 +1304,7 @@ No remnants of rebellion
             for (var i = 0; i < 6; i++) {
                 this.gestureHands.push(this.createGestureHand());
             }
-        }
-
-        if (this.level == 0) {
-            this.pred();
-            this.level++;
-        }        
+        }      
     }
 
     restart() {
@@ -1486,12 +1482,7 @@ No remnants of rebellion
                         new Blood(this, new Vector3(bulletPos.x, -bulletPos.y, 0), i * 2);
                     }
                     if (this.player.health <= 0) {
-                        this.player.destroy(this);
-
-                        this.overSetter(true);
-
-                        this.enemy.destroy(this);
-                        this.enemy = null;
+                        this.suicide();
                     }
                 }
                 this.ignoreNextDamage = false;
@@ -1702,6 +1693,13 @@ No remnants of rebellion
         }
         //console.error(`${time}: ${text}`);
         sayMessage(text);
+    }
+
+    suicide() {
+        this.player.destroy(this);
+        this.overSetter(true);
+        this.enemy?.destroy(this);
+        this.enemy = null;
     }
 
     pause() {

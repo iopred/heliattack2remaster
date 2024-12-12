@@ -153,13 +153,17 @@ class HeliAttack {
             { key: 'scc', url: './sounds/scc.mp3' }
         ]).then(() => {
             if (!this.audioPreloaded) {
-                this.audioManager.playMusic('menu', 0.8);
-                this.audioManager.playLoop('flame', 0);
-                this.audioManager.playLoop('helicopter', 0);
+                this.initGame();
                 this.audioPreloaded = true;
             }
             this.isLoaded();
         });
+    }
+
+    initGame() {
+        this.audioManager.playMusic('music', 0.8);
+        this.audioManager.playLoop('flame', 0.0, 0, false);
+        this.audioManager.playLoop('helicopter', 0.0, 0, false);
     }
 
     isLoaded() {
@@ -222,9 +226,7 @@ class HeliAttack {
         if (oldGame) {
             this.game = new Game(oldGame);
             this.initialized = true;
-            this.audioManager.playMusic('music', 0.8);
-            this.audioManager.playLoop('flame');
-            this.audioManager.playLoop('helicopter');
+            this.initGame();
         }
     }
 
@@ -273,6 +275,10 @@ class HeliAttack {
 
     pause() {
         this.game?.pause();
+    }
+
+    suicide() {
+        this.game?.suicide();
     }
 }
 

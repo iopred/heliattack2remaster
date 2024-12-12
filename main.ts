@@ -110,13 +110,18 @@ function render() {
 }
 
 function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    camera.aspect = width / height;
     camera.updateProjectionMatrix();
 
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    composer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(width, height);
+    composer.setSize(width, height);
 
-    videoGestures?.resize(window.innerWidth, window.innerHeight);
+    videoGestures?.setSize(width, height);
+
+    heliattack?.setSize(width, height)
 }
 
 const mouse = {
@@ -230,9 +235,7 @@ function getAvatar() {
 
 const k = new WordListener('k');
 k.onWordDetected((word) => {
-    heliattack.restart();
-    heliattack.start();
-    setMenuVisible(false);
+    heliattack.suicide();
 });
 
 let showErrors = false;
@@ -263,16 +266,14 @@ const m = new WordListener('m');
 m.onWordDetected((word) => {
     audioManager.musicVolume = (audioManager.musicVolume === 0.0 ? settings.musicVolume : 0.0);
 
-    showCheat("music");
+    showCheat(audioManager.musicVolume === 0.0 ? "music off" : "music on");
 });
 
-const s = new WordListener('s');
-s.onWordDetected((word) => {
+const n = new WordListener('n');
+n.onWordDetected((word) => {
     audioManager.effectVolume = (audioManager.effectVolume === 0.0 ? settings.effectVolume : 0.0);
 
-    showCheat("music");
-
-    console.error('show video for next bar');
+    showCheat(audioManager.effectVolume === 0.0 ? "sound off" : "sound on");
 });
 
 
@@ -286,7 +287,6 @@ io.onWordDetected((word) => {
     }
     if (heliattack?.isLoaded()) {
         heliattack.initVideoGestures(videoGestures);
-        heliattack.shooting = true;
     }
 
     showCheat("enable gestures");
@@ -380,7 +380,7 @@ window.addEventListener('keydown', (e) => {
         i.listen(e.key);
         o.listen(e.key);
         m.listen(e.key);
-        s.listen(e.key);
+        n.listen(e.key);
     }
     xylander.listen(history.join(''));
     pred.listen(history.join(''));

@@ -67,7 +67,7 @@ class VideoGestures {
       this.enable();
     }
 
-    resize(width, height) {
+    setSize(width, height) {
       this.canvasElement.style.width = `${width}px`;
       this.canvasElement.style.height = `${height}px`;
       this.canvasElement.width = width;
