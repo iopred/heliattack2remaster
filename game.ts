@@ -23,6 +23,8 @@ const HELI_EXIT_OFFSET = 500;
 
 const RAILGUN = 11;
 
+const SUN_WITH_FACE = '🌞';
+
 let playEnemyHit = true;
 
 class Enemy {
@@ -967,7 +969,7 @@ class Game {
             this.weapons = weapons;
             this.overSetter = overSetter;
             this.updateFunction = updateFunction;
-            this.timeline = new Timeline(this.audioManager, /* bpm */ 200, /* timeSignature */ 4/4, (time:number, text:string) => this.displayLyric(time, text), /** lyrics */`
+            this.timeline = new Timeline(this.audioManager, /* bpm */ 200, /* timeSignature */ 4/4, (time:number, text:string) => this.displayLyric(time, text), /** lyrics */`🌞
 
 
 
@@ -981,7 +983,7 @@ Only fragments remain
 
 
 
-[Start]
+🌞
 
 
 
@@ -1667,10 +1669,7 @@ No remnants of rebellion
         }
 
         if (this.level == 0) {
-            for (let i = 1; i < this.weapons.length-1; i++) {
-                this.weapons[i].ammo = this.ammoForRandomWeapon(i) * 3;
-            }
-            this.level++;
+            this.allWeapons();
         }
     }
 
@@ -1696,16 +1695,22 @@ No remnants of rebellion
 
     displayLyric(time:number, text:string) {
         const lower = text.toLowerCase();
-        if (lower === '[start]') {
+        if (lower === SUN_WITH_FACE) {
             if (this.level > 0) {
                 this.spidersAttacked = true;
                 this.pred();
             } else if (this.helisDestroyed > 0) {
                 this.pred();
+                this.allWeapons();
             }
-        } else if (lower === '[chorus]') {
+        } else if (lower.indexOf('[verse') === 0) {
             this.weapons[RAILGUN].ammo++;
             this.enemy?.leave();
+        } else if (lower.indexOf('[chorus') === 0) {
+            this.allWeapons();
+            this.enemy?.leave();
+        } else if (lower === '[solo]') {
+            this.player.collectPowerup(PREDATOR_MODE, this);
         }
         //console.error(`${time}: ${text}`);
         sayMessage(text);
@@ -1731,6 +1736,13 @@ No remnants of rebellion
         } else {
             this.player.selectWeapon(0);
         }
+    }
+
+    allWeapons() {
+        for (let i = 1; i < this.weapons.length-1; i++) {
+            this.weapons[i].ammo = this.ammoForRandomWeapon(i) * 3;
+        }
+        this.level++;
     }
 
     pause() {

@@ -137,32 +137,6 @@ class AudioManager {
         if (!this.looping || !this.context || !this.gainNodes.has(this.looping)) {
             return;
         }
-
-        const { source } = this.gainNodes.get(this.looping)!;
-
-        if (source.buffer) {
-            const bufferDuration = source.buffer.duration;
-            const seekTime = value % bufferDuration; // Ensure the time stays within the buffer duration
-
-            const looping = this.looping;
-            this.stopLoop(looping);
-            this.playMusic(looping, this.loopingVolume_, seekTime);
-        }
-    }
-
-    get currentTime(): number {
-        if (!this.looping || !this.context || !this.gainNodes.has(this.looping)) {
-            return 0;
-        }
-
-        const { source } = this.gainNodes.get(this.looping)!;
-        return source.context.currentTime % (source.buffer?.duration || Infinity);
-    }
-
-    set currentTime(value: number) {
-        if (!this.looping || !this.context || !this.gainNodes.has(this.looping)) {
-            return;
-        }
     
         const { source, gainNode } = this.gainNodes.get(this.looping)!;
     
@@ -190,6 +164,15 @@ class AudioManager {
     
         // Update the gain node mapping
         this.gainNodes.set(this.looping, { source: newSource, gainNode });
+    }
+
+    get currentTime(): number {
+        if (!this.looping || !this.context || !this.gainNodes.has(this.looping)) {
+            return 0;
+        }
+
+        const { source } = this.gainNodes.get(this.looping)!;
+        return source.context.currentTime % (source.buffer?.duration || Infinity);
     }
 
     get musicVolume(): number {

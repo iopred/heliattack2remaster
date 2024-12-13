@@ -1,7 +1,5 @@
 Convert to Progressive Web App (application, install on mobile): https://vite-pwa-org.netlify.app/guide/
 
-Main + Pause Menu Sound on/off
-
 Design highscores
 
 Die screen needs highscores
@@ -9,10 +7,7 @@ Die screen needs highscores
 Add Asset switching (a)
     HA3 mode 
 
-Add Rhythm Game - Timeline now controls timed events including enabling powerups
 Add level editing - (Kit data store)
-
-GetCurrentTime vs GetCurrentPosition in timeline.ts & heliattack.ts
 
 Bullet Surfing /* Get to this! The game isn't fun enough yet in slomo */
 
