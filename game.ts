@@ -21,6 +21,8 @@ const SCREEN_HEIGHT = 500 * 9/16;
 const HELI_WIDTH = 100;
 const HELI_EXIT_OFFSET = 500;
 
+const RAILGUN = 11;
+
 let playEnemyHit = true;
 
 class Enemy {
@@ -377,6 +379,10 @@ class Enemy {
             game.heliDestroyed();
         }
     }
+
+    leave() {
+        this.trackingPlayer = 0;
+    }
 }
 
 const POWERUP_NONE = 0;
@@ -624,6 +630,7 @@ class Player {
                     if (this.health == 100) {
                         game.pred();
                     }
+                    game.weapons[RAILGUN].ammo++;
                 }
 
                 if (game.keyIsPressed[UP_KEY]) { 
@@ -879,8 +886,7 @@ class Player {
     endPowerup(game) {
         if (this.ignoreNextDamage && this.powerup == INVULNERABILITY) {
             // The player didn't get hit, congratulations!
-            powerupText.innerHTML = 'Deflect';
-            
+            document.getElementById("powerup-text")!.innerHTML = 'Deflect';
         }
         if (this.powerup == PREDATOR_MODE || this.powerup == MINI_PREDATOR_MODE) {
             const shoulderCannon = game.weapons[game.weapons.length-1];
@@ -1240,7 +1246,10 @@ No remnants of rebellion
             this.init(this.textures, this.weapons);
         }
 
+        this.lastWeapon_ = 0;
+
         this.spidersAttacked = false;
+
     }
 
     init(textures, weapons) {
@@ -1591,10 +1600,7 @@ No remnants of rebellion
         }
 
         if (this.helisDestroyed >= this.nextLevel) {
-            
-            if (this.player.health == 100) {
-                this.pred();
-            }
+            this.pred();
             this.level++;
             this.nextLevel += 10;
         }
@@ -1656,14 +1662,15 @@ No remnants of rebellion
         }
 
         if (this.player?.health == 100) {
-            if (this.level == 0) {
-                for (let i = 1; i < this.weapons.length-1; i++) {
-                    this.weapons[i].ammo = this.ammoForRandomWeapon(i) * 3;
-                }
-                this.level++;
-            }
             this.player.collectPowerup(MINI_PREDATOR_MODE, this);
             this.player.ignoreNextDamage = true;
+        }
+
+        if (this.level == 0) {
+            for (let i = 1; i < this.weapons.length-1; i++) {
+                this.weapons[i].ammo = this.ammoForRandomWeapon(i) * 3;
+            }
+            this.level++;
         }
     }
 
@@ -1688,8 +1695,17 @@ No remnants of rebellion
     }
 
     displayLyric(time:number, text:string) {
-        if (text === '[start]') {
-            this.spidersAttacked = true;
+        const lower = text.toLowerCase();
+        if (lower === '[start]') {
+            if (this.level > 0) {
+                this.spidersAttacked = true;
+                this.pred();
+            } else if (this.helisDestroyed > 0) {
+                this.pred();
+            }
+        } else if (lower === '[chorus]') {
+            this.weapons[RAILGUN].ammo++;
+            this.enemy?.leave();
         }
         //console.error(`${time}: ${text}`);
         sayMessage(text);
@@ -1700,6 +1716,21 @@ No remnants of rebellion
         this.overSetter(true);
         this.enemy?.destroy(this);
         this.enemy = null;
+    }
+
+    rail() {
+        this.lastWeapon_ = this.player.weapon;
+        if (this.weapons[RAILGUN].ammo) {
+            this.player.selectWeapon(RAILGUN);
+        }
+    }
+
+    lastWeapon() {
+        if (this.weapons[this.lastWeapon_].ammo) {
+            this.player.selectWeapon(this.lastWeapon_);
+        } else {
+            this.player.selectWeapon(0);
+        }
     }
 
     pause() {

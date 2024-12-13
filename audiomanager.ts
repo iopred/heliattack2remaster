@@ -159,6 +159,39 @@ class AudioManager {
         return source.context.currentTime % (source.buffer?.duration || Infinity);
     }
 
+    set currentTime(value: number) {
+        if (!this.looping || !this.context || !this.gainNodes.has(this.looping)) {
+            return;
+        }
+    
+        const { source, gainNode } = this.gainNodes.get(this.looping)!;
+    
+        // Stop the current source if needed
+        source.stop();
+    
+        // Restart the source with the new playback offset
+        const buffer = source.buffer;
+        if (!buffer) {
+            console.warn("No buffer found for the current source.");
+            return;
+        }
+    
+        const seekTime = value % buffer.duration; // Ensure the time stays within the buffer duration
+        const newSource = this.context.createBufferSource();
+        newSource.buffer = buffer;
+        newSource.loop = true;
+        newSource.playbackRate.value = source.playbackRate.value; // Maintain playback rate
+    
+        // Reconnect to the same gain node
+        newSource.connect(gainNode);
+    
+        // Start playback from the specified offset
+        newSource.start(0, seekTime);
+    
+        // Update the gain node mapping
+        this.gainNodes.set(this.looping, { source: newSource, gainNode });
+    }
+
     get musicVolume(): number {
         return this.musicVolume_;
     }

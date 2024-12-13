@@ -161,7 +161,7 @@ class HeliAttack {
     }
 
     initGame() {
-        this.audioManager.playMusic('music', 0.8);
+        this.audioManager.playMusic('menu', 0.8);
         this.audioManager.playLoop('flame', 0.0, 0, false);
         this.audioManager.playLoop('helicopter', 0.0, 0, false);
     }
@@ -279,6 +279,14 @@ class HeliAttack {
 
     suicide() {
         this.game?.suicide();
+    }
+
+    rail() {
+        this.game?.rail();
+    }
+
+    lastWeapon() {
+        this.game?.lastWeapon();
     }
 }
 

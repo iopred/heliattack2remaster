@@ -90,6 +90,7 @@ class Timeline {
 
     public update():void {
         const currentTime = this.audioManager.currentTime;
+        // console.error(currentTime);
         this.dispatchLyrics(this.lastTime, currentTime);
         this.lastTime = currentTime;
     }

@@ -127,7 +127,17 @@ function onWindowResize() {
 const mouse = {
     x: 0,
     y: 0,
-    down: false,
+
+    down_: false,
+    set down(value) {
+        this.down_ = value;
+        if (value) {
+            debug('mouse is down.');
+        }
+    },
+    get down() {
+        return this.down_;
+    },
     wheel: 0,
 }
 
@@ -140,8 +150,23 @@ function onDocumentMouseMove(event) {
 
 function onMouseDown(event){
     init();
+
+    if (!heliattack?.playing) {
+        return;
+    }
+
+    // debugger;
     //manageRaycasterIntersections(scene, camera, mouse);
     mouse.down = true;
+
+    if (event.button === 0) {
+        mouse.down = true;
+    } else if (event.button === 1) {
+        mouse.wheel = 1;
+    } else if (event.button === 2) {
+        heliattack?.rail();
+        mouse.down = !mouse.down;
+    }
 }
 
 const BPM = 200;
@@ -152,31 +177,59 @@ smoothScrollHandler.onScroll((direction: 'up' | 'down') => {
     mouse.wheel = 1 * (direction === "up" ? 1 : -1);
 })
 
+
+
 function onMouseUp(event){
+    if (!heliattack?.playing) {
+        return;
+    }
     if (event.button === 0) {
         mouse.down = false;
     } else if (event.button === 1) {
         mouse.wheel = 1;
     } else if (event.button === 2) {
-        mouse.down = true;
+        heliattack?.lastWeapon();
+        mouse.down = !mouse.down;
     }
+}
+
+function onMouseClick(event) {
+    if (!heliattack?.playing) {
+        return;
+    }
+    if (event.button === 1) {
+        mouse.wheel = 1;
+    } else if (event.button === 2) {
+        mouse.down = !mouse.down;
+    }  
 }
 
 let lastWheelMove = 0;
 
+function getDuration(bpm) {
+    const timePerBeat = 60 / bpm; // Time for each beat in seconds
+    return timePerBeat; // Increment the time based on the beats
+}
+let lastWheelTime = 0
 function onMouseWheel(event){
+    if (!heliattack?.playing) {
+        return;
+    }
+    
+    const now = window.performance.now();
     if (event.deltaY < 0) {
-        if (lastWheelMove == 1) {
+        if (lastWheelMove == 1 && now < lastWheelTime - getDuration(BPM)) {
             return;
         }
         mouse.wheel = 1;
     } else if (event.deltaY > 0) {
-        if (lastWheelMove == 1) {
+        if (lastWheelMove == -1 && now < lastWheelTime - getDuration(BPM)) {
             return;
         }
         mouse.wheel = -1;
     }
     lastWheelMove = mouse.wheel;
+    lastWheelTime = now;
 };
 
 const touchInputHandler = new TouchInputHandler(document);
@@ -184,24 +237,36 @@ const touchInputHandler = new TouchInputHandler(document);
 touchInputHandler.onStart((event) => {
     init();
 
+    if (!heliattack?.playing) {
+        return;
+    }
+
     const touch = event.touches[0];
     if (!touch) {
         console.error("no touches while in on start.");
         return;
     }
 
-    mouse.down = true;
     mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+    mouse.down = true;
 });
 
 touchInputHandler.onEnd((event) => {
+    if (!heliattack?.playing) {
+        return;
+    }
+
     if (!event.touches.length) {
         mouse.down = false;
     }
 })
 
 touchInputHandler.onMove((event) => {
+    if (!heliattack?.playing) {
+        return;
+    }
+
     const touch = event.touches[0];
     if (!touch) {
         console.error("no touches while in on start.");
@@ -213,8 +278,9 @@ touchInputHandler.onMove((event) => {
 })
 
 const ENABLE_DEBUGGER = false;
-function debug() {
+function debug(text) {
     if (ENABLE_DEBUGGER) {
+        console.error(text);
         debugger;
     }
 }
@@ -331,9 +397,7 @@ xylander.onWordDetected((word) => {
     debugger;
     history.splice(0, history.length);
 
-    if (heliattack) {
-        heliattack.playSong('https://player-widget.mixcloud.com/widget/iframe/?hide_cover=1&feed=%2FAudioInterface%2Fforgotten-futures-8-december-2024%2F');
-    }
+    heliattack?.playSong('https://player-widget.mixcloud.com/widget/iframe/?hide_cover=1&feed=%2FAudioInterface%2Fforgotten-futures-8-december-2024%2F');
 
     showCheat("go outside and breathe the fumes");
 });
@@ -377,12 +441,12 @@ const keyIsPressed = {
     'Space': false,
 };
 
-window.addEventListener('resize', onWindowResize);
 
 document.addEventListener('mousemove', onDocumentMouseMove, false);
 window.addEventListener('resize', onWindowResize, false);
 document.addEventListener('mousedown', onMouseDown, false);
 document.addEventListener('mouseup', onMouseUp, false);
+document.body.addEventListener('click', onMouseClick);
 
 function setPlaying(value) {
     if (!value) {
@@ -427,10 +491,12 @@ window.addEventListener('keydown', (e) => {
     io.listen(history.join(''));
     kit.listen(history.join(''));
     if (e.key >= '0' && e.key <= '9') {
-        heliattack.currentTime = (e.key.charCodeAt(0) - '0'.charCodeAt(0)) / 10
+        if (heliattack) {
+            heliattack.currentTime = (e.key.charCodeAt(0) - '0'.charCodeAt(0)) / 10;
+        }
     }
     if (e.key == "Escape") {
-        if (heliattack.playing) {
+        if (heliattack?.playing) {
             setPlaying(!playing);
         }
     }
@@ -500,7 +566,9 @@ const settings = {
     set over(value) {
         setMenuVisible(value);
         setVisible(mainMenu, value);
-        heliattack.playing = !value;
+        if (heliattack) {
+            heliattack.playing = !value;
+        }
         document.getElementById('ui')?.removeAttribute('playing');
     },
     update() {
