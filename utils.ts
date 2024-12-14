@@ -330,8 +330,10 @@ function sayMessage(text) {
         text = text.split(']')[0].substring(1);
     }
 
-    let utterance = new SpeechSynthesisUtterance(text);
-    speechSynthesis.speak(utterance);
+    if (window.audioManager.effectVolume != 0.0) {
+        let utterance = new SpeechSynthesisUtterance(text);
+        speechSynthesis.speak(utterance);
+    }
 }
 
 function setOpacity( obj, opacity ) {

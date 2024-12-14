@@ -43,11 +43,14 @@ class Timeline {
         let currentTime = 0;
 
         this.lyrics = entries.map(entry => {
+            const ct = currentTime;
+
             // Calculate the time for this lyric using the BPM
             const timePerBeat = 60 / this.bpm; // Time for each beat in seconds
+            
             currentTime += timePerBeat * this.timeSignature * 4; // Increment the time based on the beats
 
-            return { time: currentTime, text: entry };
+            return { time: ct, text: entry };
         });
 
         // Sort lyrics by time for safe playback

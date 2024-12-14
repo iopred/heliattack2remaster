@@ -3,14 +3,15 @@ import WebGL from 'three/addons/capabilities/WebGL.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import AudioManager from './audiomanager.ts';
-import VideoGestures from './videogestures.ts';
-import WordListener from './wordlistener.ts';
-import HeliAttack from './heliattack.ts';
-import TouchInputHandler from './touchinputhandler.ts';
+import AudioManager from './audiomanager';
+import VideoGestures from './videogestures';
+import WordListener from './wordlistener';
+import HeliAttack from './heliattack';
+import TouchInputHandler from './touchinputhandler';
 import { sayMessage } from './utils.ts';
+import SquareCircleCo from './scc/squarecircleco';
 
-import SmoothScrollHandler from './smoothscrollhandler.ts';
+import SmoothScrollHandler from './smoothscrollhandler';
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
@@ -317,7 +318,7 @@ function getAvatar() {
 
 const k = new WordListener('k');
 k.onWordDetected((word) => {
-    heliattack.suicide();
+    heliattack?.suicide();
 });
 
 let showErrors = false;
@@ -329,6 +330,11 @@ i.onWordDetected((word) => {
     setVisible(document.getElementById('error-container'), showErrors);
 
     showCheat("errors");
+});
+
+const t = new WordListener('t');
+t.onWordDetected((word) => {
+    heliattack?.start();
 });
 
 let showWebcam = false;
@@ -385,8 +391,7 @@ const retro = new WordListener('retro');
 retro.onWordDetected((word) => {
     history.splice(0, history.length);
     
-    heliattack.restart();
-    heliattack.start();
+    heliattack?.start();
     console.error("could not load heli attack 1 assets.")
     setVisible(document.getElementById('error-container'), showErrors);
 
@@ -407,9 +412,8 @@ const kit = new WordListener('kit');
 kit.onWordDetected((word) => {
     history.splice(0, history.length);
 
-    if (heliattack) {
-        heliattack.playSong('ror');
-    }
+    heliattack?.restart();
+    heliattack?.playSong('ror');
 
     showCheat("remnants of rebellion");
 });
@@ -559,6 +563,7 @@ if (WebGL.isWebGL2Available()) {
 }
 
 const audioManager = new AudioManager();
+window.audioManager = audioManager;
 
 const settings = {
     set menu(value) {
@@ -620,20 +625,30 @@ async function init() {
 
     setMessage('Loading...');
 
+    await scc();
+}
+
+function ha(shape) {
+    console.log(shape);
+    squarecircleco?.destroy();
+    squarecircleco = null;
+
     createMainMenu();
     createHeliAttack();
 
     setMenuVisible(true);
-
-    await scc();
 }
 
+let squarecircleco:SquareCircleCo|null = null;
 async function scc() {
+    setMessage("kit");
     await audioManager.preload([
         { key: 'scc', url: './sounds/scc.mp3'},
     ]).then(() => {
         audioManager.playEffect('scc');
-        setMessage("kit");
+        setMessage("*squarecircleco.");
+
+        squarecircleco = new SquareCircleCo(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager, document.getElementById('gesture-canvas') as HTMLCanvasElement, (shape) => ha(shape));
     });
 }
 
@@ -660,29 +675,20 @@ function createMainMenu() {
     const startButton = document.getElementById('start-game');
 
     startButton.addEventListener('click', () => {
-        if (heliattack.isLoaded()) {
-            heliattack.start();
-        }
+        heliattack?.start();
     });
 
     startButton.addEventListener('touchstart', () => {
-        if (heliattack.isLoaded()) {
-            heliattack.start();
-        }
+        heliattack?.start();
     });
 
     if (playing) {
-        if (heliattack && heliattack.isLoaded()) {
-            heliattack.start();
-        }
+        heliattack?.start();
     }
 }
 
 function createHeliAttack() {
-    if (heliattack) {
-        heliattack.destroy();
-    }
-
+    heliattack?.destroy();
 
     heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager, settings);
     heliattack.init(loaded, started);

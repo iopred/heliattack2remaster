@@ -93,7 +93,6 @@ class HeliAttack {
         this.audioManager = audioManager;
         this.settings = settings;
         this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
-        this.init();
     }
 
     ready() {
@@ -187,7 +186,6 @@ class HeliAttack {
             } else {
                 this.restart();
             }
-            this.audioManager.playMusic('music', 0.8);
             this.game.restart();
             if (this.startedFunc) {
                 this.startedFunc();
@@ -240,6 +238,7 @@ class HeliAttack {
     }
 
     playSong(song) {
+        this.game.musicTrack = song;
         if (isUrl(song)) {
             console.error('download url');
             createIframe(song);

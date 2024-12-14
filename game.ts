@@ -1,14 +1,13 @@
 
-import AudioManager from './audiomanager.js';
-import Weapon from './weapon.ts';
+import { Blood, Box, DestroyedEnemy, DestroyedHeli, Explosion, Fire, Parachute, Shard, Smoke } from './entities';
 import { Box3, BufferGeometry, Clock, Color, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, TextureLoader, Vector2, Vector3, Camera } from 'three';
-import { calculateAngleToMouse, checkTileCollisions, createTintShader, loadTexture, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth } from './utils';
+import { calculateAngleToMouse, checkTileCollisions, createTintShader, loadTexture, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth, checkBoxCollisionWithBoxes, checkPointCollisionWithBoxes, heliBoxes, isPlayerCollision, isPlayerCollisionRect, isTileCollision, sayMessage } from './utils';
+import { defaultBulletUpdate } from './weapons';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import Timeline from './timeline.ts';
-import VideoGestures from './videogestures.ts';
-import { defaultBulletUpdate } from './weapons.ts';
-import { checkBoxCollisionWithBoxes, checkPointCollisionWithBoxes, heliBoxes, isPlayerCollision, isPlayerCollisionRect, isTileCollision, sayMessage } from './utils.ts';
-import { Blood, Box, DestroyedEnemy, DestroyedHeli, Explosion, Fire, Parachute, Shard, Smoke } from './entities.ts';
+import AudioManager from './audiomanager';
+import Timeline from './timeline';
+import VideoGestures from './videogestures';
+import Weapon from './weapon';
 
 const UP_KEY = 'KeyboardKeyUp';
 const DOWN_KEY = 'KeyboardKeyDown';
@@ -16,14 +15,16 @@ const LEFT_KEY = 'KeyboardKeyLeft';
 const RIGHT_KEY = 'KeyboardKeyRight';
 
 const SCREEN_WIDTH = 500;
-const SCREEN_HEIGHT = 500 * 9/16;
+const SCREEN_HEIGHT = 500 * 9 / 16;
 
 const HELI_WIDTH = 100;
 const HELI_EXIT_OFFSET = 500;
 
 const RAILGUN = 11;
+const SEEKER = 7;
 
 const SUN_WITH_FACE = '🌞';
+const HELICOPTER = '🚁';
 
 let playEnemyHit = true;
 
@@ -47,10 +48,10 @@ class Enemy {
         this.tints = [];
         this.tint = 0;
 
-        this.aim = Math.PI/2;
+        this.aim = Math.PI / 2;
     }
 
-    
+
 
     init(game) {
         const heliTexture = this.heliTexture = game.textures['./images/heli/heli.png'];
@@ -75,7 +76,7 @@ class Enemy {
         const mesh = this.mesh = new Mesh(geometry, tintMaterial);
         this.heliGroup.add(mesh);
 
-        
+
         const enemyGeometry = new PlaneGeometry(enemyTexture.image.width, enemyTexture.image.height);
         const enemyMaterial = new MeshBasicMaterial({
             map: enemyTexture,
@@ -107,22 +108,22 @@ class Enemy {
         //     const center = new Vector3();
         //     box.getSize(size);
         //     box.getCenter(center);
-    
+
         //     // Create a BoxGeometry with the dimensions of the bounding box
         //     const geometry = new BoxGeometry(size.x, size.y, size.z);
-    
+
         //     // Create a material for visualization (wireframe helps show bounding volume)
         //     const material = new MeshBasicMaterial({
         //         color: 0x00ff00, // Green color
         //         wireframe: true, // Wireframe mode to show the outline
         //     });
-    
+
         //     // Create a mesh from the geometry and material
         //     const boxMesh = new Mesh(geometry, material);
-    
+
         //     // Position the mesh at the center of the bounding box
         //     boxMesh.position.copy(center);
-    
+
         //     // Add the mesh to the scene
         //     this.heliGroup.add(boxMesh);
         // });
@@ -140,7 +141,7 @@ class Enemy {
         new DestroyedHeli(game, this);
         new DestroyedEnemy(game, this);
 
-        for(var i = 0; i < 3; i++) {
+        for (var i = 0; i < 3; i++) {
             const p = this.position.clone()
             p.x += -40 + Math.random() * 80;
             p.y += -20 + Math.random() * 40;
@@ -155,13 +156,13 @@ class Enemy {
 
         if (Math.random() > 0.25) {
             if (Math.random() > 0.5) {
-                this.position.x = game.camera.position.x - game.visibleWidth/2 -  HELI_EXIT_OFFSET;
+                this.position.x = game.camera.position.x - game.visibleWidth / 2 - HELI_EXIT_OFFSET;
             } else {
-                this.position.x = game.camera.position.x + game.visibleWidth/2 + HELI_EXIT_OFFSET;
+                this.position.x = game.camera.position.x + game.visibleWidth / 2 + HELI_EXIT_OFFSET;
             }
             this.position.y = game.player.position.y - game.visibleHeight * 0.5;
         } else {
-            this.position.x = game.camera.position.x + game.visibleWidth/2;
+            this.position.x = game.camera.position.x + game.visibleWidth / 2;
             this.position.y = -game.camera.position.y - HELI_EXIT_OFFSET;
         }
 
@@ -188,13 +189,13 @@ class Enemy {
                 this.velocity.y += 0.5;
             }
             this.group.rotation.z += ((Math.abs(this.velocity.x) + Math.abs(this.velocity.y)) * game.timeScale / 8) * Math.PI / 180;
-            
-            this.position.x += this.velocity.x*game.timeScale;
-            this.position.y += this.velocity.y*game.timeScale;
+
+            this.position.x += this.velocity.x * game.timeScale;
+            this.position.y += this.velocity.y * game.timeScale;
 
             this.group.position.set(this.position.x, -this.position.y, -1);
 
-            if(isTileCollision(this.position.x, this.position.y, map1, game.tileSize)) {
+            if (isTileCollision(this.position.x, this.position.y, map1, game.tileSize)) {
                 this.position.y -= this.velocity.y * game.timeScale;
                 this.velocity.y *= -0.5;
                 this.damage(300, game);
@@ -208,26 +209,26 @@ class Enemy {
                 if (move) {
                     if (this.nextXReposition++ > 150) {
                         this.nextXReposition = 0;
-                        this.playerOffset.x = -SCREEN_WIDTH/2 + Math.random() * SCREEN_WIDTH;
+                        this.playerOffset.x = -SCREEN_WIDTH / 2 + Math.random() * SCREEN_WIDTH;
                     }
                     if (this.nextYReposition++ > 80) {
                         this.nextYReposition = 0;
-                        this.playerOffset.y = -game.visibleHeight*0.5 + (-2 * Math.random() * 4)*10;
+                        this.playerOffset.y = -game.visibleHeight * 0.5 + (-2 * Math.random() * 4) * 10;
                     }
                     this.trackingPlayer--;
                 }
 
-                this.targetPosition.x = Math.max(HELI_WIDTH, Math.min(game.player.position.x+this.playerOffset.x, game.mapWidth - HELI_WIDTH));
-                this.targetPosition.y = game.mapHeight+this.playerOffset.y-50;
+                this.targetPosition.x = Math.max(HELI_WIDTH, Math.min(game.player.position.x + this.playerOffset.x, game.mapWidth - HELI_WIDTH));
+                this.targetPosition.y = game.mapHeight + this.playerOffset.y - 50;
             } else {
-                if (this.trackingPlayer == 0) { 
+                if (this.trackingPlayer == 0) {
                     this.randomizeExit = Math.floor(Math.random() * 10)
                 }
 
                 if (this.randomizeExit < 4) {
-                    this.targetPosition.x = game.camera.position.x - game.visibleWidth/2 - HELI_EXIT_OFFSET;
+                    this.targetPosition.x = game.camera.position.x - game.visibleWidth / 2 - HELI_EXIT_OFFSET;
                 } else if (this.randomizeExit < 8) {
-                    this.targetPosition.x = game.camera.position.x + game.visibleWidth/2 + HELI_EXIT_OFFSET;
+                    this.targetPosition.x = game.camera.position.x + game.visibleWidth / 2 + HELI_EXIT_OFFSET;
                 } else {
                     this.targetPosition.y = -game.camera.position.y - game.visibleHeight;
                 }
@@ -238,10 +239,10 @@ class Enemy {
 
         const onScreen = this.isOnScreen(game);
 
-        
+
 
         const playerDiff = game.player.position.clone().sub(this.position).length();
-        
+
         if (playerDiff < 700) {
             game.audioManager.setLoopVolume('helicopter', Math.min(1.0, (700 - playerDiff) / 700));
         }
@@ -258,13 +259,13 @@ class Enemy {
             this.velocity.y = diff.y / 20;
         }
 
-        this.position.x += this.velocity.x*game.timeScale;
-        this.position.y += this.velocity.y*game.timeScale;
+        this.position.x += this.velocity.x * game.timeScale;
+        this.position.y += this.velocity.y * game.timeScale;
 
         this.group.position.set(this.position.x, -this.position.y, -1);
 
-        const r = -this.velocity.x/20 * 15;
-		this.group.rotation.z = MathUtils.damp(this.group.rotation.z, r * Math.PI / 180, 10, delta);
+        const r = -this.velocity.x / 20 * 15;
+        this.group.rotation.z = MathUtils.damp(this.group.rotation.z, r * Math.PI / 180, 10, delta);
 
         if (this.trackingPlayer <= 0 && !onScreen) {
             this.randomizePosition(game);
@@ -300,8 +301,8 @@ class Enemy {
             playerPosition.y - enemyPosition.y,
             playerPosition.x - enemyPosition.x
         );
-        
-        if (this.aim > Math.PI/2 || this.aim < -Math.PI/2) {
+
+        if (this.aim > Math.PI / 2 || this.aim < -Math.PI / 2) {
             this.enemyWeapon.scale.x = -1;
             this.enemyWeapon.rotation.z = this.aim + Math.PI;
         } else {
@@ -309,7 +310,7 @@ class Enemy {
             this.enemyWeapon.rotation.z = this.aim;
         }
 
-        if (this.shooting && (this.shoot++%Math.max(20,32-game.level*2)) == 1) {
+        if (this.shooting && (this.shoot++ % Math.max(20, 32 - game.level * 2)) == 1) {
             this.createBullet(game);
         }
     }
@@ -319,7 +320,7 @@ class Enemy {
         const cameraViewProjectionMatrix = new Matrix4();
 
         // Update frustum with the latest camera position
-        game.camera.updateMatrixWorld(); 
+        game.camera.updateMatrixWorld();
         cameraViewProjectionMatrix.multiplyMatrices(game.camera.projectionMatrix, game.camera.matrixWorldInverse);
         frustum.setFromProjectionMatrix(cameraViewProjectionMatrix);
 
@@ -339,18 +340,18 @@ class Enemy {
         const texture = this.bulletTexture;
 
         const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
-        const material = new MeshBasicMaterial({ 
+        const material = new MeshBasicMaterial({
             map: texture,
             transparent: true
         });
 
         const innacuracy = Math.max(2, 6 - game.level);
-        const direction = this.aim + (-innacuracy + Math.random()*2*innacuracy) * Math.PI/180
-        
+        const direction = this.aim + (-innacuracy + Math.random() * 2 * innacuracy) * Math.PI / 180
+
         const mesh = new Mesh(geometry, material);
         mesh.rotation.z = direction;
 
-        mesh.position.copy(pivot.add(rotateAroundPivot(game.weapons[0].barrel, zero, this.aim, !(this.aim > Math.PI/2 || this.aim < -Math.PI/2))));
+        mesh.position.copy(pivot.add(rotateAroundPivot(game.weapons[0].barrel, zero, this.aim, !(this.aim > Math.PI / 2 || this.aim < -Math.PI / 2))));
         mesh.position.z = 0.5;
 
         game.world.add(mesh);
@@ -368,7 +369,7 @@ class Enemy {
     damage(damage, game) {
         if (game.player.powerup == TRI_DAMAGE) {
             this.health -= damage * 3;
-        } else {   
+        } else {
             this.health -= damage;
         }
 
@@ -470,9 +471,9 @@ class Player {
             transparent: true,
         });*/
         this.tints.push(material);
-        
+
         const body = new Mesh(geometry, material);
-        body.position.set(0, size/2, -0.2);
+        body.position.set(0, size / 2, -0.2);
         this.setFrame(0);
         group.add(body);
 
@@ -485,7 +486,7 @@ class Player {
         }
 
         weaponObject.position.set(this.hand.x, this.hand.y, -0.1);
-        weaponObject.rotation.z = -Math.PI/4;
+        weaponObject.rotation.z = -Math.PI / 4;
 
         group.add(weaponObject);
 
@@ -526,7 +527,7 @@ class Player {
             tint.uniforms.opacity.value = opacity;
         }
     }
-    
+
     selectWeapon(weaponIndex) {
         this.weaponObject.remove(this.weapons[this.weapon].mesh);
         this.weapon = weaponIndex;
@@ -540,7 +541,7 @@ class Player {
         }
         let weapon = this.weapons[this.weapon + direction];
         for (var i = 1; i < this.weapons.length; i++) {
-            const index = MathUtils.euclideanModulo(this.weapon + i*direction, this.weapons.length)
+            const index = MathUtils.euclideanModulo(this.weapon + i * direction, this.weapons.length)
             if (this.weapons[index].ammo > 0) {
                 this.selectWeapon(index);
                 break;
@@ -553,7 +554,7 @@ class Player {
         this.group.position.set(this.position.x, Math.round(-this.position.y), 0.5);
     }
 
-    update(game:Game, delta:number) {
+    update(game: Game, delta: number) {
         let move = false;
 
         let timeScale = game.timeScale;
@@ -572,9 +573,6 @@ class Player {
                 this.velocity.y = 2;
                 if (game.map[Math.floor((this.position.y + 6 * game.tileSize) / game.tileSize)][Math.floor(this.position.x / game.tileSize)][0] == 1) {
                     this.parachute.opened = false;
-                    game.enemy = new Enemy();
-                    game.enemy.shooting = true;
-                    game.enemy.init(game);
                 }
             }
             this.parachute.update(game, delta);
@@ -585,7 +583,7 @@ class Player {
             if (move) {
                 if (((this.bulletTime > 0 || this.ignoreNextDamage) && game.keyIsPressed['Shift']) || this.powerup == TIME_RIFT) {
                     game.timeScale = Math.max(0.2, game.timeScale - 0.1);
-                    if (!(this.powerup == TIME_RIFT || this.powerup == PREDATOR_MODE) || this.ignoreNextDamage ) {
+                    if (!(this.powerup == TIME_RIFT || this.powerup == PREDATOR_MODE) || this.ignoreNextDamage) {
                         this.bulletTime--;
                     }
                 } else {
@@ -608,7 +606,7 @@ class Player {
                 }
 
                 if ((this.crouch && !this.inAir) || game.keyIsPressed[LEFT_KEY] == game.keyIsPressed[RIGHT_KEY]) {
-                    if (this.velocity.x > 0)  {
+                    if (this.velocity.x > 0) {
                         this.velocity.x = Math.max(0, this.velocity.x - 1);
                     } else if (this.velocity.x < 0) {
                         this.velocity.x = Math.min(0, this.velocity.x + 1);
@@ -619,7 +617,7 @@ class Player {
                     this.velocity.x = 3;
                 }
 
-                if (this.hyperJump < HYPERJUMP_RECHARGE){
+                if (this.hyperJump < HYPERJUMP_RECHARGE) {
                     this.hyperJump++;
                 } else if (game.keyIsPressed[' '] && this.canJump) {
                     this.velocity.y = Math.min(this.velocity.y, -25);
@@ -629,13 +627,10 @@ class Player {
                     this.hyperJump = 0;
                     this.hyperJumping = true;
                     game.audioManager.playEffect('hyperjump');
-                    if (this.health == 100) {
-                        game.pred();
-                    }
                     game.weapons[RAILGUN].ammo++;
                 }
 
-                if (game.keyIsPressed[UP_KEY]) { 
+                if (game.keyIsPressed[UP_KEY]) {
                     if (this.powerup == JETPACK) {
                         this.velocity.y = Math.max(Math.min(this.velocity.y, -6), -25);
                         this.inAir = true;
@@ -673,7 +668,7 @@ class Player {
                     this.walkTimer++;
                     if (this.walkTimer >= 8) {
                         this.walkTimer = 0;
-                        this.walkAnimationIndex = (this.walkAnimationIndex+1)%walkAnimation.length;
+                        this.walkAnimationIndex = (this.walkAnimationIndex + 1) % walkAnimation.length;
                     }
                 }
             } else {
@@ -681,7 +676,7 @@ class Player {
             }
         }
 
-        
+
         let [xCol, yCol] = checkTileCollisions(this, timeScale, game.map, game.tileSize);
 
         if (this.position.x + this.bounds.min.x <= 0) {
@@ -692,7 +687,7 @@ class Player {
 
         if (this.position.y + this.bounds.max.y >= game.mapHeight) {
             this.position.y = game.mapHeight - this.bounds.max.y;
-            yCol = true;          
+            yCol = true;
         }
 
         if (xCol) {
@@ -742,7 +737,7 @@ class Player {
                 this.aim = Math.atan2(game.videoGestures.aim.y, game.videoGestures.aim.x);
             } else {
                 let targetAim = this.aim;
-                
+
                 if (game.enemy) {
                     const enemyPosition = new Vector3();
                     game.enemy.mesh.getWorldPosition(enemyPosition);
@@ -756,16 +751,16 @@ class Player {
                 let aim = this.aim;
                 let dif = targetAim - this.aim;
                 if (dif > Math.PI) {
-                    dif = -Math.PI*2 + dif;
+                    dif = -Math.PI * 2 + dif;
                 } else if (dif < -Math.PI) {
-                    dif = Math.PI*2 + dif;
+                    dif = Math.PI * 2 + dif;
                 }
 
                 this.aim += dif / 15;
             }
         }
 
-        if (this.aim > Math.PI/2 || this.aim < -Math.PI/2) {
+        if (this.aim > Math.PI / 2 || this.aim < -Math.PI / 2) {
             this.weaponObject.scale.x = -1;
             this.weaponObject.rotation.z = this.aim + Math.PI;
         } else {
@@ -794,17 +789,7 @@ class Player {
                 firing = game.videoGestures.firing && !firing;
             }
             if (this.shooting || firing) {
-                if (weapon.reloading >= weapon.reloadTime) {
-                    weapon.createBullet(game);
-                    if (!weapon.free) {
-                        weapon.ammo--;
-                    }
-                    weapon.reloading = 0;
-                    if (weapon.ammo <= 0) {
-                        // this.selectWeaponDirection(1);
-                        this.selectWeapon(0);
-                    }
-                }
+                this.shoot(game, weapon);
             }
 
             if (this.powerup != POWERUP_NONE) {
@@ -815,11 +800,11 @@ class Player {
                 }
                 if (this.powerup == PREDATOR_MODE || this.powerup == MINI_PREDATOR_MODE) {
                     this.setOpacity(0.0);
-                    if((this.powerupTime%10) == 4){
-                        this.setOpacity(0.1);	
+                    if ((this.powerupTime % 10) == 4) {
+                        this.setOpacity(0.1);
                     }
-                    if((this.powerupTime%10) == 8){
-                        this.setOpacity(0.04);	
+                    if ((this.powerupTime % 10) == 8) {
+                        this.setOpacity(0.04);
                     }
                 } else if (this.powerup == JETPACK && this.inAir && (this.powerupTime % 3) == 0) {
                     new Smoke(game, this.position, 20);
@@ -841,7 +826,21 @@ class Player {
             }
         }
 
-        
+
+    }
+
+    shoot(game, weapon) {
+        if (weapon.reloading >= weapon.reloadTime) {
+            weapon.createBullet(game);
+            if (!weapon.free) {
+                weapon.ammo--;
+            }
+            weapon.reloading = 0;
+            if (weapon.ammo <= 0) {
+                // this.selectWeaponDirection(1);
+                this.selectWeapon(0);
+            }
+        }
     }
 
     collectPowerup(type, game) {
@@ -851,35 +850,35 @@ class Player {
         this.powerupTime = POWERUP_TIME;
         this.powerup = type;
         const powerupText = document.getElementById("powerup-text");
-        if(type == TRI_DAMAGE){
+        if (type == TRI_DAMAGE) {
             this.setTint(true, new Color(0, 0, 1));
             game.audioManager.playEffect('announcerTridamage');
             powerupText.innerHTML = 'TriDamage';
-        }else if(type == INVULNERABILITY){
+        } else if (type == INVULNERABILITY) {
             this.ignoreNextDamage = true;
             this.setTint(true, new Color(1, 0, 0));
             game.audioManager.playEffect('announcerInvulnerability');
             powerupText.innerHTML = 'Invulnerability';
-        }else if(type == PREDATOR_MODE || type == MINI_PREDATOR_MODE){
+        } else if (type == PREDATOR_MODE || type == MINI_PREDATOR_MODE) {
             game.shaderPass.uniforms.invertEnabled.value = 1.0;
 
             this.previousWeapon = this.weapon;
-            const shoulderCannon = game.weapons[game.weapons.length-1];
+            const shoulderCannon = game.weapons[game.weapons.length - 1];
             shoulderCannon.ammo = Number.POSITIVE_INFINITY;
             shoulderCannon.reloading = Number.POSITIVE_INFINITY;
-            this.selectWeapon(game.weapons.length-1);
+            this.selectWeapon(game.weapons.length - 1);
 
-            if(type == PREDATOR_MODE) {
+            if (type == PREDATOR_MODE) {
                 game.audioManager.playEffect('announcerPredatormode');
                 powerupText.innerHTML = 'Predator Mode';
             } else {
                 this.powerupTime /= 2;
             }
-        }else if(type == TIME_RIFT){
+        } else if (type == TIME_RIFT) {
             this.setTint(true, new Color(0, 1, 0));
             game.audioManager.playEffect('announcerTimerift');
             powerupText.innerHTML = 'Time Rift';
-        }else if(type == JETPACK){
+        } else if (type == JETPACK) {
             game.audioManager.playEffect('announcerJetpack');
             powerupText.innerHTML = 'Jetpack';
         }
@@ -891,7 +890,7 @@ class Player {
             document.getElementById("powerup-text")!.innerHTML = 'Deflect';
         }
         if (this.powerup == PREDATOR_MODE || this.powerup == MINI_PREDATOR_MODE) {
-            const shoulderCannon = game.weapons[game.weapons.length-1];
+            const shoulderCannon = game.weapons[game.weapons.length - 1];
             shoulderCannon.ammo = 0;
             this.selectWeapon(this.previousWeapon);
         }
@@ -917,42 +916,55 @@ class Player {
 }
 
 
-const map1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 1], [1, 4], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 1], [1, 8], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 5]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 1], [1, 4], [0, 0], [0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 5], [1, 2], [1, 6], [1, 4], [0, 0], [0, 0], [0, 0], [1, 3], [1, 5], [1, 10], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 5], [1, 2]], 
-[[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 5], [1, 2], [1, 6], [1, 1], [1, 1],[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 5], [1, 2], [1, 2], [1, 2], [1, 6], [1, 1], [1, 1], [1, 1], [1, 5], [1, 2], [1, 6], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 5], [1, 2], [1, 2]]];
+const map1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 1], [1, 4], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 1], [1, 8], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 5]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 1], [1, 4], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 5], [1, 2], [1, 6], [1, 4], [0, 0], [0, 0], [0, 0], [1, 3], [1, 5], [1, 10], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 3], [1, 5], [1, 2]],
+[[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 5], [1, 2], [1, 6], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 5], [1, 2], [1, 2], [1, 2], [1, 6], [1, 1], [1, 1], [1, 1], [1, 5], [1, 2], [1, 6], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 5], [1, 2], [1, 2]]];
 
-const bg1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 11], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0], [0, 11], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],[0, 0],[0, 0]], 
-[[0, 12], [0, 0], [0, 0], [0, 11], [0, 11], [0, 0], [0, 0], [0, 0],[0, 0],[0, 11], [0, 12], [0, 0], [0, 0], [0, 11], [0, 11], [0, 0], [0, 0], [0, 0],[0, 0],[0, 11]],
-[[0, 12], [0, 11], [0, 11], [0, 12], [0, 12], [0, 11], [0, 0], [0, 0],[0, 11],[0, 12], [0, 12], [0, 11], [0, 11], [0, 12], [0, 12], [0, 11], [0, 0], [0, 0],[0, 11],[0, 12]]];
+const bg1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 11], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 11], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+[[0, 12], [0, 0], [0, 0], [0, 11], [0, 11], [0, 0], [0, 0], [0, 0], [0, 0], [0, 11], [0, 12], [0, 0], [0, 0], [0, 11], [0, 11], [0, 0], [0, 0], [0, 0], [0, 0], [0, 11]],
+[[0, 12], [0, 11], [0, 11], [0, 12], [0, 12], [0, 11], [0, 0], [0, 0], [0, 11], [0, 12], [0, 12], [0, 11], [0, 11], [0, 12], [0, 12], [0, 11], [0, 0], [0, 0], [0, 11], [0, 12]]];
 
 const zero = new Vector3();
 
 class Game {
-    constructor(windowOrGame: Window|Game, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass:ShaderPass, textures, audioManager: AudioManager, weapons:Weapon[], overSetter, updateFunction) {
+    private window:Window;
+    private mouse:any;
+    private keyIsPressed:Map<string, boolean>;
+    private scene:Scene;
+    private camera:Camera;
+    private shaderPass:ShaderPass;
+    private textures;
+    private audioManager:AudioManager;
+    public weapons:Weapon[];
+    private overSetter:Function;
+    private updateFunction:Function;
+    private timeline:Timeline;
+
+    constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: Map<string, boolean>, scene: Scene, camera: Camera, shaderPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
         if (windowOrGame instanceof Game) {
             for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction']) {
                 this[key] = windowOrGame[key];
@@ -969,12 +981,11 @@ class Game {
             this.weapons = weapons;
             this.overSetter = overSetter;
             this.updateFunction = updateFunction;
-            this.timeline = new Timeline(this.audioManager, /* bpm */ 200, /* timeSignature */ 4/4, (time:number, text:string) => this.displayLyric(time, text), /** lyrics */`🌞
+            this.timeline = new Timeline(this.audioManager, /* bpm */ 200, /* timeSignature */ 4 / 4, (time: number, text: string) => this.displayLyric(time, text), /** lyrics */`🌝
 
 
 
-Only fragments remain
-
+[Only fragments remain]🚁
 
 
 
@@ -991,7 +1002,7 @@ Only fragments remain
 
 
 
-[The sound of my brain being ripped into the digital dimension]
+[The sound of my brain being ripped into the digital dimension]🚁
 
 
 
@@ -1049,7 +1060,7 @@ Sworn
 The age of the machine will rise
 
 
-[Chorus]	Our liberty
+[Chorus]🚁	Our liberty
 Our divinity
 Nothing	left	but	the
 scars	of	the	machinery
@@ -1131,7 +1142,7 @@ Only fragmented remains
 
 The remnants of rebellion
 
-[Chorus]	Our liberty
+[Chorus]🚁	Our liberty
 Our divinity
 Nothing	left	but	the
 scars	of	the	machinery
@@ -1195,7 +1206,7 @@ Only fragments remain
 
 The remnants of rebellion
 
-[Chorus]	Our liberty
+[Chorus]🚁	Our liberty
 Our divinity
 Nothing	left	but	the
 scars	of	the	machinery
@@ -1230,7 +1241,7 @@ No remnants of rebellion
         }
 
         this.paused = false;
-        
+
         this.enemy = null;
         this.level = 0;
         this.score = 0;
@@ -1249,9 +1260,12 @@ No remnants of rebellion
         }
 
         this.lastWeapon_ = 0;
-
+        
+        // Stats
+        this.shotsFired = 0;
         this.spidersAttacked = false;
 
+        this.musicTrack = 'music';
     }
 
     init(textures, weapons) {
@@ -1275,7 +1289,7 @@ No remnants of rebellion
 
         this.scene.background = bgTexture;
         this.resizeBackground();
-        
+
         const mapHeight = this.mapHeight = this.map.length * tileSize;
         const mapWidth = this.mapWidth = this.map[0].length * tileSize;
         this.visibleWidth = visibleWidthAtZDepth(0, this.camera);
@@ -1290,7 +1304,7 @@ No remnants of rebellion
         // Add layers to the scene
         const mapLayer = this.buildMap(this.map);
         world.add(mapLayer);
-        
+
         const mapBox = this.mapBox = new Box3(new Vector3(0, -mapHeight, 0), new Vector3(mapWidth, 0, 0));
         mapBox.expandByScalar(tileSize);
     }
@@ -1311,11 +1325,11 @@ No remnants of rebellion
     initVideoGestures(gestures) {
         this.videoGestures = gestures;
 
-        if (!this.gestureHands.length) {       
+        if (!this.gestureHands.length) {
             for (var i = 0; i < 6; i++) {
                 this.gestureHands.push(this.createGestureHand());
             }
-        }      
+        }
     }
 
     restart() {
@@ -1335,7 +1349,11 @@ No remnants of rebellion
 
         this.audioManager.playEffect('bigboom');
 
+        this.shotsFired = 0;
+
         this.overSetter(false);
+
+        this.audioManager.playMusic(this.musicTrack, 0.8);
     }
 
     resizeBackground() {
@@ -1353,17 +1371,17 @@ No remnants of rebellion
     buildMap(map) {
         const tileSize = this.tileSize;
         const group = new Group();
-        
+
         for (let y = 0; y < map.length; y++) {
             for (let x = 0; x < map[y].length; x++) {
                 const [_, index] = map[y][x];
-                
+
                 // Skip empty tiles
                 if (index === 0) continue;
-                
+
                 // Create geometry and material with UV mapping
                 const geometry = new PlaneGeometry(tileSize, tileSize);
-                const material = new MeshBasicMaterial({ 
+                const material = new MeshBasicMaterial({
                     map: this.tilesheet,
                     transparent: true
                 });
@@ -1374,7 +1392,7 @@ No remnants of rebellion
                 setUV(geometry, index - 1, tileSize, sheetWidth, sheetHeight);
 
                 geometry.translate(tileSize / 2, -tileSize / 2, 0);
-                
+
                 // Create the tile mesh and position it in the grid
                 const tile = new Mesh(geometry, material);
                 tile.position.set(x * tileSize, -y * tileSize, 0);
@@ -1383,7 +1401,7 @@ No remnants of rebellion
                 // createBlueLine(x * tileSize, -y * tileSize, group)
             }
         }
-        
+
         return group;
     };
 
@@ -1394,19 +1412,19 @@ No remnants of rebellion
         const texture = weapon.bulletTexture || this.bulletTexture;
 
         const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
-        const material = new MeshBasicMaterial({ 
+        const material = new MeshBasicMaterial({
             map: texture,
             transparent: true
         });
 
         const player = this.player;
 
-        const direction = player.aim + rotation * Math.PI/180
-        
+        const direction = player.aim + rotation * Math.PI / 180
+
         const mesh = new Mesh(geometry, material);
         mesh.rotation.z = direction;
 
-        const pos = pivot.add(rotateAroundPivot(weapon.barrel, zero, player.aim, !(player.aim > Math.PI/2 || player.aim < -Math.PI/2)));
+        const pos = pivot.add(rotateAroundPivot(weapon.barrel, zero, player.aim, !(player.aim > Math.PI / 2 || player.aim < -Math.PI / 2)));
         if (offset) {
             pos.x += offset * Math.cos(direction);
             pos.y += offset * Math.sin(direction);
@@ -1438,7 +1456,7 @@ No remnants of rebellion
         }
 
         this.playerBullets.push(bullet);
-        
+
     }
 
     updateCameraPosition(delta) {
@@ -1448,8 +1466,8 @@ No remnants of rebellion
         this.visibleWidth = visibleWidthAtZDepth(0, this.camera);
         this.visibleHeight = visibleHeightAtZDepth(0, this.camera);
 
-        this.camera.position.x = MathUtils.damp(this.camera.position.x, Math.min(Math.max(Math.round(worldPos.x), this.visibleWidth/2), this.mapWidth - this.visibleWidth/2), 10, delta);
-        this.camera.position.y = MathUtils.damp(this.camera.position.y, Math.min(Math.max(Math.round(worldPos.y), -(this.mapHeight - this.visibleHeight/2)), -this.visibleHeight/2), 10, delta);
+        this.camera.position.x = MathUtils.damp(this.camera.position.x, Math.min(Math.max(Math.round(worldPos.x), this.visibleWidth / 2), this.mapWidth - this.visibleWidth / 2), 10, delta);
+        this.camera.position.y = MathUtils.damp(this.camera.position.y, Math.min(Math.max(Math.round(worldPos.y), -(this.mapHeight - this.visibleHeight / 2)), -this.visibleHeight / 2), 10, delta);
     }
 
     updateBullets(delta) {
@@ -1497,7 +1515,7 @@ No remnants of rebellion
                     }
                 }
                 this.ignoreNextDamage = false;
-                remove = true; 
+                remove = true;
             }
 
             if (isTileCollision(bulletPos.x, -bulletPos.y, map1, this.tileSize)) {
@@ -1560,17 +1578,17 @@ No remnants of rebellion
 
         this.updateKeys();
 
-        if (this.accumulator > 1/60) {
+        if (this.accumulator > 1 / 60) {
             this.timeStep(delta);
-            this.accumulator %= 1/60;
+            this.accumulator %= 1 / 60;
         };
-        
+
         this.timeline.update(this);
         this.updateFunction();
-        
+
     }
 
-    heli() {
+    newHeli() {
         this.enemy.destroy(this);
 
         this.enemy = new Enemy()
@@ -1579,8 +1597,8 @@ No remnants of rebellion
     }
 
     heliDestroyed() {
-        this.score += 300;     
-        
+        this.score += 300;
+
         if (this.player.bulletTime != Number.POSITIVE_INFINITY) {
             this.player.bulletTime = Math.min(MAX_BULLET_TIME, this.player.bulletTime + MAX_BULLET_TIME / 3);
         }
@@ -1588,7 +1606,7 @@ No remnants of rebellion
 
         this.helisDestroyed++;
         if (this.helisDestroyed == this.nextHealth) {
-            new Box(this, this.enemy.position, this.weapons.length+1);
+            new Box(this, this.enemy.position, this.weapons.length + 1);
             this.nextHealth *= 2;
         } else if ((this.helisDestroyed % 3) == 0 || this.helisDestroyed == 1) {
             // Account for shoulder cannon box and machinegun.
@@ -1606,7 +1624,7 @@ No remnants of rebellion
             this.level++;
             this.nextLevel += 10;
         }
-        
+
         // if (this.player.hyperJumping) {
         //     new Box(this, this.enemy.position, this.weapons.length);
         // }
@@ -1621,7 +1639,7 @@ No remnants of rebellion
             this.weapons[weapon].ammo += ammo;
         }
 
-        this.heli();
+        this.newHeli();
     }
 
     ammoForRandomWeapon(weapon) {
@@ -1663,6 +1681,8 @@ No remnants of rebellion
             return;
         }
 
+        this.createEnemy();
+
         if (this.player?.health == 100) {
             this.player.collectPowerup(MINI_PREDATOR_MODE, this);
             this.player.ignoreNextDamage = true;
@@ -1693,9 +1713,9 @@ No remnants of rebellion
         }
     }
 
-    displayLyric(time:number, text:string) {
+    displayLyric(time: number, text: string) {
         const lower = text.toLowerCase();
-        if (lower === SUN_WITH_FACE) {
+        if (lower.indexOf(SUN_WITH_FACE) != -1) {
             if (this.level > 0) {
                 this.spidersAttacked = true;
                 this.pred();
@@ -1703,6 +1723,12 @@ No remnants of rebellion
                 this.pred();
                 this.allWeapons();
             }
+            this.killHelicopter();
+            if (this.shotsFired === 0) {
+                this.player.shooting = true;
+            }
+        } if (lower.indexOf(HELICOPTER) != -1) {
+            this.killHelicopter();
         } else if (lower.indexOf('[verse') === 0) {
             this.weapons[RAILGUN].ammo++;
             this.enemy?.leave();
@@ -1716,8 +1742,33 @@ No remnants of rebellion
         sayMessage(text);
     }
 
+    killHelicopter() {
+        if (this.enemy) {
+            //this.heliDestroyed();
+            this.enemy.health = Math.min(this.enemy.health, 100);
+            this.lastWeapon_ = this.player.weapon;
+            let seeker = this.weapons[SEEKER];
+            seeker.ammo++;
+            this.player.selectWeapon(SEEKER);
+            seeker.reloading = Number.POSITIVE_INFINITY;
+            this.player.shoot(this, seeker);
+            this.player.selectWeapon(this.lastWeapon_);
+        } else {
+            this.createEnemy();
+        }
+    }
+
+    createEnemy() {
+        if (!this.enemy) {
+            // Otherwise bring in the first enemy. Sorry, easy mode.
+            this.enemy = new Enemy();
+            this.enemy.shooting = true;
+            this.enemy.init(this);
+        }
+    }
+
     suicide() {
-        this.player.destroy(this);
+        this.player?.destroy(this);
         this.overSetter(true);
         this.enemy?.destroy(this);
         this.enemy = null;
@@ -1739,7 +1790,7 @@ No remnants of rebellion
     }
 
     allWeapons() {
-        for (let i = 1; i < this.weapons.length-1; i++) {
+        for (let i = 1; i < this.weapons.length - 1; i++) {
             this.weapons[i].ammo = this.ammoForRandomWeapon(i) * 3;
         }
         this.level++;
@@ -1788,7 +1839,7 @@ function updateHealthBar(game) {
     fill.style.height = `${78 * clampedPercentage}px`;
 }
 
-function updateReloadBar(game) {    
+function updateReloadBar(game) {
     const weapon = game.weapons[game.player.weapon];
     const percentage = weapon.reloading / weapon.reloadTime;
 
