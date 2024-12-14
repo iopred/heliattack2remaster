@@ -124,6 +124,9 @@ function onWindowResize() {
     heliattack?.setSize(width, height)
 }
 
+const BPM = 200;
+
+
 const mouse = {
     x: 0,
     y: 0,
@@ -140,6 +143,14 @@ const mouse = {
     },
     wheel: 0,
 }
+
+
+const smoothScrollHandler = new SmoothScrollHandler(document.body, BPM * 4)
+
+smoothScrollHandler.onScroll((direction: 'up' | 'down') => {
+    mouse.wheel = 1 * (direction === "up" ? 1 : -1);
+})
+
 
 
 function onDocumentMouseMove(event) {
@@ -168,16 +179,6 @@ function onMouseDown(event){
         mouse.down = !mouse.down;
     }
 }
-
-const BPM = 200;
-
-const smoothScrollHandler = new SmoothScrollHandler(document.body, BPM * 4)
-//smoothScrollHandler.on
-smoothScrollHandler.onScroll((direction: 'up' | 'down') => {
-    mouse.wheel = 1 * (direction === "up" ? 1 : -1);
-})
-
-
 
 function onMouseUp(event){
     if (!heliattack?.playing) {
