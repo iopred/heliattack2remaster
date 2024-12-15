@@ -152,6 +152,7 @@ class HeliAttack {
             { key: 'scc', url: './sounds/scc.mp3' }
         ]).then(() => {
             if (!this.audioPreloaded) {
+                this.audioManager.playMusic('menu', 0.8);
                 this.initGame();
                 this.audioPreloaded = true;
             }
@@ -160,7 +161,7 @@ class HeliAttack {
     }
 
     initGame() {
-        this.audioManager.playMusic('menu', 0.8);
+        this.audioManager.currentTime = 0;
         this.audioManager.playLoop('flame', 0.0, 0, false);
         this.audioManager.playLoop('helicopter', 0.0, 0, false);
     }
@@ -226,6 +227,8 @@ class HeliAttack {
             this.initialized = true;
             this.initGame();
         }
+
+        this.audioManager.currentTime = 0;
     }
 
     destroy() {
@@ -238,7 +241,7 @@ class HeliAttack {
     }
 
     playSong(song) {
-        this.game.musicTrack = song;
+        
         if (isUrl(song)) {
             console.error('download url');
             createIframe(song);
@@ -247,6 +250,7 @@ class HeliAttack {
         this.audioManager.preload([
             { key: 'ror', url: `./sounds/music/${song}.mp3` },
         ]).then(() => {
+            this.game.musicTrack = song;
             this.audioManager.crossFadeMusic(song, 0.9);
         });
 

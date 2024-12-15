@@ -20,14 +20,13 @@ class Timeline {
     private bpm: number;
     private timeSignature: number;
     private started = true;
-    private listener = null;
+    public listener:Function | null = null;
     private lastTime;
 
-    constructor(audioManager: AudioManager, bpm: number, timeSignature:number, listener:Function, kitString: string) {
+    constructor(audioManager: AudioManager, bpm: number, timeSignature:number, kitString: string) {
         this.audioManager = audioManager;
         this.bpm = bpm;
         this.timeSignature = timeSignature;
-        this.listener = listener;
         this.lastTime = 0.0;
         this.parseLyrics(kitString);
     }
@@ -93,7 +92,7 @@ class Timeline {
 
     public update():void {
         const currentTime = this.audioManager.currentTime;
-        // console.error(currentTime);
+        // console.error("timeline.update: currentTime = ", currentTime);
         this.dispatchLyrics(this.lastTime, currentTime);
         this.lastTime = currentTime;
     }

@@ -16,3 +16,9 @@ Bullet Surfing /* Get to this! The game isn't fun enough yet in slomo */
 Hyperjump takes you off the stage and into space (HA4 graphics?)
 
 Max 30 minutes a day for pay to play earning.
+
+
+15/12/2024
+
+Fixed a bug where only the machinegun was being tinted correctly.
+Fixed a bug where slowing down time would desync the music.

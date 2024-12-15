@@ -29,12 +29,13 @@ class AudioManager {
         this.loopingVolume_ = 1.0;
         this.playingEffects = [];
         this.preloading = null;
+        this.lastContextTime_ = 0;
     }
 
     init(): void {
         if (!this.context) {
             this.context = new (window.AudioContext || window.webkitAudioContext)();
-            console.log('AudioContext initialized.');
+            console.warn('AudioContext initialized.');
 
             if (this.toPreload.length > 0) {
                 this._executePreload();
@@ -156,8 +157,7 @@ class AudioManager {
         const newSource = this.context.createBufferSource();
         newSource.buffer = buffer;
         newSource.loop = true;
-        newSource.playbackRate.value = source.playbackRate.value; // Maintain playback rate
-        this.startTime = seekTime;
+        newSource.playbackRate.value = this.timeScale_;
 
 
         // Reconnect to the same gain node
@@ -165,25 +165,32 @@ class AudioManager {
     
         // Start playback from the specified offset
         newSource.start(0, seekTime);
+
+        this.currentTime_ = value;
     
         // Update the gain node mapping
         this.gainNodes.set(this.looping, { source: newSource, gainNode });
     }
 
     get currentTime(): number {
-        if (!this.looping || !this.context || !this.gainNodes.has(this.looping) || this.startTime === null) {
+        if (!this.looping || !this.context || !this.gainNodes.has(this.looping)) {
             return 0;
         }
     
         const { source } = this.gainNodes.get(this.looping)!;
-        const playbackRate = source.playbackRate.value;
     
+        const contextCurrentTime = this.context.currentTime;
+
         // Calculate elapsed time relative to when the track started, accounting for playback rate
-        const elapsedTime = (this.context.currentTime - this.startTime) * playbackRate;
-        
+        const elapsedTime = (contextCurrentTime - this.lastContextTime_) * this.timeScale_;
+
+        this.lastContextTime_ = contextCurrentTime;
         // Ensure elapsedTime is wrapped within the duration of the buffer
         const duration = source.buffer?.duration || Infinity;
-        return elapsedTime % duration;
+
+        this.currentTime_ += elapsedTime % duration;
+        
+        return this.currentTime_;
     }
 
     get musicVolume(): number {
@@ -235,7 +242,11 @@ class AudioManager {
     }
 
     set timeScale(value) {
-        this.timeScale_ = Math.min(1, value + value);
+        //this.lastContextTime_ = this.context?.currentTime;
+        //this.currentTime_ = this.currentTime_ + (this.context.currentTime - this.currentTime_) * this.timeScale_; 
+
+        this.timeScale_ = Math.min(1, Math.max(0.4, value + value));
+
         for (let [key, object] of this.gainNodes) {
             let source = object.source;
             let gainNode = object.gainNode;
@@ -249,6 +260,7 @@ class AudioManager {
         if (i >= 0) {
             this.playingEffects.splice(0, i);
         }
+
     }
 
     playMusic(key: string, volume = 1.0, startTime = 0.0): void {
@@ -276,7 +288,7 @@ class AudioManager {
         const source = this.context!.createBufferSource();
         source.buffer = buffer;
         source.loop = true;
-        source.playbackRate.value = this.timeScale; // Set the playback rate
+        source.playbackRate.value = this.timeScale_; // Set the playback rate
     
         const gainNode = this.context!.createGain();
         gainNode.gain.value = volume * this.masterVolume * (useMusicVolume ? this.musicVolume_ : this.effectVolume_);
@@ -287,7 +299,8 @@ class AudioManager {
         this.gainNodes.set(key, { source, gainNode });
     
         if (useMusicVolume) {  
-            this.startTime = this.context.currentTime - startTime / this.timeScale; // Account for playback rate in the start time
+            this.lastContextTime_ = this.context?.currentTime;
+            this.currentTime_ = startTime; 
         }
     }
 
@@ -346,7 +359,7 @@ class AudioManager {
         newGain.gain.linearRampToValueAtTime(volume * this.masterVolume * this.musicVolume, now + fadeDuration);
 
         newSource.connect(newGain).connect(this.context!.destination);
-        newSource.start(0, now);
+        newSource.start(0, this.currentTime);
 
         this.gainNodes.set(newKey, { source: newSource, gainNode: newGain });
         this.looping = newKey;
@@ -378,7 +391,7 @@ class AudioManager {
     pause(): void {
         if (this.context) {
             this.context.suspend().then(() => {
-                console.log('AudioContext paused.');
+                console.warn('AudioContext paused.');
             }).catch(error => {
                 console.error('Failed to pause AudioContext:', error);
             });
@@ -388,7 +401,7 @@ class AudioManager {
     play(): void {
         if (this.context) {
             this.context.resume().then(() => {
-                console.log('AudioContext resumed.');
+                console.warn('AudioContext resumed.');
             }).catch(error => {
                 console.error('Failed to resume AudioContext:', error);
             });

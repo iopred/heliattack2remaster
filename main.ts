@@ -412,7 +412,6 @@ const kit = new WordListener('kit');
 kit.onWordDetected((word) => {
     history.splice(0, history.length);
 
-    heliattack?.restart();
     heliattack?.playSong('ror');
 
     showCheat("remnants of rebellion");
@@ -629,7 +628,7 @@ async function init() {
 }
 
 function ha(shape) {
-    console.log(shape);
+    // console.error(shape);
     squarecircleco?.destroy();
     squarecircleco = null;
 

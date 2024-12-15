@@ -1,6 +1,6 @@
 
 import { Blood, Box, DestroyedEnemy, DestroyedHeli, Explosion, Fire, Parachute, Shard, Smoke } from './entities';
-import { Box3, BufferGeometry, Clock, Color, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, TextureLoader, Vector2, Vector3, Camera } from 'three';
+import { Box3, BufferGeometry, Clock, Color, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, ShaderMaterial, TextureLoader, Vector2, Vector3, Camera } from 'three';
 import { calculateAngleToMouse, checkTileCollisions, createTintShader, loadTexture, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth, checkBoxCollisionWithBoxes, checkPointCollisionWithBoxes, heliBoxes, isPlayerCollision, isPlayerCollisionRect, isTileCollision, sayMessage } from './utils';
 import { defaultBulletUpdate } from './weapons';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
@@ -482,7 +482,11 @@ class Player {
         weaponObject.add(weapons[0].mesh);
 
         for (const weapon of weapons) {
-            this.tints.push(weapons[0].mesh.material);
+            if (!(weapon.mesh.material instanceof ShaderMaterial)) {
+                continue;
+            }
+            this.tints.push(weapon.mesh.material);
+
         }
 
         weaponObject.position.set(this.hand.x, this.hand.y, -0.1);
@@ -789,7 +793,12 @@ class Player {
                 firing = game.videoGestures.firing && !firing;
             }
             if (this.shooting || firing) {
-                this.shoot(game, weapon);
+                if (this.shoot(game, weapon)) {
+                    game.shotsFired++;
+                    if (firing) {
+                        this.shooting = false;
+                    }
+                }
             }
 
             if (this.powerup != POWERUP_NONE) {
@@ -840,7 +849,9 @@ class Player {
                 // this.selectWeaponDirection(1);
                 this.selectWeapon(0);
             }
+            return true;
         }
+        return false;
     }
 
     collectPowerup(type, game) {
@@ -963,10 +974,11 @@ class Game {
     private overSetter:Function;
     private updateFunction:Function;
     private timeline:Timeline;
+    public musicTrack:string;
 
     constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: Map<string, boolean>, scene: Scene, camera: Camera, shaderPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
         if (windowOrGame instanceof Game) {
-            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction']) {
+            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack']) {
                 this[key] = windowOrGame[key];
             }
         } else {
@@ -981,7 +993,7 @@ class Game {
             this.weapons = weapons;
             this.overSetter = overSetter;
             this.updateFunction = updateFunction;
-            this.timeline = new Timeline(this.audioManager, /* bpm */ 200, /* timeSignature */ 4 / 4, (time: number, text: string) => this.displayLyric(time, text), /** lyrics */`🌝
+            this.timeline = new Timeline(this.audioManager, /* bpm */ 200, /* timeSignature */ 4 / 4, /** lyrics */`🌝
 
 
 
@@ -1238,6 +1250,8 @@ Nothing left at all
 
 No remnants of rebellion
 `);
+
+            this.musicTrack = 'music';
         }
 
         this.paused = false;
@@ -1265,7 +1279,7 @@ No remnants of rebellion
         this.shotsFired = 0;
         this.spidersAttacked = false;
 
-        this.musicTrack = 'music';
+        this.timeline.listener = (time: number, text: string) => this.displayLyric(time, text);
     }
 
     init(textures, weapons) {
@@ -1347,13 +1361,13 @@ No remnants of rebellion
 
         this.updateCameraPosition(Number.POSITIVE_INFINITY);
 
-        this.audioManager.playEffect('bigboom');
-
         this.shotsFired = 0;
 
         this.overSetter(false);
 
+        this.audioManager.timeScale = timeScale;
         this.audioManager.playMusic(this.musicTrack, 0.8);
+        this.audioManager.playEffect('bigboom');
     }
 
     resizeBackground() {
@@ -1551,12 +1565,10 @@ No remnants of rebellion
         this.audioManager.setLoopVolume('helicopter', 0);
         playEnemyHit = true;
 
-        if (!this.player.dead) {
+        if (!this.player?.dead) {
             this.player.update(this, delta);
         }
-        if (this.enemy) {
-            this.enemy.update(this, delta);
-        }
+        this.enemy?.update(this, delta);
         this.updateBullets(delta);
         this.updateEntities(delta);
         this.updateCameraPosition(delta);
@@ -1589,7 +1601,7 @@ No remnants of rebellion
     }
 
     newHeli() {
-        this.enemy.destroy(this);
+        this.enemy?.destroy(this);
 
         this.enemy = new Enemy()
         this.enemy.init(this);
@@ -1620,8 +1632,7 @@ No remnants of rebellion
         }
 
         if (this.helisDestroyed >= this.nextLevel) {
-            this.pred();
-            this.level++;
+            this.allWeapons();
             this.nextLevel += 10;
         }
 
@@ -1681,7 +1692,7 @@ No remnants of rebellion
             return;
         }
 
-        this.createEnemy();
+        this.newHeli();
 
         if (this.player?.health == 100) {
             this.player.collectPowerup(MINI_PREDATOR_MODE, this);
@@ -1707,7 +1718,6 @@ No remnants of rebellion
 
     shooting() {
         if (this.player) {
-            debugger;
             // Do we need this, check next debug.
             this.player.shooting = true;
         }
@@ -1719,8 +1729,8 @@ No remnants of rebellion
             if (this.level > 0) {
                 this.spidersAttacked = true;
                 this.pred();
-            } else if (this.helisDestroyed > 0) {
-                this.pred();
+            }
+            if (this.helisDestroyed > 0) {
                 this.allWeapons();
             }
             this.killHelicopter();
@@ -1754,20 +1764,15 @@ No remnants of rebellion
             this.player.shoot(this, seeker);
             this.player.selectWeapon(this.lastWeapon_);
         } else {
-            this.createEnemy();
-        }
-    }
-
-    createEnemy() {
-        if (!this.enemy) {
-            // Otherwise bring in the first enemy. Sorry, easy mode.
-            this.enemy = new Enemy();
-            this.enemy.shooting = true;
-            this.enemy.init(this);
+            this.newHeli();
         }
     }
 
     suicide() {
+        if (this.player?.dead) {
+            return;
+        }
+
         this.player?.destroy(this);
         this.overSetter(true);
         this.enemy?.destroy(this);
