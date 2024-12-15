@@ -1078,7 +1078,7 @@ Sworn
 The age of the machine will rise
 
 
-🚁🔫 Our liberty
+🚁⚡ Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1160,7 +1160,7 @@ Only fragmented remains
 
 The remnants of rebellion
 
-🚁🔫 Our liberty
+🚁⚡ Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1224,7 +1224,7 @@ Only fragments remain
 
 The remnants of rebellion
 
-🚁🔫 Our liberty
+🚁⚡ Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1248,7 +1248,7 @@ The remnants of rebellion
 
 The remnants of rebellion
 
-🔫Our legacy
+⚡Our legacy
 Our majesty
 Destroyed by
 cybernetic supremacy
