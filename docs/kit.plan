@@ -22,3 +22,5 @@ Max 30 minutes a day for pay to play earning.
 
 Fixed a bug where only the machinegun was being tinted correctly.
 Fixed a bug where slowing down time would desync the music.
+Fixed a bug with music not playing properly when restarting game/suiciding.
+Fixed a bug with errors overlapping info in game.

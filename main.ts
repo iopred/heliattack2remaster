@@ -623,6 +623,8 @@ function ha(shape) {
     squarecircleco?.destroy();
     squarecircleco = null;
 
+    setMessage('Loading...');
+
     createMainMenu();
     createHeliAttack();
 }
