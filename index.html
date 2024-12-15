@@ -18,8 +18,7 @@
 				color: white;
 			}
 
-			#gesture-canvas,
-			#menu {
+			#gesture-canvas {
 				position: fixed;
 				top: 0;
 				left: 0;
@@ -29,11 +28,12 @@
 
 			#error-container {
 				position: fixed;
-				top: 0;
-				left: 0;
+				top: 10px;
+				left: 10px;
 			}
 
 			#main-menu {
+				position: absolute;
 				display: flex;
 				align-items: center;
 				width: 100%;
@@ -42,7 +42,8 @@
 				justify-content: center;
 			}
 
-			#main-menu[hidden] {
+			#main-menu[hidden],
+			#ui[playing] #main-menu {
 				display: none;
 			}
 
@@ -241,8 +242,26 @@
 				pointer-events: none;
 			}
 
+			#ui[playing] #message {
+				top: 100px;
+			}
+
+			#ui[playing] #error-container {
+				top: 100px;
+			}
+
 			.nobreak {
 				display: inline-block;
+			}
+
+			#message {
+				position: absolute;
+				top: 10px;
+				left: 10px;
+			}
+
+			#ui[playing] #message {
+
 			}
 		</style>
 	</head>
@@ -252,10 +271,6 @@
 		<div id="ui">
 			<canvas id="gesture-canvas"></canvas>
 			<div id="info"></div>
-			<div id="pause">
-				<button id="music-enable">Music</button>
-				<button id="effects-enable">Effects</button>
-			</div>
 			<div id="health">
 				<div id="health-text">
 					Health:
@@ -307,26 +322,26 @@
 					</div>
 				</div>
 			</div>
-		</div>
-		<div id="menu" hidden>
 			<div id="message">Loading...</div>
 			<div id="main-menu" hidden>
 				<button id="start-game">Start Game</button>
 			</div>
+			<div id="pause">
+				<button id="music-enable">Music</button>
+				<button id="effects-enable">Effects</button>
+			</div>
+			<div id="error-container" hidden>
+				<div class="select">
+					<label for="audioSource">Audio source: </label><select id="audioSource"></select>
+				</div>
+			
+				<div class="select">
+				<label for="videoSource">Video source: </label><select id="videoSource"></select>
+				</div>
+	
+				<button id="enable-webcam-button">Enable Webcam</button>
+			</div>
 		</div>
 		<div id="game"></div>
-		<div id="error-container" hidden>
-			
-
-			<div class="select">
-				<label for="audioSource">Audio source: </label><select id="audioSource"></select>
-			</div>
-		
-			<div class="select">
-			<label for="videoSource">Video source: </label><select id="videoSource"></select>
-			</div>
-
-			<button id="enable-webcam-button">Enable Webcam</button>
-		</div>
 	</body>
 </html>

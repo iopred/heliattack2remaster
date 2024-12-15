@@ -251,7 +251,8 @@ class HeliAttack {
             { key: 'ror', url: `./sounds/music/${song}.mp3` },
         ]).then(() => {
             this.game.musicTrack = song;
-            this.audioManager.crossFadeMusic(song, 0.9);
+            // this.audioManager.crossFadeMusic(song, 0.9);
+            this.audioManager.playMusic(song, 0.9, this.audioManager.currentTime);
         });
 
     }
@@ -284,8 +285,8 @@ class HeliAttack {
         this.game?.suicide();
     }
 
-    rail() {
-        this.game?.rail();
+    weaponSwitch() {
+        this.game?.weaponSwitch();
     }
 
     lastWeapon() {

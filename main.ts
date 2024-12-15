@@ -160,6 +160,8 @@ function onDocumentMouseMove(event) {
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 }
 
+let wasShooting = false;
+
 function onMouseDown(event){
     init();
 
@@ -167,17 +169,16 @@ function onMouseDown(event){
         return;
     }
 
-    // debugger;
     //manageRaycasterIntersections(scene, camera, mouse);
-    mouse.down = true;
 
     if (event.button === 0) {
         mouse.down = true;
     } else if (event.button === 1) {
         mouse.wheel = 1;
     } else if (event.button === 2) {
-        heliattack?.rail();
-        mouse.down = !mouse.down;
+        heliattack?.weaponSwitch();
+        wasShooting = mouse.down;
+        mouse.down = false;
     }
 }
 
@@ -187,11 +188,12 @@ function onMouseUp(event){
     }
     if (event.button === 0) {
         mouse.down = false;
+        wasShooting = false;
     } else if (event.button === 1) {
         mouse.wheel = 1;
     } else if (event.button === 2) {
         heliattack?.lastWeapon();
-        mouse.down = !mouse.down;
+        mouse.down = wasShooting;
     }
 }
 
@@ -202,7 +204,6 @@ function onMouseClick(event) {
     if (event.button === 1) {
         mouse.wheel = 1;
     } else if (event.button === 2) {
-        mouse.down = !mouse.down;
     }  
 }
 
@@ -429,7 +430,9 @@ pred.onWordDetected((word) => {
 function showCheat(text) {
     document.getElementById('error-container').innerHTML += `<br>${text}`;
 
-    setMessage(text);
+    if (text != 'errors') {
+        sayMessage('[' + text + ']');
+    }
 }
 
 let playing = true;
@@ -457,7 +460,6 @@ function setPlaying(value) {
         audioManager.pause();
         heliattack.pause();
         playing = false;
-        setMenuVisible(true);
         document.getElementById('ui')?.removeAttribute('playing');
     } else {
         playing = true
@@ -465,8 +467,6 @@ function setPlaying(value) {
             heliattack.play();
         }
         audioManager.play();
-        setMenuVisible(false);
-        
         document.getElementById('ui')?.setAttribute('playing', 'true');
     }
 }
@@ -550,7 +550,7 @@ document.getElementById('effects-enable')?.addEventListener('click', event => {
 
 document.addEventListener("contextmenu", (event) => {
     event.preventDefault();
-    mouse.down = true;
+    // mouse.down = true;
 });
 
 
@@ -565,11 +565,7 @@ const audioManager = new AudioManager();
 window.audioManager = audioManager;
 
 const settings = {
-    set menu(value) {
-        setMenuVisible(value);
-    },
     set over(value) {
-        setMenuVisible(value);
         setVisible(mainMenu, value);
         if (heliattack) {
             heliattack.playing = !value;
@@ -607,10 +603,7 @@ const settings = {
 
 let initialized = false;
 
-const menu = document.getElementById('menu');
 const mainMenu = document.getElementById('main-menu');
-
-setVisible(menu, true);
 
 async function init() {
     if (initialized) {
@@ -619,8 +612,6 @@ async function init() {
     initialized = true;
     audioManager.init();
     audioManager.masterVolume = 0.2;
-    
-    setVisible(menu, true);
 
     setMessage('Loading...');
 
@@ -634,8 +625,6 @@ function ha(shape) {
 
     createMainMenu();
     createHeliAttack();
-
-    setMenuVisible(true);
 }
 
 let squarecircleco:SquareCircleCo|null = null;
@@ -660,14 +649,9 @@ function loaded() {
 function started() {
     setMessage('');
 
-    setMenuVisible(false);
     setVisible(mainMenu, false);
 
     setPlaying(true);
-}
-
-function setMenuVisible(value) {
-    setVisible(menu, value);
 }
 
 function createMainMenu() {
@@ -711,5 +695,3 @@ function setMessage(text) {
         sayMessage(text);
     }
 }
-
-setMenuVisible(true);

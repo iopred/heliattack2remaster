@@ -18,8 +18,7 @@
 				color: white;
 			}
 
-			#gesture-canvas,
-			#menu {
+			#gesture-canvas {
 				position: fixed;
 				top: 0;
 				left: 0;
@@ -29,11 +28,12 @@
 
 			#error-container {
 				position: fixed;
-				top: 0;
-				left: 0;
+				top: 10px;
+				left: 10px;
 			}
 
 			#main-menu {
+				position: absolute;
 				display: flex;
 				align-items: center;
 				width: 100%;
@@ -42,7 +42,8 @@
 				justify-content: center;
 			}
 
-			#main-menu[hidden] {
+			#main-menu[hidden],
+			#ui[playing] #main-menu {
 				display: none;
 			}
 
@@ -54,20 +55,9 @@
 				height: 180px;
 			}
 
-			#gesture-canvas {
-				pointer-events: none;
-			}
-
 			#game {
 				background: url('/game/assets/bg-Ccz8a5cn.png') no-repeat bottom center;
    				background-size: contain; /* Ensures the image scales to fit */
-			}
-
-			#ui [playing] {
-				pointer-events: none;
-				-webkit-user-select: none; /* Safari */
-				-ms-user-select: none; /* IE 10 and IE 11 */
-				user-select: none; /* Standard syntax */
 			}
 
 			#info {
@@ -229,6 +219,13 @@
 				display: none;  
 			}
 
+			#ui[playing] {
+				pointer-events: none;
+				-webkit-user-select: none; /* Safari */
+				-ms-user-select: none; /* IE 10 and IE 11 */
+				user-select: none; /* Standard syntax */
+			}
+
 			#ui:not([playing]) #pause {
 				display: initial;
 			}
@@ -241,27 +238,39 @@
 				display: none;
 			}
 
+			#ui[playing] #gesture-canvas {
+				pointer-events: none;
+			}
+
+			#ui[playing] #message {
+				top: 100px;
+			}
+
+			#ui[playing] #error-container {
+				top: 100px;
+			}
+
 			.nobreak {
 				display: inline-block;
 			}
+
+			#message {
+				position: absolute;
+				top: 10px;
+				left: 10px;
+			}
+
+			#ui[playing] #message {
+
+			}
 		</style>
-		<script type="module" crossorigin src="/game/assets/index-D_OhCUip.js"></script>
+		<script type="module" crossorigin src="/game/assets/index-Bj5ijdzr.js"></script>
 	</head>
 	<body>
 		<video id="webcam" autoplay muted></video>
-		<canvas id="gesture-canvas"></canvas>
-		<div id="menu" hidden>
-			<div id="message">Loading...</div>
-			<div id="main-menu" hidden>
-				<button id="start-game">Start Game</button>
-			</div>
-		</div>
 		<div id="ui">
+			<canvas id="gesture-canvas"></canvas>
 			<div id="info"></div>
-			<div id="pause">
-				<button id="music-enable">Music</button>
-				<button id="effects-enable">Effects</button>
-			</div>
 			<div id="health">
 				<div id="health-text">
 					Health:
@@ -313,20 +322,26 @@
 					</div>
 				</div>
 			</div>
+			<div id="message">Loading...</div>
+			<div id="main-menu" hidden>
+				<button id="start-game">Start Game</button>
+			</div>
+			<div id="pause">
+				<button id="music-enable">Music</button>
+				<button id="effects-enable">Effects</button>
+			</div>
+			<div id="error-container" hidden>
+				<div class="select">
+					<label for="audioSource">Audio source: </label><select id="audioSource"></select>
+				</div>
+			
+				<div class="select">
+				<label for="videoSource">Video source: </label><select id="videoSource"></select>
+				</div>
+	
+				<button id="enable-webcam-button">Enable Webcam</button>
+			</div>
 		</div>
 		<div id="game"></div>
-		<div id="error-container" hidden>
-			
-
-			<div class="select">
-				<label for="audioSource">Audio source: </label><select id="audioSource"></select>
-			</div>
-		
-			<div class="select">
-			<label for="videoSource">Video source: </label><select id="videoSource"></select>
-			</div>
-
-			<button id="enable-webcam-button">Enable Webcam</button>
-		</div>
 	</body>
 </html>

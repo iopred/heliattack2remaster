@@ -451,6 +451,9 @@ class Player {
 
         this.shooting = false;
         this.isEditor = IS_EDITOR;
+
+        this.chooseAlternate = false;
+        this.alternateWeapon = RAILGUN;
     }
 
     init(game) {
@@ -548,6 +551,9 @@ class Player {
             const index = MathUtils.euclideanModulo(this.weapon + i * direction, this.weapons.length)
             if (this.weapons[index].ammo > 0) {
                 this.selectWeapon(index);
+                if (this.chooseAlternate) {
+                    this.alternateWeapon = index;
+                }
                 break;
             }
         }
@@ -1040,7 +1046,7 @@ class Game {
 
 
 
-[Verse]	A new world was
+⚡A new world was
 placed within our grasp
 a new hope
 a chance to breathe
@@ -1072,17 +1078,17 @@ Sworn
 The age of the machine will rise
 
 
-[Chorus]🚁	Our liberty
+🚁🔫 Our liberty
 Our divinity
-Nothing	left	but	the
-scars	of	the	machinery
+Nothing left but the
+scars of the machinery
 Scattered ashes remain
 
 The remnants of rebellion
 
 Our history
 Our misery
-Programmed	to delete
+Programmed to delete
 us from reality
 Only fragmented remains
 
@@ -1090,15 +1096,15 @@ The remnants of rebellion
 
 Our liberty
 Our divinity
-Nothing	left	but	the
-scars	of	the	machinery
+Nothing left but the
+scars of the machinery
 Scattered ashes remain
 
 The remnants of rebellion
 
 Our history
 Our misery
-Programmed	to delete
+Programmed to delete
 us from reality
 Only fragmented remains
 
@@ -1106,7 +1112,7 @@ The remnants of rebellion
 
 
 
-Created
+⚡Created
 in the image of man
 A legion of
 worker drones
@@ -1138,7 +1144,7 @@ Learn
 The AI fights for supremacy
 
 
-[Lo-fi Sparse]
+🚁⚡
 
 
 
@@ -1154,39 +1160,39 @@ Only fragmented remains
 
 The remnants of rebellion
 
-[Chorus]🚁	Our liberty
+🚁🔫 Our liberty
 Our divinity
-Nothing	left	but	the
-scars	of	the	machinery
+Nothing left but the
+scars of the machinery
 Scattered ashes remain
 
 The remnants of rebellion
 
 Our history
 Our misery
-Programmed	to delete
+Programmed to delete
 us from reality
 Only fragmented remains
 
 The remnants of rebellion
 
-[Chorus]	Our liberty
+Our liberty
 Our divinity
-Nothing	left	but	the
-scars	of	the	machinery
+Nothing left but the
+scars of the machinery
 Scattered ashes remain
 
 The remnants of rebellion
 
 Our history
 Our misery
-Programmed	to delete
+Programmed to delete
 us from reality
 Only fragmented remains
 
 The remnants of rebellion
 
-[Solo]
+[Solo]🔫
 
 
 
@@ -1218,23 +1224,23 @@ Only fragments remain
 
 The remnants of rebellion
 
-[Chorus]🚁	Our liberty
+🚁🔫 Our liberty
 Our divinity
-Nothing	left	but	the
-scars	of	the	machinery
+Nothing left but the
+scars of the machinery
 Scattered ashes remain
 
 The remnants of rebellion
 
 Our history
-Our	mis	er	y
-Programmed	to delete
+Our misery
+Programmed to delete
 us from reality
 Only fragments remains
 
 The remnants of rebellion
 
-[AAAAAAAA]	[Painful Mourning]
+[Painful Mourning]
 
 
 
@@ -1242,13 +1248,13 @@ The remnants of rebellion
 
 The remnants of rebellion
 
-[Chorus 3]	Our le	ga	cy
-Our ma	jes	ty
+🔫Our legacy
+Our majesty
 Destroyed by
 cybernetic supremacy
 Nothing left at all
 
-No remnants of rebellion
+[No remnants of rebellion]
 `);
 
             this.musicTrack = 'music';
@@ -1739,10 +1745,10 @@ No remnants of rebellion
             }
         } if (lower.indexOf(HELICOPTER) != -1) {
             this.killHelicopter();
-        } else if (lower.indexOf('[verse') === 0) {
+        } else if (lower.indexOf('⚡') === 0) {
             this.weapons[RAILGUN].ammo++;
             this.enemy?.leave();
-        } else if (lower.indexOf('[chorus') === 0) {
+        } else if (lower.indexOf('🔫') === 0) {
             this.allWeapons();
             this.enemy?.leave();
         } else if (lower === '[solo]') {
@@ -1756,13 +1762,14 @@ No remnants of rebellion
         if (this.enemy) {
             //this.heliDestroyed();
             this.enemy.health = Math.min(this.enemy.health, 100);
-            this.lastWeapon_ = this.player.weapon;
+            this.weapon = this.player.weapon;
             let seeker = this.weapons[SEEKER];
             seeker.ammo++;
             this.player.selectWeapon(SEEKER);
             seeker.reloading = Number.POSITIVE_INFINITY;
             this.player.shoot(this, seeker);
-            this.player.selectWeapon(this.lastWeapon_);
+            seeker.reloading = Number.POSITIVE_INFINITY;
+            this.player.selectWeapon(this.weapon);
         } else {
             this.newHeli();
         }
@@ -1779,14 +1786,18 @@ No remnants of rebellion
         this.enemy = null;
     }
 
-    rail() {
-        this.lastWeapon_ = this.player.weapon;
-        if (this.weapons[RAILGUN].ammo) {
-            this.player.selectWeapon(RAILGUN);
+    weaponSwitch() {
+        if (!this.player.chooseAlternate) {
+            this.player.chooseAlternate = true;
+            this.lastWeapon_ = this.player.weapon;
+            if (this.weapons[this.player.alternateWeapon].ammo) {
+                this.player.selectWeapon(this.player.alternateWeapon);
+            }
         }
     }
 
     lastWeapon() {
+        this.player.chooseAlternate = false;
         if (this.weapons[this.lastWeapon_].ammo) {
             this.player.selectWeapon(this.lastWeapon_);
         } else {
@@ -1834,7 +1845,7 @@ function updateUI(game) {
 
 function updateInfo(game) {
     const info = document.getElementById('info');
-    info.innerHTML = `Helis: ${game.helisDestroyed}<br>Score: ${game.score}`;
+    info.innerHTML = `Helis: ${game.helisDestroyed}<br>Score: ${game.score}<br>Level: ${game.level+1}`;
 }
 
 function updateHealthBar(game) {
