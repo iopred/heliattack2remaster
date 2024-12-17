@@ -49,7 +49,15 @@ class Timeline {
             
             currentTime += timePerBeat * this.timeSignature * 4; // Increment the time based on the beats
 
-            return { time: ct, text: entry };
+            return {
+                time: ct,
+                dimensions: 4,
+                x: 0,
+                y: 0,
+                z: 0,
+                dimension: 4,
+                text: entry,
+            };
         });
 
         // Sort lyrics by time for safe playback
@@ -67,7 +75,7 @@ class Timeline {
         const lyricsToShow = this.lyrics.filter(lyric => lyric.time >= startTime && lyric.time <= endTime);
         
         // Display each lyric
-        lyricsToShow.forEach(lyric => this.displayLyric(lyric.time, lyric.text));
+        lyricsToShow.forEach(lyric => this.displayLyric(lyric.time, lyric.text, lyric as TimelineEvent));
     }
 
     // Starts playback of lyrics based on the current time of audio playback
@@ -79,9 +87,9 @@ class Timeline {
     public dispatchLyrics(startTime:number, endTime:number);
 
     // Displays the lyric (can be replaced with custom logic to render lyrics on screen)
-    private displayLyric(time:number, text: string): void {
+    private displayLyric(time:number, text:string, timelineEvent:TimelineEvent): void {
         if (text && this.listener) {
-            this.listener(time, text);
+            this.listener(time, text, timelineEvent);
         }
     }
 

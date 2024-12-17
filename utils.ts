@@ -325,7 +325,7 @@ function createIframe(url: string): HTMLIFrameElement | null {
 
 function sayMessage(text) {
     if (text.indexOf('[') !== 0) {
-        return;
+        return text;
     } else {
         text = text.split(']')[0].substring(1);
     }
@@ -334,6 +334,8 @@ function sayMessage(text) {
         let utterance = new SpeechSynthesisUtterance(text);
         speechSynthesis.speak(utterance);
     }
+
+    return text.replace('\n', '<br>');
 }
 
 function setOpacity( obj, opacity ) {
@@ -361,6 +363,25 @@ function getScaleDelta(totalFrames, currentFrame, minScale = 1, maxScale = 2) {
     return delta;
 }
 
+let speakErrors = false;
+function setMessage(text, mode: 'replace' | 'append'='replace') {
+    const message = document.getElementById('message');
+    setVisible(message, text);
+    if (mode === 'replace') {
+        message!.innerHTML = sayMessage(text);
+    } else if (mode === 'append') {
+        message!.innerHTML += sayMessage(text);
+    }
+}
+
+function setVisible(element, visible) {
+    element.hidden = !visible;
+}
+
+function timeout(ms:number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export {
     calculateAngleToMouse,
     checkBoxCollisionWithBoxes,
@@ -379,7 +400,10 @@ export {
     rotateAroundPivot,
     setOpacity,
     sayMessage,
+    setMessage,
     setUV,
+    setVisible,
+    timeout,
     visibleHeightAtZDepth,
     visibleWidthAtZDepth,
 };
@@ -401,8 +425,11 @@ export default {
     manageRaycasterIntersections,
     rotateAroundPivot,
     setOpacity,
+    setMessage,
     sayMessage,
     setUV,
+    setVisible,
+    timeout,
     visibleHeightAtZDepth,
     visibleWidthAtZDepth,
 };

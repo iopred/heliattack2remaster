@@ -89,10 +89,10 @@ class HeliAttack {
     private loadedFunc = null;
     private startedFunc = null;
 
-    constructor(window: Window, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass: ShaderPass, audioManager: AudioManager, settings: Object) {
+    constructor(window: Window, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, audioManager: AudioManager, settings: Object) {
         this.audioManager = audioManager;
         this.settings = settings;
-        this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
+        this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
     }
 
     ready() {
@@ -291,6 +291,16 @@ class HeliAttack {
 
     lastWeapon() {
         this.game?.lastWeapon();
+    }
+
+    get lastLyric():string {
+        if (this.game?.lastTimelineEvent) {
+            if (!this.game.lastTimelineEvent.processed) {
+                this.game.processLastLyric();
+            };
+        }
+
+        return this.game!.lastTimelineEvent;
     }
 }
 

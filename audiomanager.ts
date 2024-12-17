@@ -110,9 +110,9 @@ class AudioManager {
         return this.preloading;
     }
 
-    playEffect(key: string, volume = 1.0): void {
+    playEffect(key: string, volume = 1.0): { source: AudioBufferSourceNode; gainNode: GainNode } | null {
         if (!this.audioCache.has(key) || !this.context) {
-            return;
+            return null;
         }
 
         const buffer = this.audioCache.get(key)!;
@@ -134,6 +134,8 @@ class AudioManager {
         }
 
         this.playingEffects.push(effectObject);
+
+        return effectObject;
     }
 
     set currentTime(value: number) {

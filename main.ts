@@ -1,4 +1,4 @@
-import { BufferGeometry, Color, ColorManagement, DirectionalLight, Line, LineBasicMaterial, PerspectiveCamera, Scene, ShaderMaterial, SRGBColorSpace, Vector3, WebGLRenderer } from 'three';
+import { BufferGeometry, Color, ColorManagement, DirectionalLight, Line, LineBasicMaterial, PerspectiveCamera, Scene, ShaderMaterial, SRGBColorSpace, UniformsUtils, Vector3, WebGLRenderer } from 'three';
 import WebGL from 'three/addons/capabilities/WebGL.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -8,7 +8,7 @@ import VideoGestures from './videogestures';
 import WordListener from './wordlistener';
 import HeliAttack from './heliattack';
 import TouchInputHandler from './touchinputhandler';
-import { sayMessage } from './utils.ts';
+import { sayMessage, setMessage, setVisible, timeout } from './utils';
 import SquareCircleCo from './scc/squarecircleco';
 
 import SmoothScrollHandler from './smoothscrollhandler';
@@ -83,30 +83,179 @@ const shaderPass = new ShaderPass(new ShaderMaterial({
 }));
 composer.addPass(shaderPass);
 
+
+// VHS Shader
+const VHSEffectShader = {
+    uniforms: {
+        tDiffuse: { value: null }, // The texture from the previous render
+        time: { value: 0.0 }, // Time for animation effects
+        distortion: { value: 0.1 }, // Amount of CRT bulge
+        scanlineIntensity: { value: 0.3 }, // Intensity of scanlines
+        scanlineCount: { value: 800.0 }, // Number of scanlines
+        colorShift: { value: 0.2 }, // Amount of RGB color shift
+        enabled: { value: 0.0 }, // Enable or disable the effect
+        largeLineAberration: { value: true }, // Toggle large VHS line aberration
+        aberrationProgress: { value: 0.0 }, // Progress of the VHS line warp
+        animatedColorShift: { value: 0.01 }, // Animatable color shift amount
+        verticalOffset: { value: 0.001 }, // Vertical offset for VHS wrap effect
+    },
+
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+
+    fragmentShader: `
+      uniform sampler2D tDiffuse;
+      uniform float time;
+      uniform float distortion;
+      uniform float scanlineIntensity;
+      uniform float scanlineCount;
+      uniform float colorShift;
+      uniform float enabled;
+      uniform bool largeLineAberration;
+      uniform float aberrationProgress;
+      uniform float animatedColorShift;
+      uniform float verticalOffset;
+
+      varying vec2 vUv;
+
+      // CRT Bulge distortion
+      vec2 applyBulge(vec2 uv) {
+        vec2 center = vec2(0.5, 0.5);
+        vec2 delta = uv - center;
+        float dist = length(delta);
+        float edgeFactor = smoothstep(0.4, 0.5, dist); // Reduce bulge near the edges
+        delta *= 1.0 + distortion * dist * dist * (1.0 - edgeFactor);
+        return center + delta;
+      }
+
+      // Simulate RGB color shift
+      vec4 applyColorShift(sampler2D tex, vec2 uv, float shift) {
+        vec2 rUV = uv + vec2(shift, 0.0);
+        vec2 gUV = uv;
+        vec2 bUV = uv - vec2(shift, 0.0);
+
+        float r = texture2D(tex, rUV).r;
+        float g = texture2D(tex, gUV).g;
+        float b = texture2D(tex, bUV).b;
+
+        return vec4(r, g, b, 1.0);
+      }
+
+      // Add scanlines
+      float applyScanlines(vec2 uv, float scanlineCount) {
+        float scanline = sin(uv.y * scanlineCount * 3.14159265);
+        return 1.0 - scanlineIntensity * (0.5 + 0.5 * scanline);
+      }
+
+      // Large VHS line aberration
+      float applyLargeLineAberration(vec2 uv) {
+        if (!largeLineAberration) return 0.0;
+        float linePosition = fract(time);
+        float distance = abs(uv.y - 1.0 + linePosition);
+        float effect = smoothstep(0.02, 0.0, distance); // Thickness of the line
+        return effect * 0.1 * enabled; // Intensity of the warp
+      }
+
+      // Simulate animated VHS jitter/noise
+      float applyNoise(vec2 uv, float time) {
+        return (fract(sin(dot(uv.xy * time, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.2;
+      }
+
+        float spikeEffect(float time, float interval) {
+            float phase = mod(time, interval) / interval; // Normalize time within the interval
+            float spike = step(0.95, sin(phase * 6.283185)); // Spikes at sin() peak
+            return spike;
+        }
+
+      // Apply vertical offset with wrapping
+        vec2 applyVerticalOffset(vec2 uv, float offset) {
+            float phase = mod(time, 2.0) / 2.0; // Normalize time within the interval
+            float spike = step(0.95, sin(phase * 6.283185)); // Spikes at sin() peak
+
+            uv.y = mod(uv.y + offset * spike, 1.0);
+            return uv;
+        }
+
+
+
+
+      void main() {
+        // If enabled is 0, bypass effect
+        if (enabled <= 0.0) {
+            gl_FragColor = texture2D(tDiffuse, vUv);
+            return;
+        }
+
+        // Apply vertical offset
+        vec2 offsetUV = applyVerticalOffset(vUv, verticalOffset);
+
+        // Apply CRT bulge
+        vec2 distortedUV = applyBulge(offsetUV);
+
+        // Apply animated RGB color shift
+        vec4 color = applyColorShift(tDiffuse, distortedUV, animatedColorShift * sin(time * 3.0));
+
+        // Apply scanlines
+        float scanline = applyScanlines(offsetUV, scanlineCount);
+        color.rgb *= scanline;
+
+        // Apply large VHS line aberration
+        float aberration = applyLargeLineAberration(offsetUV);
+        color.rgb += aberration;
+
+        // Simulate animated VHS noise
+        float noise = applyNoise(offsetUV, time);
+        color.rgb += noise;
+
+        // Blend final result with effect strength
+        vec4 original = texture2D(tDiffuse, offsetUV);
+        gl_FragColor = mix(original, color, enabled);
+        }
+    `,
+};
+
+// Create a ShaderPass for the VHS effect
+function createVHSEffectPass(): ShaderPass {
+    const shaderPass = new ShaderPass(new ShaderMaterial({
+        uniforms: UniformsUtils.clone(VHSEffectShader.uniforms),
+        vertexShader: VHSEffectShader.vertexShader,
+        fragmentShader: VHSEffectShader.fragmentShader,
+    }));
+
+    return shaderPass;
+}
+const vhsPass = createVHSEffectPass();
+composer.addPass(vhsPass);
+
 document.getElementById('game').appendChild(renderer.domElement);
 
-const dirLight = new DirectionalLight( 0xffffff, 0.4 );
-dirLight.position.set( 0, 0, 1 ).normalize();
-scene.add( dirLight );
+const dirLight = new DirectionalLight(0xffffff, 0.4);
+dirLight.position.set(0, 0, 1).normalize();
+scene.add(dirLight);
 
 function createBlueLine(x, y, object) {
     //create a blue LineBasicMaterial
-    const material2 = new LineBasicMaterial( { color: 0x0000ff } );
+    const material2 = new LineBasicMaterial({ color: 0x0000ff });
 
     const points = [];
-    points.push( new Vector3( x - 10, y - 10, -0 ) );
-    points.push( new Vector3( x, y, -0 ) );
-    points.push( new Vector3( x + 10, y - 10, -0 ) );
+    points.push(new Vector3(x - 10, y - 10, -0));
+    points.push(new Vector3(x, y, -0));
+    points.push(new Vector3(x + 10, y - 10, -0));
 
-    const geometry2 = new BufferGeometry().setFromPoints( points );
-    const line = new Line( geometry2, material2 );
+    const geometry2 = new BufferGeometry().setFromPoints(points);
+    const line = new Line(geometry2, material2);
     object.add(line);
 }
 let heliattack;
 function render() {
     heliattack?.render();
 
-	// renderer.render(scene, camera);
+    // renderer.render(scene, camera);
     composer.render();
 }
 
@@ -162,7 +311,7 @@ function onDocumentMouseMove(event) {
 
 let wasShooting = false;
 
-function onMouseDown(event){
+function onMouseDown(event) {
     init();
 
     if (!heliattack?.playing) {
@@ -182,7 +331,7 @@ function onMouseDown(event){
     }
 }
 
-function onMouseUp(event){
+function onMouseUp(event) {
     if (!heliattack?.playing) {
         return;
     }
@@ -204,29 +353,34 @@ function onMouseClick(event) {
     if (event.button === 1) {
         mouse.wheel = 1;
     } else if (event.button === 2) {
-    }  
+    }
 }
 
 let lastWheelMove = 0;
 
-function getDuration(bpm) {
-    const timePerBeat = 60 / bpm; // Time for each beat in seconds
-    return timePerBeat; // Increment the time based on the beats
+function getDurationSeconds(bpm) {
+    const timePerBeatSecs = 60 / bpm; // Time for each beat in seconds
+    return timePerBeatSecs;
 }
+
+function getDurationMiliseconds(bpm) {
+    return getDurationSeconds(bpm) * 1000;
+}
+
 let lastWheelTime = 0
-function onMouseWheel(event){
+function onMouseWheel(event) {
     if (!heliattack?.playing) {
         return;
     }
-    
+
     const now = window.performance.now();
     if (event.deltaY < 0) {
-        if (lastWheelMove == 1 && now < lastWheelTime - getDuration(BPM)) {
+        if (lastWheelMove == 1 && now < lastWheelTime - getDurationSeconds(BPM)) {
             return;
         }
         mouse.wheel = 1;
     } else if (event.deltaY > 0) {
-        if (lastWheelMove == -1 && now < lastWheelTime - getDuration(BPM)) {
+        if (lastWheelMove == -1 && now < lastWheelTime - getDurationSeconds(BPM)) {
             return;
         }
         mouse.wheel = -1;
@@ -305,10 +459,10 @@ function getAvatar() {
     var xhr = new XMLHttpRequest();
     xhr.withCredentials = true;
 
-    xhr.addEventListener('readystatechange', function() {
-    if(this.readyState === 4) {
-        console.log(this.responseText);
-    }
+    xhr.addEventListener('readystatechange', function () {
+        if (this.readyState === 4) {
+            console.log(this.responseText);
+        }
     });
 
     xhr.open('POST', 'https://api.basement.fun/launcher/');
@@ -327,7 +481,7 @@ const history = [];
 const i = new WordListener('i');
 i.onWordDetected((word) => {
     showErrors = !showErrors;
-    
+
     setVisible(document.getElementById('error-container'), showErrors);
 
     showCheat("errors");
@@ -340,14 +494,21 @@ t.onWordDetected((word) => {
 
 let showWebcam = false;
 const o = new WordListener('o');
-o.onWordDetected((word) => {
+o.onWordDetected(async (word) => {
     showWebcam = !showWebcam;
-    
+
     setVisible(document.getElementById('webcam'), showWebcam);
 
-    showCheat("webcam");
-
-    console.error('show video for next bar');
+    if (heliattack?.lastLyric?.processed && !heliattack.lastLyric.displayed) {
+        heliattack.lastLyric.displayed = true;
+        if (heliattack.lastLyric.func) {
+            heliattack.lastLyric.func();
+            heliattack.lastLyric.func = null;
+        }
+        setMessage(heliattack.lastLyric.text);
+        await timeout(getDurationMiliseconds(BPM));
+        setMessage('');
+    }
 });
 
 function toggleMusic() {
@@ -385,13 +546,13 @@ io.onWordDetected((word) => {
         heliattack.initVideoGestures(videoGestures);
     }
 
-    showCheat("enable gestures");
+    showCheat("webcam");
 });
 
 const retro = new WordListener('retro');
 retro.onWordDetected((word) => {
     history.splice(0, history.length);
-    
+
     heliattack?.start();
     console.error("could not load heli attack 1 assets.")
     setVisible(document.getElementById('error-container'), showErrors);
@@ -428,9 +589,8 @@ pred.onWordDetected((word) => {
 });
 
 function showCheat(text) {
-    document.getElementById('error-container').innerHTML += `<br>${text}`;
-
     if (text != 'errors') {
+        document.getElementById('error-container').innerHTML += `<br>${text}`;
         sayMessage('[' + text + ']');
     }
 }
@@ -475,7 +635,7 @@ const TOUCH_CONTROLS = false;
 let inGame = false;
 
 if (TOUCH_CONTROLS) {
-    window.addEventListener("wheel", e => e.preventDefault(), { passive:false })
+    window.addEventListener("wheel", e => e.preventDefault(), { passive: false })
 } else {
     window.addEventListener('wheel', onMouseWheel, false);
 }
@@ -579,6 +739,10 @@ const settings = {
         if (smoothScrollHandler) {
             smoothScrollHandler.update()
         }
+
+        if (heliattack) {
+            vhsPass.material.uniforms.time.value += (heliattack.game.timeScale + (heliattack.game.player.hyperJumping ? 0.2 : 0)) * 0.01;
+        }
     },
     set musicVolume(value) {
         audioManager.musicVolume = value;
@@ -629,17 +793,13 @@ function ha(shape) {
     createHeliAttack();
 }
 
-let squarecircleco:SquareCircleCo|null = null;
+let squarecircleco: SquareCircleCo | null = null;
 async function scc() {
-    setMessage("kit");
-    await audioManager.preload([
-        { key: 'scc', url: './sounds/scc.mp3'},
-    ]).then(() => {
-        audioManager.playEffect('scc');
-        setMessage("*squarecircleco.");
-
-        squarecircleco = new SquareCircleCo(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager, document.getElementById('gesture-canvas') as HTMLCanvasElement, (shape) => ha(shape));
-    });
+    setMessage("[kit]");
+    await timeout(getDurationMiliseconds(BPM) * 4);
+    setMessage("naa.mba");
+    await timeout(getDurationMiliseconds(BPM) * 4);
+    await new SquareCircleCo(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, document.getElementById('gesture-canvas') as HTMLCanvasElement, (shape) => ha(shape));
 }
 
 function loaded() {
@@ -675,25 +835,11 @@ function createMainMenu() {
 function createHeliAttack() {
     heliattack?.destroy();
 
-    heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, audioManager, settings);
+    heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, settings);
     heliattack.init(loaded, started);
     if (videoGestures) {
         heliattack.initVideoGestures(videoGestures);
     }
 }
 
-function setVisible(element, visible) {
-    element.hidden = !visible;
-}
-
 setMessage('Tap to continue');
-
-function setMessage(text) {
-    const message = document.getElementById('message');
-    setVisible(message, text);
-    message.innerHTML = text;
-
-    if (showErrors) {
-        sayMessage(text);
-    }
-}

@@ -61,10 +61,34 @@ class VideoGestures {
       this.switching = false;
       this.gestureHands = [];
       
-      this.enableWebcamButton = document.querySelector('#enable-webcam-button');
+      this.enableWebcamButton = this.queryElement('enableWebcamButton');
       this.enableWebcamButton.style.hidden = true;
     
       this.enable();
+    }
+
+    private queryDomByKey(key:string) {
+      return this.document.querySelector(this.queryElement(key));
+    }
+
+    private queryElement<T extends HTMLElement>(selectorKey: string): T {
+      const selector = this.getDomSelectors()[selectorKey] || '#errors';
+      const element = this.document.querySelector(selector);
+      if (!element) {
+        throw new Error(`Element not found for selector: ${selector}`);
+      }
+      return element as T;
+    }
+
+    private getDomSelectors(): { [key: string]: string } {
+      return {
+        errors: '#errors',
+        webcam: "#webcam",
+        canvas: "#gesture-canvas",
+        enableWebcamButton: "#enable-webcam-button",
+        audioSource: "select#audioSource",
+        videoSource: "select#videoSource",
+      };
     }
 
     setSize(width, height) {

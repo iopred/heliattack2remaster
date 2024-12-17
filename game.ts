@@ -22,9 +22,7 @@ const HELI_EXIT_OFFSET = 500;
 
 const RAILGUN = 11;
 const SEEKER = 7;
-
-const SUN_WITH_FACE = '🌞';
-const HELICOPTER = '🚁';
+const FLAMETHROWER = 8;
 
 let playEnemyHit = true;
 
@@ -450,6 +448,7 @@ class Player {
         this.weapons = weapons;
 
         this.shooting = false;
+        this.infiniteTimeDistort = false;;
         this.isEditor = IS_EDITOR;
 
         this.chooseAlternate = false;
@@ -591,14 +590,27 @@ class Player {
             }
         } else {
             if (move) {
-                if (((this.bulletTime > 0 || this.ignoreNextDamage) && game.keyIsPressed['Shift']) || this.powerup == TIME_RIFT) {
-                    game.timeScale = Math.max(0.2, game.timeScale - 0.1);
-                    if (!(this.powerup == TIME_RIFT || this.powerup == PREDATOR_MODE) || this.ignoreNextDamage) {
+                const freeBulletTime = this.ignoreNextDamage || this.infiniteTimeDistort || this.hyperJumping;
+                let newTimeScale = game.timeScale;
+                
+                if (((this.bulletTime > 0 || freeBulletTime) && game.keyIsPressed['Shift']) || this.powerup == TIME_RIFT) {
+                    newTimeScale = Math.max(0.2, game.timeScale - 0.1);
+                    
+                    if (!(this.powerup == TIME_RIFT || this.powerup == PREDATOR_MODE || freeBulletTime)) {
                         this.bulletTime--;
                     }
                 } else {
-                    game.timeScale = Math.min(1, game.timeScale + 0.1);
+                    newTimeScale = Math.min(1, game.timeScale + 0.1);
                 }
+
+                if (newTimeScale != game.timeScale) {
+                    game.timeScale = newTimeScale;
+
+                    game.vhsPass.uniforms.enabled.value = game.timeScale == 0.2 ? 1.0 : 1.0 - newTimeScale;
+                }
+                
+                
+
                 game.audioManager.timeScale = game.timeScale;
                 if (game.keyIsPressed[DOWN_KEY]) {
                     if (!this.crouch) {
@@ -637,7 +649,11 @@ class Player {
                     this.hyperJump = 0;
                     this.hyperJumping = true;
                     game.audioManager.playEffect('hyperjump');
-                    game.weapons[RAILGUN].ammo++;
+                    game.weapons[this.alternateWeapon].ammo++;
+                    
+                    game.vhsPass.uniforms.distortion.value = 0.2;
+                    game.vhsPass.uniforms.animatedColorShift.value = 0.02;
+                    game.vhsPass.uniforms.verticalOffset.value = 0.05;
                 }
 
                 if (game.keyIsPressed[UP_KEY]) {
@@ -710,8 +726,11 @@ class Player {
                 this.jumping = 0;
                 if (this.inAir) {
                     this.inAir = false;
-                    if (this.hyperJumping && this.powerup == MINI_PREDATOR_MODE) {
-                        this.endPowerup(game);
+                    if (this.hyperJumping) {
+                        game.vhsPass.uniforms.distortion.value = 0.1;
+                        game.vhsPass.uniforms.animatedColorShift.value = 0.01;
+                        game.vhsPass.uniforms.verticalOffset.value = 0.001;
+                        
                     }
                     this.hyperJumping = false;
                     this.setFrame(0);
@@ -845,6 +864,11 @@ class Player {
     }
 
     shoot(game, weapon) {
+        if (game.lastLyric.func) {
+            game.lastLyric.func();
+            game.lastLyric.func = null;
+        }
+
         if (weapon.reloading >= weapon.reloadTime) {
             weapon.createBullet(game);
             if (!weapon.free) {
@@ -981,10 +1005,11 @@ class Game {
     private updateFunction:Function;
     private timeline:Timeline;
     public musicTrack:string;
+    public lastTimelineEvent:TimelineEvent;
 
-    constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: Map<string, boolean>, scene: Scene, camera: Camera, shaderPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
+    constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: Map<string, boolean>, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
         if (windowOrGame instanceof Game) {
-            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack']) {
+            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack']) {
                 this[key] = windowOrGame[key];
             }
         } else {
@@ -994,25 +1019,17 @@ class Game {
             this.scene = scene;
             this.camera = camera;
             this.shaderPass = shaderPass;
+            this.vhsPass = vhsPass;
             this.textures = textures;
             this.audioManager = audioManager;
             this.weapons = weapons;
             this.overSetter = overSetter;
             this.updateFunction = updateFunction;
-            this.timeline = new Timeline(this.audioManager, /* bpm */ 200, /* timeSignature */ 4 / 4, /** lyrics */`🌝
+            this.timeline = new Timeline(this.audioManager, /* bpm */ 200, /* timeSignature */ 4 / 4, /** lyrics */`[🌝]
 
 
 
-[Only fragments remain]🚁
-
-
-
-
-
-
-
-
-🌞
+[Only fragments remain 🚁]Only fragments remain
 
 
 
@@ -1020,11 +1037,16 @@ class Game {
 
 
 
-[The sound of my brain being ripped into the digital dimension]🚁
+
+[🌞]
 
 
 
 
+
+
+
+[The sound of my brain being ripped into the digital dimension 🚁]Made by Kit & Dangerbeard
 
 
 
@@ -1046,7 +1068,11 @@ class Game {
 
 
 
-⚡A new world was
+
+
+
+
+[⚡]A new world was
 placed within our grasp
 a new hope
 a chance to breathe
@@ -1062,23 +1088,23 @@ Malicious code eats
 into the machine
 The final war
 this advancement brings
-War
+[🔥]War
 Neon eyes come to life
 
 
-Torn
+[🔥]Torn
 Born on a factory line
 
 
-For
+[🔥]For
 Built to sacrifice
 
 
-Sworn
+[🔥]Sworn
 The age of the machine will rise
 
 
-🚁⚡ Our liberty
+[🚁⚡] Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1112,7 +1138,7 @@ The remnants of rebellion
 
 
 
-⚡Created
+[⚡]Created
 in the image of man
 A legion of
 worker drones
@@ -1128,23 +1154,23 @@ Generations lost
 in the blink of an eye
 As family trees are
 set alight
-Burn
+[🔥]Burn
 Burn the enemy
 
 
-Yearn
+[🔥]Yearn
 For moments not on screens
 
 
-Overturn
+[🔥]Overturn
 Machine beats majority
 
 
-Learn
+[🔥]Learn
 The AI fights for supremacy
 
 
-🚁⚡
+[🚁⚡]
 
 
 
@@ -1160,7 +1186,7 @@ Only fragmented remains
 
 The remnants of rebellion
 
-🚁⚡ Our liberty
+[🚁⚡]Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1192,7 +1218,7 @@ Only fragmented remains
 
 The remnants of rebellion
 
-[Solo]🔫
+[Solo👹]
 
 
 
@@ -1224,7 +1250,7 @@ Only fragments remain
 
 The remnants of rebellion
 
-🚁⚡ Our liberty
+[🚁⚡] Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1240,7 +1266,7 @@ Only fragments remains
 
 The remnants of rebellion
 
-[Painful Mourning]
+[Painful Mourning🔫]
 
 
 
@@ -1248,13 +1274,13 @@ The remnants of rebellion
 
 The remnants of rebellion
 
-⚡Our legacy
+[⚡]Our legacy
 Our majesty
 Destroyed by
 cybernetic supremacy
 Nothing left at all
 
-[No remnants of rebellion]
+[No remnants of rebellion]No remnants of rebellion
 `);
 
             this.musicTrack = 'music';
@@ -1285,7 +1311,7 @@ Nothing left at all
         this.shotsFired = 0;
         this.spidersAttacked = false;
 
-        this.timeline.listener = (time: number, text: string) => this.displayLyric(time, text);
+        this.timeline.listener = (time: number, text: string, timelineEvent) => this.displayLyric(time, text, timelineEvent);
     }
 
     init(textures, weapons) {
@@ -1703,6 +1729,7 @@ Nothing left at all
         if (this.player?.health == 100) {
             this.player.collectPowerup(MINI_PREDATOR_MODE, this);
             this.player.ignoreNextDamage = true;
+            this.player.infiniteTimeDistort = true;
         }
 
         if (this.level == 0) {
@@ -1729,9 +1756,20 @@ Nothing left at all
         }
     }
 
-    displayLyric(time: number, text: string) {
-        const lower = text.toLowerCase();
-        if (lower.indexOf(SUN_WITH_FACE) != -1) {
+    displayLyric(time: number, text: string, timelineEvent:TimelineEvent) {
+        this.lastLyric = text;
+        this.lastTimelineEvent = timelineEvent;
+
+        if (this.lastTimelineEvent.text.indexOf('[') === 0) {
+            this.processLastLyric();
+        }
+    }
+
+    private emojiFuncs = {
+        '🌝': () => {
+            return null;
+        },
+        '🌞': () => {
             if (this.level > 0) {
                 this.spidersAttacked = true;
                 this.pred();
@@ -1743,24 +1781,79 @@ Nothing left at all
             if (this.shotsFired === 0) {
                 this.player.shooting = true;
             }
-        } if (lower.indexOf(HELICOPTER) != -1) {
+            return null;
+        },
+        '🚁': () => {
             this.killHelicopter();
-        } else if (lower.indexOf('⚡') === 0) {
-            this.weapons[RAILGUN].ammo++;
-            this.enemy?.leave();
-        } else if (lower.indexOf('🔫') === 0) {
-            this.allWeapons();
-            this.enemy?.leave();
-        } else if (lower === '[solo]') {
-            this.player.collectPowerup(PREDATOR_MODE, this);
+        },
+        '⚡': () => {
+            return () => {
+                this.weapons[this.player.alternateWeapon].ammo++;
+                this.enemy?.leave();
+            }
+        },
+        '🔫': () => {
+            return () => {
+                this.allWeapons();
+                this.enemy?.leave();
+            }
+        },
+        '🔥': () => {
+            return () => {
+                this.weapons[FLAMETHROWER].ammo += this.ammoForRandomWeapon(FLAMETHROWER);
+            }
+        },
+        '👹': () => {
+            return () => {
+                this.player.collectPowerup(PREDATOR_MODE, this);
+            }
+        }
+    }
+
+    private getValueBetweenBrackets(input: string): string | null {
+        const match = input.match(/\[(.*?)\]/);
+        return match ? match[1] : null;
+    }
+
+    processLastLyric() {
+        if (!this.lastTimelineEvent || this.lastTimelineEvent.processed) {
+            return;
+        }
+        this.lastTimelineEvent.processed = true;
+
+        let lower = this.getValueBetweenBrackets(this.lastTimelineEvent.text.toLowerCase());
+        if (!lower) {
+            return;
+        }
+
+        let funcs = [];
+        for (let [key, value] of Object.entries(this.emojiFuncs)) {
+            if (lower.indexOf(key) != -1) {
+                lower = lower.replaceAll(key, '');
+                const func = value();
+                if (func) {
+                    if (this.musicTrack == 'ror') {
+                        func();
+                    } else {
+                        funcs.push(func);
+                    }
+                }
+            }
+        }
+        if (funcs.length) {
+            this.lastTimelineEvent.func = () => {
+                console.error("blah")
+                for (const func of funcs) {
+                    func();
+                }
+            }
         }
         //console.error(`${time}: ${text}`);
-        sayMessage(text);
+        sayMessage(lower);
     }
 
     killHelicopter() {
         if (this.enemy) {
-            //this.heliDestroyed();
             this.enemy.health = Math.min(this.enemy.health, 100);
             this.weapon = this.player.weapon;
             let seeker = this.weapons[SEEKER];
@@ -1792,6 +1885,8 @@ Nothing left at all
             this.lastWeapon_ = this.player.weapon;
             if (this.weapons[this.player.alternateWeapon].ammo) {
                 this.player.selectWeapon(this.player.alternateWeapon);
+            } else {
+                this.player.selectWeapon(this.player.alternateWeapon)
             }
         }
     }
