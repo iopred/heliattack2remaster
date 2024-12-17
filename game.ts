@@ -1842,7 +1842,6 @@ Nothing left at all
         }
         if (funcs.length) {
             this.lastTimelineEvent.func = () => {
-                console.error("blah")
                 for (const func of funcs) {
                     func();
                 }
