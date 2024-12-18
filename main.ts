@@ -8,7 +8,7 @@ import VideoGestures from './videogestures';
 import WordListener from './wordlistener';
 import HeliAttack from './heliattack';
 import TouchInputHandler from './touchinputhandler';
-import { sayMessage, setMessage, setVisible, timeout } from './utils';
+import { getDurationMiliseconds, getDurationSeconds, sayMessage, setMessage, setVisible, timeout } from './utils';
 import SquareCircleCo from './scc/squarecircleco';
 
 import SmoothScrollHandler from './smoothscrollhandler';
@@ -94,43 +94,43 @@ const VHSEffectShader = {
         scanlineCount: { value: 480.0 }, // Number of scanlines
         colorShift: { value: 0.2 }, // Amount of RGB color shift
         largeLineAberration: { value: 0.4 }, // Toggle large VHS line aberration
-        animatedColorShift: { value: 0.005}, // Animatable color shift amount
+        animatedColorShift: { value: 0.005 }, // Animatable color shift amount
         enabled: { value: 0.0 }, // Overall strength of the effect.
     },
 
     vertexShader: `
-      varying vec2 vUv;
-      void main() {
+    varying vec2 vUv;
+    void main() {
         vUv = uv;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
+    }
     `,
 
     fragmentShader: `
-      uniform sampler2D tDiffuse;
-      uniform float time;
-      uniform float distortion;
-      uniform float scanlineIntensity;
-      uniform float scanlineCount;
-      uniform float colorShift;
-      uniform float enabled;
-      uniform float largeLineAberration;
-      uniform float animatedColorShift;
+    uniform sampler2D tDiffuse;
+    uniform float time;
+    uniform float distortion;
+    uniform float scanlineIntensity;
+    uniform float scanlineCount;
+    uniform float colorShift;
+    uniform float enabled;
+    uniform float largeLineAberration;
+    uniform float animatedColorShift;
 
-      varying vec2 vUv;
+    varying vec2 vUv;
 
-      // CRT Bulge distortion
-      vec2 applyBulge(vec2 uv) {
+    // CRT Bulge distortion
+    vec2 applyBulge(vec2 uv) {
         vec2 center = vec2(0.5, 0.5);
         vec2 delta = uv - center;
         float dist = length(delta);
         float edgeFactor = smoothstep(0.4, 0.5, dist); // Reduce bulge near the edges
         delta *= 1.0 + distortion * dist * dist * (1.0 - edgeFactor);
         return center + delta;
-      }
+    }
 
-      // Simulate RGB color shift
-      vec4 applyColorShift(sampler2D tex, vec2 uv, float shift) {
+    // Simulate RGB color shift
+    vec4 applyColorShift(sampler2D tex, vec2 uv, float shift) {
         vec2 rUV = uv + vec2(shift, 0.0);
         vec2 gUV = uv;
         vec2 bUV = uv - vec2(shift, 0.0);
@@ -140,63 +140,59 @@ const VHSEffectShader = {
         float b = texture2D(tex, bUV).b;
 
         return vec4(r, g, b, 1.0);
-      }
+    }
 
-      float applyScanlines(vec2 uv, float scanlineCount) {
-            float scanline = sin(uv.y * scanlineCount * 3.14159265);
-            // Map scanlines between 0.9 (slightly darker) and 1.0 (no darkening)
-            return mix(1.0, 0.9, scanlineIntensity * (0.5 + 0.5 * scanline));
-        }
+    float applyScanlines(vec2 uv, float scanlineCount) {
+        float scanline = sin(uv.y * scanlineCount * 3.14159265);
+        // Map scanlines between 0.9 (slightly darker) and 1.0 (no darkening)
+        return mix(1.0, 0.9, scanlineIntensity * (0.5 + 0.5 * scanline));
+    }
 
     // Large VHS line aberration with warp effect
     float applyLargeLineAberration(vec2 uv, inout vec2 warpedUV) {
-      if (largeLineAberration == 0.0) return 0.0;
+        if (largeLineAberration == 0.0) return 0.0;
 
-      // Double the animation duration, show line only in the first half
-      float interval = fract(time * 0.25); // Slower frequency, 0.25 for 2 seconds
-      if (interval > 0.5) return 0.0;
+        // Double the animation duration, show line only in the first half
+        float interval = fract(time * 0.25); // Slower frequency, 0.25 for 2 seconds
+        if (interval > 0.5) return 0.0;
 
-      float linePosition = fract(time * 0.5); // Move line vertically
-      float distance = abs(uv.y - 1.0 + linePosition);
-      float effect = smoothstep(0.03, 0.0, distance); // Thickness of the line
+        float linePosition = fract(time * 0.5); // Move line vertically
+        float distance = abs(uv.y - 1.0 + linePosition);
+        float effect = smoothstep(0.03, 0.0, distance); // Thickness of the line
 
-      if (distance < 0.05) {
-        warpedUV.y += effect * 0.016 * largeLineAberration; // Warp effect height
-      }
-      return effect * 0.1 * largeLineAberration; // Intensity of the warp
+        if (distance < 0.05) {
+            warpedUV.y += effect * 0.016 * largeLineAberration; // Warp effect height
+        }
+        return effect * 0.1 * largeLineAberration; // Intensity of the warp
     }
 
-      // Simulate animated VHS jitter/noise
-      float applyNoise(vec2 uv, float time) {
+    // Simulate animated VHS jitter/noise
+    float applyNoise(vec2 uv, float time) {
         float noiseStrength = 0.1; // Noise intensity
         return (fract(sin(dot(uv.xy * time, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * noiseStrength * enabled;
-      }
+    }
 
-      // VHS Wrap-like Warp Effect with Noise at Top and Bottom
-        vec2 applyTopAndBottomWarp(vec2 uv, float time) {
-            float warpStrength = 0.01; // Warp intensity
-            float noiseStrength = 0.005; // Noise intensity
+    // VHS Wrap-like Warp Effect with Noise at Top and Bottom
+    vec2 applyTopAndBottomWarp(vec2 uv, float time) {
+        float warpStrength = 0.01; // Warp intensity
+        float noiseStrength = 0.005; // Noise intensity
 
-            // Bottom Warp
-            float bottomWarp = smoothstep(0.9, 1.0, uv.y) * sin(time * 10.0) * warpStrength;
+        // Bottom Warp
+        float bottomWarp = smoothstep(0.9, 1.0, uv.y) * sin(time * 10.0) * warpStrength;
 
-            // Top Warp
-            float topWarp = smoothstep(0.1, 0.0, uv.y) * sin(time * 10.0) * warpStrength;
+        // Top Warp
+        float topWarp = smoothstep(0.1, 0.0, uv.y) * sin(time * 10.0) * warpStrength;
 
-            // Combine both warps
-            float combinedWarp = bottomWarp + topWarp;
+        // Combine both warps
+        float combinedWarp = bottomWarp + topWarp;
 
-            // Apply combined warp effect
-            uv.x += combinedWarp * enabled;
+        // Apply combined warp effect
+        uv.x += combinedWarp * enabled;
 
-            return uv;
-        }
+        return uv;
+    }
 
-
-
-
-
-      void main() {
+    void main() {
         // If enabled is 0, bypass effect
         if (enabled <= 0.0) {
             gl_FragColor = texture2D(tDiffuse, vUv);
@@ -226,11 +222,10 @@ const VHSEffectShader = {
         float scanline = applyScanlines(warpedUV, scanlineCount);
         color.rgb = mix(color.rgb, color.rgb * scanline, scanlineIntensity);
 
-
         // Blend final result with effect strength
         vec4 original = texture2D(tDiffuse, warpedUV);
         gl_FragColor = mix(original, color, enabled);
-        }
+    }
     `,
 };
 
@@ -372,16 +367,6 @@ function onMouseClick(event) {
 }
 
 let lastWheelMove = 0;
-
-function getDurationSeconds(bpm) {
-    const timePerBeatSecs = 60 / bpm; // Time for each beat in seconds
-    return timePerBeatSecs;
-}
-
-function getDurationMiliseconds(bpm) {
-    return getDurationSeconds(bpm) * 1000;
-}
-
 let lastWheelTime = 0
 function onMouseWheel(event) {
     if (!heliattack?.playing) {

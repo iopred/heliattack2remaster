@@ -1,9 +1,15 @@
-import { MathUtils, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Vector2, Vector3 } from 'three';
+import { MathUtils, Material, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Texture, Vector2, Vector3 } from 'three';
 import { checkBoxCollisionWithBoxes, checkPointCollisionWithBoxes, heliBoxes, isPlayerCollision, isPlayerCollisionRect, isTileCollision, setUV} from './utils.ts';
+import Game from './game';
 
 class Entity {
-    constructor(game, textureUrl) {
-        this.textureUrl = textureUrl;
+    public tick:number;
+    public position: Vector2;
+    public velocity: Vector2; 
+    public texture: Texture;
+    public material: Material;
+    public mesh: Mesh;
+    constructor(game, private textureUrl) {
         this.tick = 0;
         this.position = new Vector2(0, 0, 1);
         this.velocity = new Vector2(0, 0);
@@ -24,7 +30,7 @@ class Entity {
         game.entities.push(this);
     }
 
-    update(game, delta) {
+    update(game: Game, delta: number): boolean {
         let move = false;
         this.tick += game.timeScale;
         if (this.tick >= 1) {
@@ -52,6 +58,7 @@ class Entity {
 }
 
 class DestroyedEnemy extends Entity {
+    public permanent: boolean;
     constructor(game, enemy, permanent) {
         super(game, './images/guyburned.png');
 
@@ -65,7 +72,7 @@ class DestroyedEnemy extends Entity {
         this.velocity.y += 0.5;
     }
 
-    update(game, delta) {
+    update(game: Game, delta: number): boolean {
         let move = false;
         this.tick += game.timeScale;
         if (this.tick >= 1) {
@@ -102,6 +109,7 @@ class DestroyedEnemy extends Entity {
 let shardBounces = 0;
 
 class Shard extends Entity {
+    private bounces: number;
     constructor(game, position) {
         super(game, './images/shard' + Math.floor(Math.random() * 3) + '.png');
 
@@ -117,7 +125,7 @@ class Shard extends Entity {
         this.velocity.y += 0.5;
     }
 
-    update(game, delta) {
+    update(game: Game, delta: number): boolean {
         let move = false;
         this.tick += game.timeScale;
         if (this.tick >= 1) {
@@ -168,7 +176,7 @@ class DestroyedHeli extends Entity {
         this.velocity.y += 0.5;
     }
 
-    update(game, delta) {
+    update(game: Game, delta: number): boolean {
         super.update(game, delta);
 
         this.mesh.rotation.z += ((Math.abs(this.velocity.x) + Math.abs(this.velocity.y)) * game.timeScale / 4) * Math.PI / 180;
@@ -210,7 +218,7 @@ class Explosion extends Entity {
         }
     }
 
-    update(game, delta) {
+    update(game: Game, delta: number): boolean {
         let move = false;
         this.tick += game.timeScale;
         if (this.tick >= 1) {
@@ -246,7 +254,7 @@ class Smoke extends Entity {
         this.mesh.rotation.z = Math.random() * 2 * Math.PI;
     }
 
-    update(game, delta) {
+    update(game: Game, delta: number): boolean {
         let move = false;
         this.tick += game.timeScale;
         if (this.tick >= 1) {
@@ -282,7 +290,7 @@ class Fire extends Entity {
         this.mesh.rotation.z = Math.random() * 2 * Math.PI;
     }
 
-    update(game, delta) {
+    update(game: Game, delta: number): boolean {
         let move = false;
         this.tick += game.timeScale;
         if (this.tick >= 1) {
@@ -322,7 +330,7 @@ class Blood extends Entity {
         this.time = 0;
     }
 
-    update(game, delta) {
+    update(game: Game, delta: number): boolean {
         let move = false;
         this.tick += game.timeScale;
         if (this.tick >= 1) {
@@ -388,7 +396,7 @@ class Parachute {
         this.tick = 0;
     }
 
-    update(game, delta) {
+    update(game: Game, delta: number): boolean {
         this.tick += game.timeScale;
         if (this.tick >= 1) {
             this.tick %= 1;
@@ -453,7 +461,7 @@ class Box extends Entity {
         this.updateMesh();
     }
 
-    update(game, delta) {
+    update(game: Game, delta: number): boolean {
         let move = false;
         this.tick += game.timeScale;
         if (this.tick >= 1) {

@@ -15,6 +15,9 @@ class AudioManager {
     private preloading: Promise<any> | null;
     private startTime: number | null = null; // Tracks when the current track started
     private timeScale_: number = 1.0;
+    private loopingVolume_: number;
+    private lastContextTime_: number;
+    private currentTime_: number;
 
     constructor() {
         this.audioCache = new Map();

@@ -611,11 +611,9 @@ class Player {
                     game.timeScale = newTimeScale;
 
                     game.vhsPass.uniforms.enabled.value = (game.timeScale == 0.2 ? 1.0 : 1.0 - game.timeScale) * (this.hyperJumping ? 1.2 : 1.0);
+                    game.audioManager.timeScale = game.timeScale;
                 }
-                
-                
 
-                game.audioManager.timeScale = game.timeScale;
                 if (game.keyIsPressed[DOWN_KEY]) {
                     if (!this.crouch) {
                         this.crouch = true;
@@ -1009,7 +1007,7 @@ class Game {
     private scene:Scene;
     private camera:Camera;
     private shaderPass:ShaderPass;
-    private textures;
+    private textures:Texture[];
     private audioManager:AudioManager;
     public weapons:Weapon[];
     private overSetter:Function;
@@ -1017,6 +1015,27 @@ class Game {
     private timeline:Timeline;
     public musicTrack:string;
     public lastTimelineEvent:TimelineEvent;
+
+    
+    public timeScale: number;
+    public paused: boolean;
+
+    public enemy: Enemy;
+    public level: number;
+    public score: number;
+    public helisDestroyed: number;
+    public nextHealth: number;
+    public nextLevel: number;
+
+    public gestureHands: Object[];
+    public gestureHandsShowing: number;
+
+    public map:Object[][];
+
+    public lastWeapon_: number;
+    
+    public shotsFired: number;
+    public spidersAttacked: boolean;
 
     constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: Map<string, boolean>, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
         this.bpm = 200;
@@ -1560,20 +1579,24 @@ Nothing left at all
 
             if (!this.player.dead && isPlayerCollision(bulletPos.x, -bulletPos.y, this.player)) {
                 if (this.player.powerup != INVULNERABILITY) {
-                    if (!this.ignoreNextDamage) {
+                    if (!this.player.ignoreNextDamage) {
                         this.player.health -= 10;
+                        
+                        updateHealthBar(this);
+                        this.audioManager.playEffect('hurt');
+                        
+                        for (let i = 0; i < 3; i++) {
+                            new Blood(this, new Vector3(bulletPos.x, -bulletPos.y, 0), i * 2);
+                        }
+                        if (this.player.health <= 0) {
+                            this.suicide();
+                        }
+                    } else {
+                        this.playHit();
                     }
-                    
-                    updateHealthBar(this);
-                    this.audioManager.playEffect('hurt');
-                    for (let i = 0; i < 3; i++) {
-                        new Blood(this, new Vector3(bulletPos.x, -bulletPos.y, 0), i * 2);
-                    }
-                    if (this.player.health <= 0) {
-                        this.suicide();
-                    }
+                
                 }
-                this.ignoreNextDamage = false;
+                this.player.ignoreNextDamage = false;
                 remove = true;
             }
 
