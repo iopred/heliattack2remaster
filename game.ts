@@ -448,7 +448,7 @@ class Player {
         this.weapons = weapons;
 
         this.shooting = false;
-        this.infiniteTimeDistort = false;;
+        this.infiniteTimeDistort = false;
         this.isEditor = IS_EDITOR;
 
         this.chooseAlternate = false;
@@ -590,7 +590,7 @@ class Player {
             }
         } else {
             if (move) {
-                const freeBulletTime = this.ignoreNextDamage || this.infiniteTimeDistort || this.hyperJumping;
+                const freeBulletTime = this.infiniteTimeDistort || this.hyperJumping;
                 let newTimeScale = game.timeScale;
                 
                 if (((this.bulletTime > 0 || freeBulletTime) && game.keyIsPressed['Shift']) || this.powerup == TIME_RIFT) {
@@ -606,7 +606,7 @@ class Player {
                 if (newTimeScale != game.timeScale) {
                     game.timeScale = newTimeScale;
 
-                    game.vhsPass.uniforms.enabled.value = game.timeScale == 0.2 ? 1.0 : 1.0 - newTimeScale;
+                    game.vhsPass.uniforms.enabled.value = (game.timeScale == 0.2 ? 1.0 : 1.0 - game.timeScale) * (this.hyperJumping ? 1.2 : 1.0);
                 }
                 
                 
@@ -651,9 +651,10 @@ class Player {
                     game.audioManager.playEffect('hyperjump');
                     game.weapons[this.alternateWeapon].ammo++;
                     
+
+                    game.vhsPass.uniforms.enabled.value = (game.timeScale == 0.2 ? 1.0 : 1.0 - game.timeScale) * (this.hyperJumping ? 1.4 : 1.0);
                     game.vhsPass.uniforms.distortion.value = 0.2;
-                    game.vhsPass.uniforms.animatedColorShift.value = 0.02;
-                    game.vhsPass.uniforms.verticalOffset.value = 0.05;
+                    game.vhsPass.uniforms.animatedColorShift.value = 0.01;
                 }
 
                 if (game.keyIsPressed[UP_KEY]) {
@@ -728,9 +729,8 @@ class Player {
                     this.inAir = false;
                     if (this.hyperJumping) {
                         game.vhsPass.uniforms.distortion.value = 0.1;
-                        game.vhsPass.uniforms.animatedColorShift.value = 0.01;
-                        game.vhsPass.uniforms.verticalOffset.value = 0.001;
-                        
+                        game.vhsPass.uniforms.animatedColorShift.value = 0.005;
+                        game.vhsPass.uniforms.enabled.value = (game.timeScale == 0.2 ? 1.0 : 1.0 - game.timeScale);
                     }
                     this.hyperJumping = false;
                     this.setFrame(0);
@@ -864,9 +864,8 @@ class Player {
     }
 
     shoot(game, weapon) {
-        if (game.lastLyric.func) {
-            game.lastLyric.func();
-            game.lastLyric.func = null;
+        if (game.lastTimelineEvent?.func) {
+            game.lastTimelineEvent.func();
         }
 
         if (weapon.reloading >= weapon.reloadTime) {
@@ -1038,7 +1037,7 @@ class Game {
 
 
 
-[🌞]
+[🌞]Heli Attack 2000
 
 
 
@@ -1551,6 +1550,7 @@ Nothing left at all
                     if (!this.ignoreNextDamage) {
                         this.player.health -= 10;
                     }
+                    
                     updateHealthBar(this);
                     this.audioManager.playEffect('hurt');
                     for (let i = 0; i < 3; i++) {
@@ -1757,12 +1757,8 @@ Nothing left at all
     }
 
     displayLyric(time: number, text: string, timelineEvent:TimelineEvent) {
-        this.lastLyric = text;
         this.lastTimelineEvent = timelineEvent;
-
-        if (this.lastTimelineEvent.text.indexOf('[') === 0) {
-            this.processLastLyric();
-        }
+        this.processLastTimelineEvent();
     }
 
     private emojiFuncs = {
@@ -1785,6 +1781,7 @@ Nothing left at all
         },
         '🚁': () => {
             this.killHelicopter();
+            return null;
         },
         '⚡': () => {
             return () => {
@@ -1815,18 +1812,19 @@ Nothing left at all
         return match ? match[1] : null;
     }
 
-    processLastLyric() {
-        if (!this.lastTimelineEvent || this.lastTimelineEvent.processed) {
+    processLastTimelineEvent() {
+        if (!this.lastTimelineEvent) {
             return;
         }
-        this.lastTimelineEvent.processed = true;
 
-        let lower = this.getValueBetweenBrackets(this.lastTimelineEvent.text.toLowerCase());
+        const lastTimelineEvent = this.lastTimelineEvent;
+
+        let lower = this.getValueBetweenBrackets(lastTimelineEvent.text.toLowerCase());
         if (!lower) {
             return;
         }
 
-        let funcs = [];
+        const funcs = [];
         for (let [key, value] of Object.entries(this.emojiFuncs)) {
             if (lower.indexOf(key) != -1) {
                 lower = lower.replaceAll(key, '');
@@ -1840,15 +1838,19 @@ Nothing left at all
                 }
             }
         }
-        if (funcs.length) {
-            this.lastTimelineEvent.func = () => {
-                for (const func of funcs) {
-                    func();
-                }
+
+        lastTimelineEvent.func = () => {
+            for (const func of funcs) {
+                func();
+            }
+            lastTimelineEvent.func = null;
+            this.lastTimelineEvent = null;
+            if (lower) {
+                return '[' + lower + ']';
+            } else {
+                return '';
             }
         }
-        //console.error(`${time}: ${text}`);
-        sayMessage(lower);
     }
 
     killHelicopter() {

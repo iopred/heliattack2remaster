@@ -292,16 +292,6 @@ class HeliAttack {
     lastWeapon() {
         this.game?.lastWeapon();
     }
-
-    get lastLyric():string {
-        if (this.game?.lastTimelineEvent) {
-            if (!this.game.lastTimelineEvent.processed) {
-                this.game.processLastLyric();
-            };
-        }
-
-        return this.game!.lastTimelineEvent;
-    }
 }
 
 export default HeliAttack;

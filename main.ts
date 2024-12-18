@@ -90,14 +90,12 @@ const VHSEffectShader = {
         tDiffuse: { value: null }, // The texture from the previous render
         time: { value: 0.0 }, // Time for animation effects
         distortion: { value: 0.1 }, // Amount of CRT bulge
-        scanlineIntensity: { value: 0.3 }, // Intensity of scanlines
-        scanlineCount: { value: 800.0 }, // Number of scanlines
+        scanlineIntensity: { value: 1.0 }, // Intensity of scanlines
+        scanlineCount: { value: 480.0 }, // Number of scanlines
         colorShift: { value: 0.2 }, // Amount of RGB color shift
-        enabled: { value: 0.0 }, // Enable or disable the effect
-        largeLineAberration: { value: true }, // Toggle large VHS line aberration
-        aberrationProgress: { value: 0.0 }, // Progress of the VHS line warp
-        animatedColorShift: { value: 0.01 }, // Animatable color shift amount
-        verticalOffset: { value: 0.001 }, // Vertical offset for VHS wrap effect
+        largeLineAberration: { value: 0.4 }, // Toggle large VHS line aberration
+        animatedColorShift: { value: 0.005}, // Animatable color shift amount
+        enabled: { value: 0.0 }, // Overall strength of the effect.
     },
 
     vertexShader: `
@@ -116,10 +114,8 @@ const VHSEffectShader = {
       uniform float scanlineCount;
       uniform float colorShift;
       uniform float enabled;
-      uniform bool largeLineAberration;
-      uniform float aberrationProgress;
+      uniform float largeLineAberration;
       uniform float animatedColorShift;
-      uniform float verticalOffset;
 
       varying vec2 vUv;
 
@@ -146,40 +142,56 @@ const VHSEffectShader = {
         return vec4(r, g, b, 1.0);
       }
 
-      // Add scanlines
       float applyScanlines(vec2 uv, float scanlineCount) {
-        float scanline = sin(uv.y * scanlineCount * 3.14159265);
-        return 1.0 - scanlineIntensity * (0.5 + 0.5 * scanline);
-      }
+            float scanline = sin(uv.y * scanlineCount * 3.14159265);
+            // Map scanlines between 0.9 (slightly darker) and 1.0 (no darkening)
+            return mix(1.0, 0.9, scanlineIntensity * (0.5 + 0.5 * scanline));
+        }
 
-      // Large VHS line aberration
-      float applyLargeLineAberration(vec2 uv) {
-        if (!largeLineAberration) return 0.0;
-        float linePosition = fract(time);
-        float distance = abs(uv.y - 1.0 + linePosition);
-        float effect = smoothstep(0.02, 0.0, distance); // Thickness of the line
-        return effect * 0.1 * enabled; // Intensity of the warp
+    // Large VHS line aberration with warp effect
+    float applyLargeLineAberration(vec2 uv, inout vec2 warpedUV) {
+      if (largeLineAberration == 0.0) return 0.0;
+
+      // Double the animation duration, show line only in the first half
+      float interval = fract(time * 0.25); // Slower frequency, 0.25 for 2 seconds
+      if (interval > 0.5) return 0.0;
+
+      float linePosition = fract(time * 0.5); // Move line vertically
+      float distance = abs(uv.y - 1.0 + linePosition);
+      float effect = smoothstep(0.03, 0.0, distance); // Thickness of the line
+
+      if (distance < 0.05) {
+        warpedUV.y += effect * 0.016 * largeLineAberration; // Warp effect height
       }
+      return effect * 0.1 * largeLineAberration; // Intensity of the warp
+    }
 
       // Simulate animated VHS jitter/noise
       float applyNoise(vec2 uv, float time) {
-        return (fract(sin(dot(uv.xy * time, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.2;
+        float noiseStrength = 0.1; // Noise intensity
+        return (fract(sin(dot(uv.xy * time, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * noiseStrength * enabled;
       }
 
-        float spikeEffect(float time, float interval) {
-            float phase = mod(time, interval) / interval; // Normalize time within the interval
-            float spike = step(0.95, sin(phase * 6.283185)); // Spikes at sin() peak
-            return spike;
-        }
+      // VHS Wrap-like Warp Effect with Noise at Top and Bottom
+        vec2 applyTopAndBottomWarp(vec2 uv, float time) {
+            float warpStrength = 0.01; // Warp intensity
+            float noiseStrength = 0.005; // Noise intensity
 
-      // Apply vertical offset with wrapping
-        vec2 applyVerticalOffset(vec2 uv, float offset) {
-            float phase = mod(time, 2.0) / 2.0; // Normalize time within the interval
-            float spike = step(0.95, sin(phase * 6.283185)); // Spikes at sin() peak
+            // Bottom Warp
+            float bottomWarp = smoothstep(0.9, 1.0, uv.y) * sin(time * 10.0) * warpStrength;
 
-            uv.y = mod(uv.y + offset * spike, 1.0);
+            // Top Warp
+            float topWarp = smoothstep(0.1, 0.0, uv.y) * sin(time * 10.0) * warpStrength;
+
+            // Combine both warps
+            float combinedWarp = bottomWarp + topWarp;
+
+            // Apply combined warp effect
+            uv.x += combinedWarp * enabled;
+
             return uv;
         }
+
 
 
 
@@ -191,29 +203,31 @@ const VHSEffectShader = {
             return;
         }
 
-        // Apply vertical offset
-        vec2 offsetUV = applyVerticalOffset(vUv, verticalOffset);
+        // Start with the original UVs
+        vec2 distortedUV = applyBulge(vUv); // Apply CRT bulge first
 
-        // Apply CRT bulge
-        vec2 distortedUV = applyBulge(offsetUV);
+        // Apply top and bottom warp effect
+        vec2 warpedUV = applyTopAndBottomWarp(distortedUV, time);
+
+        // Apply large VHS line aberration with warp effect
+        float aberration = applyLargeLineAberration(warpedUV, warpedUV);
 
         // Apply animated RGB color shift
-        vec4 color = applyColorShift(tDiffuse, distortedUV, animatedColorShift * sin(time * 3.0));
+        vec4 color = applyColorShift(tDiffuse, warpedUV, animatedColorShift * sin(time * 3.0));
 
         // Apply scanlines
-        float scanline = applyScanlines(offsetUV, scanlineCount);
-        color.rgb *= scanline;
+        float scanline = applyScanlines(warpedUV, scanlineCount);
+        color.rgb = mix(color.rgb, color.rgb * scanline, scanlineIntensity);
 
-        // Apply large VHS line aberration
-        float aberration = applyLargeLineAberration(offsetUV);
+        // Add large VHS line aberration effect
         color.rgb += aberration;
 
         // Simulate animated VHS noise
-        float noise = applyNoise(offsetUV, time);
+        float noise = applyNoise(warpedUV, time);
         color.rgb += noise;
 
         // Blend final result with effect strength
-        vec4 original = texture2D(tDiffuse, offsetUV);
+        vec4 original = texture2D(tDiffuse, warpedUV);
         gl_FragColor = mix(original, color, enabled);
         }
     `,
@@ -375,15 +389,17 @@ function onMouseWheel(event) {
 
     const now = window.performance.now();
     if (event.deltaY < 0) {
-        if (lastWheelMove == 1 && now < lastWheelTime - getDurationSeconds(BPM)) {
+        if (lastWheelMove == 1 && now < lastWheelTime + getDurationMiliseconds(BPM)) {
             return;
         }
         mouse.wheel = 1;
     } else if (event.deltaY > 0) {
-        if (lastWheelMove == -1 && now < lastWheelTime - getDurationSeconds(BPM)) {
+        if (lastWheelMove == -1 && now < lastWheelTime + getDurationMiliseconds(BPM)) {
             return;
         }
         mouse.wheel = -1;
+    } else {
+        mouse.wheel = 0;
     }
     lastWheelMove = mouse.wheel;
     lastWheelTime = now;
@@ -492,6 +508,8 @@ t.onWordDetected((word) => {
     heliattack?.start();
 });
 
+let lastMessage = 0;
+
 let showWebcam = false;
 const o = new WordListener('o');
 o.onWordDetected(async (word) => {
@@ -499,15 +517,25 @@ o.onWordDetected(async (word) => {
 
     setVisible(document.getElementById('webcam'), showWebcam);
 
-    if (heliattack?.lastLyric?.processed && !heliattack.lastLyric.displayed) {
-        heliattack.lastLyric.displayed = true;
-        if (heliattack.lastLyric.func) {
-            heliattack.lastLyric.func();
-            heliattack.lastLyric.func = null;
+    if (heliattack?.game?.lastTimelineEvent) {
+        const thisMessage = ++lastMessage;
+
+        if (heliattack.game.lastTimelineEvent.text.indexOf('[') === 0) {
+            setMessage(heliattack.game.lastTimelineEvent.text.split(']')[1]);
+        } else {
+            setMessage(heliattack.game.lastTimelineEvent.text);
         }
-        setMessage(heliattack.lastLyric.text);
-        await timeout(getDurationMiliseconds(BPM));
-        setMessage('');
+        if (heliattack.game.lastTimelineEvent.func) {
+            const message = heliattack.game.lastTimelineEvent.func();
+            if (message) {
+                sayMessage(message);
+            }
+        }
+        heliattack.game.lastTimelineEvent = null;
+        await timeout(getDurationMiliseconds(BPM) * 4);
+        if (thisMessage === lastMessage) {
+            setMessage('');
+        }
     }
 });
 
@@ -643,11 +671,12 @@ window.addEventListener('keydown', (e) => {
     keyIsPressed[e.key] = true;
     history.push(e.key);
     if (e.key.length == 1) {
-        k.listen(e.key);
-        i.listen(e.key);
-        o.listen(e.key);
-        m.listen(e.key);
-        n.listen(e.key);
+        let key = e.key.toLowerCase();
+        k.listen(key);
+        i.listen(key);
+        o.listen(key);
+        m.listen(key);
+        n.listen(key);
     }
     xylander.listen(history.join(''));
     pred.listen(history.join(''));

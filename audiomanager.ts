@@ -190,7 +190,7 @@ class AudioManager {
         // Ensure elapsedTime is wrapped within the duration of the buffer
         const duration = source.buffer?.duration || Infinity;
 
-        this.currentTime_ += elapsedTime % duration;
+        this.currentTime_ = (this.currentTime_ + elapsedTime) % duration;
         
         return this.currentTime_;
     }
@@ -244,10 +244,7 @@ class AudioManager {
     }
 
     set timeScale(value) {
-        //this.lastContextTime_ = this.context?.currentTime;
-        //this.currentTime_ = this.currentTime_ + (this.context.currentTime - this.currentTime_) * this.timeScale_; 
-
-        this.timeScale_ = Math.min(1, Math.max(0.4, value + value));
+        this.timeScale_ = Math.min(1, Math.max(0.5, value));
 
         for (let [key, object] of this.gainNodes) {
             let source = object.source;
