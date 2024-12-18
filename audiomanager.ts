@@ -135,6 +135,7 @@ class AudioManager {
                 this.playingEffects.splice(index, 1);
             }
         }
+        source.playbackRate.value = this.timeScale_;
 
         this.playingEffects.push(effectObject);
 

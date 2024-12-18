@@ -92,7 +92,9 @@ class HeliAttack {
     private textures: {[key: string]: Texture};
     private videoGestures: VideoGestures;
 
-    constructor(window: Window, mouse: Object, keyIsPressed: Map<string, boolean>, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, audioManager: AudioManager, settings: Object) {
+    public playing: boolean;
+
+    constructor(window: Window, mouse: Object, keyIsPressed: {[key: string]: boolean}, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, audioManager: AudioManager, settings: Object) {
         this.audioManager = audioManager;
         this.settings = settings;
         this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });

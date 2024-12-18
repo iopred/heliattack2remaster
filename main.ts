@@ -261,7 +261,7 @@ function createBlueLine(x, y, object) {
     const line = new Line(geometry2, material2);
     object.add(line);
 }
-let heliattack;
+let heliattack: HeliAttack;
 function render() {
     heliattack?.render();
 
@@ -632,7 +632,9 @@ document.body.addEventListener('click', onMouseClick);
 function setPlaying(value) {
     if (!value) {
         audioManager.pause();
-        heliattack.pause();
+        if (heliattack) {
+            heliattack.pause();
+        }
         playing = false;
         document.getElementById('ui')?.removeAttribute('playing');
     } else {
@@ -674,7 +676,7 @@ window.addEventListener('keydown', (e) => {
             heliattack.currentTime = (e.key.charCodeAt(0) - '0'.charCodeAt(0)) / 10;
         }
     }
-    if (e.key == "Escape") {
+    if (e.key == 'Escape') {
         if (heliattack?.playing) {
             setPlaying(!playing);
         }
@@ -683,26 +685,28 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });
 
 let wasPlaying = false;
+let paused = false;
 window.addEventListener('blur', () => {
-    if (playing) {
-        wasPlaying = true;
-    }
     for (const key in keyIsPressed) {
         keyIsPressed[key] = false;
     }
     mouse.down = false;
-    audioManager.pause();
-    if (heliattack) {
-        heliattack.pause();
+    
+    wasPlaying = heliattack?.playing && playing;
+    if (wasPlaying) {
+        setPlaying(false);
+    } else {
+        audioManager.pause();
     }
-    playing = false
 });
 window.addEventListener('focus', () => {
-    if (wasPlaying) {
-        playing = true
-        if (heliattack) {
-            heliattack.play();
+    
+
+    if (heliattack?.playing) {
+        if (wasPlaying) {
+            setPlaying(true);
         }
+    } else {
         audioManager.play();
     }
 });
