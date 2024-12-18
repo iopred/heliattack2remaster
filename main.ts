@@ -215,16 +215,17 @@ const VHSEffectShader = {
         // Apply animated RGB color shift
         vec4 color = applyColorShift(tDiffuse, warpedUV, animatedColorShift * sin(time * 3.0));
 
-        // Apply scanlines
-        float scanline = applyScanlines(warpedUV, scanlineCount);
-        color.rgb = mix(color.rgb, color.rgb * scanline, scanlineIntensity);
-
         // Add large VHS line aberration effect
         color.rgb += aberration;
 
         // Simulate animated VHS noise
         float noise = applyNoise(warpedUV, time);
         color.rgb += noise;
+
+        // Apply scanlines
+        float scanline = applyScanlines(warpedUV, scanlineCount);
+        color.rgb = mix(color.rgb, color.rgb * scanline, scanlineIntensity);
+
 
         // Blend final result with effect strength
         vec4 original = texture2D(tDiffuse, warpedUV);
@@ -825,7 +826,6 @@ function ha(shape) {
 let squarecircleco: SquareCircleCo | null = null;
 async function scc() {
     setMessage("[kit]");
-    await timeout(getDurationMiliseconds(BPM) * 4);
     setMessage("naa.mba");
     await timeout(getDurationMiliseconds(BPM) * 4);
     await new SquareCircleCo(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, document.getElementById('gesture-canvas') as HTMLCanvasElement, (shape) => ha(shape));

@@ -851,8 +851,11 @@ class Player {
         }
 
         if (game.mouse.down) {
-            if (this.canTriggerTimelineEvent && game.lastTimelineEvent?.func && window.performance.now() < game.timelineEventDeadline) {
-                game.lastTimelineEvent.func();
+            if (this.canTriggerTimelineEvent && game.lastTimelineEvent?.func) {
+                if (window.performance.now() < game.timelineEventDeadline) {
+                    game.lastTimelineEvent.func();
+                }
+                
             }
             this.canTriggerTimelineEvent = false;
         } else {
@@ -1833,7 +1836,6 @@ Nothing left at all
 
         const lastTimelineEvent = this.lastTimelineEvent;
         this.timelineEventDeadline = window.performance.now() + getDurationMiliseconds(this.bpm);
-        console.log(window.performance.now(), this.timelineEventDeadline);
 
         let lower = this.getValueBetweenBrackets(lastTimelineEvent.text.toLowerCase());
         if (!lower) {
