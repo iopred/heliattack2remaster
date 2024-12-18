@@ -7,7 +7,7 @@ class AudioManager {
     private gainNodes: Map<string, AudioNodeInfo>;
     private toPreload: AudioFile[];
     private preloadPromise: { promise: Promise<void>; resolve: () => void; reject: (error: any) => void } | null;
-    private masterVolume: number;
+    public masterVolume: number;
     private musicVolume_: number;
     private effectVolume_: number;
     private looping: string | null;

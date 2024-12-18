@@ -37,7 +37,7 @@ function manageRaycasterIntersections(scene, camera, vector) {
 }
 
 
-function createTintShader(texture: Texture | null) {
+function createTintShader(texture: Texture | null): ShaderMaterial {
     if (!texture) {
         console.warn('No texture provided. Using a default empty texture.');
         texture = new Texture(); // Provide a default texture

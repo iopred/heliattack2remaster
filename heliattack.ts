@@ -1,7 +1,7 @@
 
 import AudioManager from './audiomanager.js';
 import Weapon from './weapon.ts';
-import { Scene, TextureLoader, Vector2, Camera } from 'three';
+import { Scene, Texture, TextureLoader, Vector2, Camera } from 'three';
 import { loadTexture } from './utils';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import {
@@ -22,9 +22,10 @@ import {
 } from './weapons';
 import Game from './game';
 import { createIframe, isUrl } from './utils'
+import VideoGestures from './videogestures.ts';
 
 async function loadAssets(weapons) {
-    const textureMap = {};
+    const textureMap: {[key: string]: Texture} = {};
     // Load the spritesheet
     const loader = new TextureLoader();
     const textures = [
@@ -68,8 +69,8 @@ class HeliAttack {
     private weapons: Weapon[] = [
         new Weapon("Machine Gun", './images/weapons/machinegun.png', null, 'pistol', new Vector2(5, 12), new Vector2(23, -7.5), 5, 8, 10, 0).setSpread(2),
         new Weapon("Akimbo Mac10's", './images/weapons/mac10s.png', 'announcerMac10', 'pistol', new Vector2(-2, 21), new Vector2(28, -8.5), 4, 8, 9, 50).setSpread(8).setBullets(2, 0, 8),
-        new Weapon("Shotgun", './images/weapons/shotgun.png', 'announcerShotgun', 'shotgun', new Vector2(5, 12), new Vector2(30, -7), 25, 8, 15, 14).setBullets(5, 5),
-        new Weapon("Shotgun Rockets", './images/weapons/shotgunrockets.png', 'announcerShotgunrockets', 'shotgunrockets', new Vector2(7, 19), new Vector2(34, -8), 40, 7, 40, 8, './images/shotgunrocketbullet.png').setBullets(3, 10).setUpdate(shotgunRocketUpdate).setDestroy(shotgunRocketDestroy),
+        new Weapon("Shotgun", './images/weapons/shotgun.png', 'announcerShotgun', 'shotgun', new Vector2(5, 12), new Vector2(30, -7), 25, 8, 15, 14).setBullets(5, 5, 0),
+        new Weapon("Shotgun Rockets", './images/weapons/shotgunrockets.png', 'announcerShotgunrockets', 'shotgunrockets', new Vector2(7, 19), new Vector2(34, -8), 40, 7, 40, 8, './images/shotgunrocketbullet.png').setBullets(3, 10, 0).setUpdate(shotgunRocketUpdate).setDestroy(shotgunRocketDestroy),
         new Weapon("Grenade Launcher", './images/weapons/grenadelauncher.png', 'announcerGrenadelauncher', 'grenade', new Vector2(13, 18), new Vector2(29, -7), 30, 25, 75, 12, './images/grenade.png').setUpdate(grenadeUpdate).setDestroy(explosionDestroy),
         new Weapon("RPG", './images/weapons/rpg.png', 'announcerRpg', 'grenade', new Vector2(18, 20), new Vector2(32, -7), 40, 4, 75, 10, './images/rpgbullet.png').setUpdate(rpgUpdate).setDestroy(explosionDestroy),
         new Weapon("Rocket Launcher", './images/weapons/rocketlauncher.png', 'announcerRocketlauncher', 'rocketlauncher', new Vector2(19, 23), new Vector2(25, -9.5), 50, 7, 100, 8, './images/rocketbullet.png').setUpdate(rocketUpdate).setDestroy(explosionDestroy),
@@ -86,10 +87,12 @@ class HeliAttack {
     private game: Game;
     private initialized: boolean;
     private audioPreloaded = false;
-    private loadedFunc = null;
-    private startedFunc = null;
+    private loadedFunc: Function | null = null;
+    private startedFunc: Function | null = null;
+    private textures: {[key: string]: Texture};
+    private videoGestures: VideoGestures;
 
-    constructor(window: Window, mouse: Object, keyIsPressed: Object, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, audioManager: AudioManager, settings: Object) {
+    constructor(window: Window, mouse: Object, keyIsPressed: Map<string, boolean>, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, audioManager: AudioManager, settings: Object) {
         this.audioManager = audioManager;
         this.settings = settings;
         this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
@@ -206,7 +209,7 @@ class HeliAttack {
     }
 
     render() {
-        if (this.videoGestures?.restart && this.game.player.dead) {
+        if (this.videoGestures?.restart && this.game.player?.dead) {
             this.videoGestures.restart = false;
             this.restart();
         }
@@ -234,10 +237,7 @@ class HeliAttack {
     destroy() {
         this.audioManager.stopLoop('flame');
         this.audioManager.stopLoop('helicopter');
-        const oldVolume = this.audioManager.masterVolume;
-        this.audioManager.masterVolume = 0;
         this.game?.destroy();
-        this.audioManager.masterVolume = oldVolume;
     }
 
     playSong(song) {

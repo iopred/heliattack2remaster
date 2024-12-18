@@ -1,13 +1,14 @@
 
 import { Blood, Box, DestroyedEnemy, DestroyedHeli, Explosion, Fire, Parachute, Shard, Smoke } from './entities';
-import { Box3, BufferGeometry, Clock, Color, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, ShaderMaterial, TextureLoader, Vector2, Vector3, Camera } from 'three';
+import { Box3, BufferGeometry, Clock, Color, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, ShaderMaterial, Texture, TextureLoader, Vector2, Vector3, Camera } from 'three';
 import { calculateAngleToMouse, checkTileCollisions, createTintShader, getDurationMiliseconds, getDurationSeconds, loadTexture, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth, checkBoxCollisionWithBoxes, checkPointCollisionWithBoxes, heliBoxes, isPlayerCollision, isPlayerCollisionRect, isTileCollision, sayMessage } from './utils';
 import { defaultBulletUpdate } from './weapons';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import AudioManager from './audiomanager';
-import Timeline from './timeline';
+import { Timeline, TimelineEvent } from './timeline';
 import VideoGestures from './videogestures';
 import Weapon from './weapon';
+import Entity from './entities';
 
 const UP_KEY = 'KeyboardKeyUp';
 const DOWN_KEY = 'KeyboardKeyDown';
@@ -27,6 +28,37 @@ const FLAMETHROWER = 8;
 let playEnemyHit = true;
 
 class Enemy {
+    public position: Vector3;
+    public velocity: Vector2;
+    public targetPosition: Vector2;
+    public playerOffset: Vector2;
+
+    public tick: number;
+    public nextXReposition: number;
+    public nextYReposition: number;
+
+    public shooting: boolean;
+    public shoot: number;
+
+    public health: number;
+    public lastHealth: number;
+
+    public tints: ShaderMaterial[];
+    public tint: number;
+
+    public aim: number;
+    public trackingPlayer: number;
+    public randomizeExit: number;
+    public grappled: boolean;
+
+    public bulletTexture: Texture;
+    public heliGroup: Group;
+    public group: Group;
+    public mesh: Mesh;
+    public enemyMesh: Mesh;
+    public enemyWeapon: Object3D;
+
+
     constructor() {
         this.position = new Vector3(0, 0);
         this.velocity = new Vector2(0, 0);
@@ -52,9 +84,9 @@ class Enemy {
 
 
     init(game) {
-        const heliTexture = this.heliTexture = game.textures['./images/heli/heli.png'];
-        const destroyedTexture = this.destroyedTexture = game.textures['./images/heli/helidestroyed.png'];
-        const enemyTexture = this.enemyTexture = game.textures['./images/heli/enemy.png'];
+        const heliTexture = game.textures['./images/heli/heli.png'];
+        const destroyedTexture = game.textures['./images/heli/helidestroyed.png'];
+        const enemyTexture = game.textures['./images/heli/enemy.png'];
         this.bulletTexture = game.textures['./images/enemybullet.png'];
 
         this.group = new Group();
@@ -137,7 +169,7 @@ class Enemy {
         game.world.remove(this.group);
 
         new DestroyedHeli(game, this);
-        new DestroyedEnemy(game, this);
+        new DestroyedEnemy(game, this, false);
 
         for (var i = 0; i < 3; i++) {
             const p = this.position.clone()
@@ -403,66 +435,80 @@ const IS_EDITOR = true;
 const walkAnimation = [0, 1, 0, 2];
 
 class Player {
-    private tick:number;
+    public position: Vector2 = new Vector2();
+    public velocity: Vector2 = new Vector2();
+    public standingBounds: { min: Vector2, max: Vector2 } = {
+        min: new Vector2(-8, -47),
+        max: new Vector2(8, -2),
+    };
+    public crouchingBounds: { min: Vector2, max: Vector2 } = {
+        min: new Vector2(-8, -37),
+        max: new Vector2(8, -2),
+    };
+    public bounds: { min: Vector2, max: Vector2 } = this.standingBounds;
+
+    public jumps: number = 2;
+    public jumping: number = 0;
+    public canJump: boolean;
+    public weapon: number = 0;
+
+    public standingHand: Vector2 = new Vector2(0, 19);
+    public crouchingHand: Vector2 = new Vector2(0, 15);
+
+    public hand = this.standingHand;
+    public aim: number = 0;
+    public health: number = 100;
+    public lastHealth: number = 100;
+    public tint: number = 0;
+    public bulletTime: number = MAX_BULLET_TIME;
+    public hyperJump: number = HYPERJUMP_RECHARGE;
+    public hyperJumping: boolean = false;
+
+    public frame: number = 0;
+    public walkTimer: number = 0;
+    public walkAnimationIndex: number = 0;
+    public inAir: boolean = false;
+
+    public crouch: boolean = false;
+    public dead: boolean = false;
+
+    public powerup: number = -1;
+    public powerupTime: number = 0;
+
+    public weapons: Weapon[];
+    public previousWeapon: number;
+
+    public infiniteTimeDistort: boolean = false;
+    public isEditor: boolean = IS_EDITOR;
+
+    public chooseAlternate = false;
+    public alternateWeapon = RAILGUN;
+
+    private tick:number = 0;
 
     private canTriggerTimelineEvent:boolean = true;
 
-    constructor(weapons: Weapons[]) {
-        this.tick = 0;
+    public textureWidth: number;
+    public textureHeight: number;
+    public size: number = 55;
+    public group: Group;
+    public geometry: PlaneGeometry;
+    public weaponObject: Object3D;
+    
+    public tints: ShaderMaterial[];
 
-        this.position = new Vector2();
-        this.velocity = new Vector2();
-        this.standingBounds = {
-            min: new Vector2(-8, -47),
-            max: new Vector2(8, -2),
-        };
-        this.crouchingBounds = {
-            min: new Vector2(-8, -37),
-            max: new Vector2(8, -2),
-        }
-        this.bounds = this.standingBounds;
-        this.jumps = 2;
-        this.jumping = 0;
-        this.weapon = 0;
+    public parachute: Parachute | null;
 
+    public shooting: boolean;
+    public ignoreNextDamage: boolean;
 
-        this.standingHand = new Vector2(0, 19);
-        this.crouchingHand = new Vector2(0, 15);
-
-        this.hand = this.standingHand;
-        this.aim = 0;
-        this.health = 100;
-        this.lastHealth = 100;
-        this.tint = 0;
-        this.bulletTime = MAX_BULLET_TIME;
-        this.hyperJump = HYPERJUMP_RECHARGE;
-        this.hyperJumping = false;
-
-        this.frame = 0;
-        this.walkTimer = 0;
-        this.walkAnimationIndex = 0;
-        this.inAir = false;
-
-        this.crouch = false;
-        this.dead = false;
-
-        this.powerup = -1;
-        this.powerupTime = 0;
-
+    constructor(weapons: Weapon[]) {
         this.weapons = weapons;
-
-        this.shooting = false;
-        this.infiniteTimeDistort = false;
-        this.isEditor = IS_EDITOR;
-
-        this.chooseAlternate = false;
-        this.alternateWeapon = RAILGUN;
     }
 
     init(game) {
         const playerTexture = game.textures['./images/player.png'];
 
-        const size = this.size = 55;
         this.textureWidth = playerTexture.image.width;
         this.textureHeight = playerTexture.image.height;
 
@@ -470,7 +516,7 @@ class Player {
 
         const group = this.group = new Group();
 
-        const geometry = this.geometry = new PlaneGeometry(size, size);
+        const geometry = this.geometry = new PlaneGeometry(this.size, this.size);
         const material = createTintShader(playerTexture);
         /*new MeshBasicMaterial({
             map: playerTexture,
@@ -479,7 +525,7 @@ class Player {
         this.tints.push(material);
 
         const body = new Mesh(geometry, material);
-        body.position.set(0, size / 2, -0.2);
+        body.position.set(0, this.size / 2, -0.2);
         this.setFrame(0);
         group.add(body);
 
@@ -899,7 +945,7 @@ class Player {
         }
         this.powerupTime = POWERUP_TIME;
         this.powerup = type;
-        const powerupText = document.getElementById("powerup-text");
+        const powerupText = document.getElementById("powerup-text")!;
         if (type == TRI_DAMAGE) {
             this.setTint(true, new Color(0, 0, 1));
             game.audioManager.playEffect('announcerTridamage');
@@ -945,7 +991,7 @@ class Player {
             this.selectWeapon(this.previousWeapon);
         }
         this.powerup = POWERUP_NONE;
-        this.setTint(false);
+        this.setTint(false, null);
         this.setOpacity(1.0);
         game.shaderPass.uniforms.invertEnabled.value = 0.0;
     }
@@ -958,10 +1004,6 @@ class Player {
         game.world.remove(this.group);
         new DestroyedEnemy(game, this, true);
         new Explosion(game, this.position.clone(), 500);
-    }
-
-    shooting() {
-        this.shooting = true;
     }
 }
 
@@ -1001,43 +1043,67 @@ const bg1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0
 const zero = new Vector3();
 
 class Game {
-    private window:Window;
-    private mouse:any;
-    private keyIsPressed:Map<string, boolean>;
-    private scene:Scene;
-    private camera:Camera;
-    private shaderPass:ShaderPass;
-    private textures:Texture[];
-    private audioManager:AudioManager;
-    public weapons:Weapon[];
-    private overSetter:Function;
-    private updateFunction:Function;
-    private timeline:Timeline;
-    public musicTrack:string;
-    public lastTimelineEvent:TimelineEvent;
+    public window: Window;
+    public mouse: any;
+    public keyIsPressed: {[key: string]: boolean};
+    public scene: Scene;
+    public camera: Camera;
+    public shaderPass: ShaderPass;
+    public vhsPass:ShaderPass;
+    private textures: Texture[];
+    public audioManager: AudioManager;
+    public weapons: Weapon[];
+    private overSetter: Function;
+    private updateFunction: Function;
+    private timeline: Timeline;
+    public musicTrack: string;
+    public lastTimelineEvent: TimelineEvent | null;
+    public videoGestures: VideoGestures | null;
 
-    
+    public tileSize: number;
     public timeScale: number;
     public paused: boolean;
 
-    public enemy: Enemy;
+    
+    public player: Player | null;
+    public enemy: Enemy | null;
     public level: number;
     public score: number;
     public helisDestroyed: number;
     public nextHealth: number;
     public nextLevel: number;
+    public bpm: number;
 
-    public gestureHands: Object[];
+    public gestureHands: Mesh[];
     public gestureHandsShowing: number;
 
     public map:Object[][];
+    public mapWidth: number;
+    public mapHeight: number;
 
     public lastWeapon_: number;
     
     public shotsFired: number;
     public spidersAttacked: boolean;
 
-    constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: Map<string, boolean>, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
+    public timelineEventDeadline: number;
+
+    public tilesheet: Texture;
+    public bgTexture: Texture;
+    public bulletTexture: Texture;
+    public world: Group;
+    public visibleWidth: number;
+    public visibleHeight: number;
+    public mapBox: Box3;
+
+    public clock: Clock;
+    public accumulator: number;
+    public playerBullets: any[];
+    public enemyBullets: any[];
+    public entities: any[];
+    
+    
+    constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: {[key: string]: boolean}, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
         this.bpm = 200;
         if (windowOrGame instanceof Game) {
             for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack', 'bpm']) {
@@ -1386,7 +1452,7 @@ Nothing left at all
         mapBox.expandByScalar(tileSize);
     }
 
-    createGestureHand() {
+    createGestureHand(): Mesh {
         if (!this.textures) {
             return;
         }
@@ -1483,8 +1549,10 @@ Nothing left at all
     };
 
     createBullet(weapon, rotation, offset) {
+        const player = this.player!;
+
         const pivot = new Vector3();
-        this.player.weaponObject.getWorldPosition(pivot);
+        player.weaponObject.getWorldPosition(pivot);
 
         const texture = weapon.bulletTexture || this.bulletTexture;
 
@@ -1494,7 +1562,7 @@ Nothing left at all
             transparent: true
         });
 
-        const player = this.player;
+        
 
         const direction = player.aim + rotation * Math.PI / 180
 
@@ -1511,7 +1579,7 @@ Nothing left at all
 
         this.world.add(mesh);
 
-        const bullet = {
+        const bullet:{velocity: Vector3, damage: number, object: Mesh, material: MeshBasicMaterial, update: Function, destroy: Function, tick: number, time: number} = {
             velocity: new Vector3(
                 weapon.bulletSpeed * Math.cos(direction),
                 weapon.bulletSpeed * Math.sin(direction),
@@ -1520,17 +1588,10 @@ Nothing left at all
             object: mesh,
             material: material,
             update: weapon.update,
+            tick: 0,
+            time: 0,
+            destroy: weapon.destroy,
         };
-
-        if (weapon.update) {
-            bullet.update = weapon.update;
-            bullet.tick = 0;
-            bullet.time = 0;
-        }
-
-        if (weapon.destroy) {
-            bullet.destroy = weapon.destroy;
-        }
 
         this.playerBullets.push(bullet);
 
@@ -1538,7 +1599,7 @@ Nothing left at all
 
     updateCameraPosition(delta) {
         let worldPos = new Vector3();
-        this.player.group.getWorldPosition(worldPos);
+        this.player?.group.getWorldPosition(worldPos);
 
         this.visibleWidth = visibleWidthAtZDepth(0, this.camera);
         this.visibleHeight = visibleHeightAtZDepth(0, this.camera);
@@ -1568,6 +1629,9 @@ Nothing left at all
                 this.playerBullets.splice(i, 1);
                 this.world.remove(bullet.object);
             }
+        }
+        if (!this.player) {
+            return;
         }
         for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
             const bullet = this.enemyBullets[i];
@@ -1634,7 +1698,7 @@ Nothing left at all
         playEnemyHit = true;
 
         if (!this.player?.dead) {
-            this.player.update(this, delta);
+            this.player!.update(this, delta);
         }
         this.enemy?.update(this, delta);
         this.updateBullets(delta);
@@ -1663,7 +1727,7 @@ Nothing left at all
             this.accumulator %= 1 / 60;
         };
 
-        this.timeline.update(this);
+        this.timeline.update();
         this.updateFunction();
 
     }
@@ -1678,13 +1742,21 @@ Nothing left at all
 
     heliDestroyed() {
         this.score += 300;
+        this.helisDestroyed++;
+
+        if (!this.player) {
+            return;
+        }
 
         if (this.player.bulletTime != Number.POSITIVE_INFINITY) {
             this.player.bulletTime = Math.min(MAX_BULLET_TIME, this.player.bulletTime + MAX_BULLET_TIME / 3);
         }
         let randomAmmo = false;
 
-        this.helisDestroyed++;
+        if (!this.enemy) {
+            return;
+        }
+
         if (this.helisDestroyed == this.nextHealth) {
             new Box(this, this.enemy.position, this.weapons.length + 1);
             this.nextHealth *= 2;
@@ -1808,7 +1880,7 @@ Nothing left at all
                 this.allWeapons();
             }
             if (this.shotsFired === 0) {
-                this.player.shooting = true;
+                this.player!.shooting = true;
             }
             return () => {
                 this.killHelicopter();
@@ -1825,7 +1897,7 @@ Nothing left at all
         },
         '⚡': () => {
             return () => {
-                this.weapons[this.player.alternateWeapon].ammo++;
+                this.weapons[this.player!.alternateWeapon].ammo++;
                 this.enemy?.leave();
             }
         },
@@ -1842,7 +1914,7 @@ Nothing left at all
         },
         '👹': () => {
             return () => {
-                this.player.collectPowerup(PREDATOR_MODE, this);
+                this.player!.collectPowerup(PREDATOR_MODE, this);
             }
         }
     }
@@ -1857,19 +1929,22 @@ Nothing left at all
             return;
         }
 
-        const lastTimelineEvent = this.lastTimelineEvent;
         this.timelineEventDeadline = window.performance.now() + getDurationMiliseconds(this.bpm);
 
-        let lower = this.getValueBetweenBrackets(lastTimelineEvent.text.toLowerCase());
+        if (!this.lastTimelineEvent.text!) {
+            return;
+        }
+
+        let lower = this.getValueBetweenBrackets(this.lastTimelineEvent.text.toLowerCase());
         if (!lower) {
             return;
         }
 
-        const funcs = [];
+        const funcs: Function[] = [];
         for (let [key, value] of Object.entries(this.emojiFuncs)) {
             if (lower.indexOf(key) != -1) {
                 lower = lower.replaceAll(key, '');
-                const func = value();
+                const func: Function | null = value();
                 if (func) {
                     if (this.musicTrack == 'ror') {
                         func();
@@ -1880,8 +1955,8 @@ Nothing left at all
             }
         }
 
-        lastTimelineEvent.func = () => {
-            lastTimelineEvent.func = null;
+        this.lastTimelineEvent.func = () => {
+            this.lastTimelineEvent!.func = null;
             this.lastTimelineEvent = null;
             for (const func of funcs) {
                 func();
@@ -1897,14 +1972,16 @@ Nothing left at all
     killHelicopter() {
         if (this.enemy) {
             this.enemy.health = Math.min(this.enemy.health, 100);
-            this.weapon = this.player.weapon;
-            let seeker = this.weapons[SEEKER];
-            seeker.ammo++;
-            this.player.selectWeapon(SEEKER);
-            seeker.reloading = Number.POSITIVE_INFINITY;
-            this.player.shoot(this, seeker);
-            seeker.reloading = Number.POSITIVE_INFINITY;
-            this.player.selectWeapon(this.weapon);
+            if (this.player) {
+                const weapon = this.player.weapon;
+                let seeker = this.weapons[SEEKER];
+                seeker.ammo++;
+                this.player.selectWeapon(SEEKER);
+                seeker.reloading = Number.POSITIVE_INFINITY;
+                this.player.shoot(this, seeker);
+                seeker.reloading = Number.POSITIVE_INFINITY;
+                this.player.selectWeapon(weapon);
+            }
         } else {
             this.newHeli();
         }
@@ -1922,7 +1999,7 @@ Nothing left at all
     }
 
     weaponSwitch() {
-        if (!this.player.chooseAlternate) {
+        if (this.player && !this.player.chooseAlternate) {
             if (this.weapons[this.player.alternateWeapon].ammo) {
                 this.lastWeapon_ = this.player.weapon;
                 this.player.chooseAlternate = true;
@@ -1932,6 +2009,9 @@ Nothing left at all
     }
 
     lastWeapon() {
+        if (!this.player) {
+            return;
+        }
         this.player.chooseAlternate = false;
         if (this.weapons[this.lastWeapon_].ammo) {
             this.player.selectWeapon(this.lastWeapon_);
@@ -1962,13 +2042,13 @@ Nothing left at all
     forward() {
         // jump forwards one second, warning, you may get hurt!
         for (var i = 0; i < 60; i++) {
-            this.timeStep();
+            this.timeStep(1/60);
         }
     }
 }
 
 function updateUI(game) {
-    document.getElementById("ui").style.display = 'initial';
+    document.getElementById("ui")!.style.display = 'initial';
     updateInfo(game);
     updateHealthBar(game);
     updateReloadBar(game);
@@ -1979,13 +2059,13 @@ function updateUI(game) {
 }
 
 function updateInfo(game) {
-    const info = document.getElementById('info');
+    const info = document.getElementById('info')!;
     info.innerHTML = `Helis: ${game.helisDestroyed}<br>Score: ${game.score}<br>Level: ${game.level+1}`;
 }
 
 function updateHealthBar(game) {
     const percentage = game.player.health / 100;
-    const fill = document.getElementById('health-fill');
+    const fill = document.getElementById('health-fill')!;
     const clampedPercentage = Math.max(0, Math.min(1, percentage));
     fill.style.height = `${78 * clampedPercentage}px`;
 }
@@ -1994,19 +2074,19 @@ function updateReloadBar(game) {
     const weapon = game.weapons[game.player.weapon];
     const percentage = weapon.reloading / weapon.reloadTime;
 
-    const fill = document.getElementById('reload-fill');
+    const fill = document.getElementById('reload-fill')!;
     const clampedPercentage = Math.max(0, Math.min(1, percentage));
     fill.style.width = `${42 * clampedPercentage}px`;
 }
 
 function updateHyperjumpBar(game) {
-    const fill = document.getElementById('hyperjump-fill');
+    const fill = document.getElementById('hyperjump-fill')!;
     const clampedPercentage = Math.max(0, Math.min(1, game.player.hyperJump / HYPERJUMP_RECHARGE));
     fill.style.width = `${78 * clampedPercentage}px`;
 }
 
 function updateTimeDistortBar(game) {
-    const fill = document.getElementById('time-fill');
+    const fill = document.getElementById('time-fill')!;
     const clampedPercentage = Math.max(0, Math.min(1, game.player.bulletTime / MAX_BULLET_TIME));
     fill.style.width = `${78 * clampedPercentage}px`;
 }
@@ -2014,18 +2094,18 @@ function updateTimeDistortBar(game) {
 function updateBullets(game) {
     const weapon = game.weapons[game.player.weapon];
 
-    const bulletsText = document.getElementById('bullets-text');
+    const bulletsText = document.getElementById('bullets-text')!;
     bulletsText.innerHTML = `${weapon.ammo} x`;
 
-    const bulletsBox = document.getElementById('bullets-box');
+    const bulletsBox = document.getElementById('bullets-box')!;
     bulletsBox.style.backgroundPosition = `${-game.player.weapon * 33}px 0px`
 }
 
 function updatePowerup(game) {
     const show = game.player.powerup != POWERUP_NONE;
 
-    const bar = document.getElementById('powerup-bar');
-    const ui = document.getElementById('powerup');
+    const bar = document.getElementById('powerup-bar')!;
+    const ui = document.getElementById('powerup')!;
 
     if (!show) {
         bar.style.visibility = 'hidden';
@@ -2037,7 +2117,7 @@ function updatePowerup(game) {
     }
 
     const percentage = game.player.powerupTime / POWERUP_TIME;
-    const fill = document.getElementById('powerup-fill');
+    const fill = document.getElementById('powerup-fill')!;
     const clampedPercentage = Math.max(0, Math.min(1, percentage));
     fill.style.height = `${78 * clampedPercentage}px`;
 }

@@ -242,7 +242,7 @@ function createVHSEffectPass(): ShaderPass {
 const vhsPass = createVHSEffectPass();
 composer.addPass(vhsPass);
 
-document.getElementById('game').appendChild(renderer.domElement);
+document.getElementById('game')!.appendChild(renderer.domElement);
 
 const dirLight = new DirectionalLight(0xffffff, 0.4);
 dirLight.position.set(0, 0, 1).normalize();
@@ -252,7 +252,7 @@ function createBlueLine(x, y, object) {
     //create a blue LineBasicMaterial
     const material2 = new LineBasicMaterial({ color: 0x0000ff });
 
-    const points = [];
+    const points:Vector3[] = [];
     points.push(new Vector3(x - 10, y - 10, -0));
     points.push(new Vector3(x, y, -0));
     points.push(new Vector3(x + 10, y - 10, -0));
@@ -391,7 +391,7 @@ function onMouseWheel(event) {
     lastWheelTime = now;
 };
 
-const touchInputHandler = new TouchInputHandler(document);
+const touchInputHandler = new TouchInputHandler(document.body);
 
 touchInputHandler.onStart((event) => {
     init();
@@ -479,7 +479,7 @@ k.onWordDetected((word) => {
 });
 
 let showErrors = false;
-const history = [];
+const history: string[] = [];
 const i = new WordListener('i');
 i.onWordDetected((word) => {
     showErrors = !showErrors;
@@ -604,7 +604,7 @@ pred.onWordDetected((word) => {
 
 function showCheat(text) {
     if (text != 'errors') {
-        document.getElementById('error-container').innerHTML += `<br>${text}`;
+        document.getElementById('error-container')!.innerHTML += `<br>${text}`;
         sayMessage('[' + text + ']');
     }
 }
@@ -612,7 +612,7 @@ function showCheat(text) {
 let playing = true;
 
 // Key handling
-const keyIsPressed = {
+const keyIsPressed: {[key: string]: boolean} = {
     'ArrowLeft': false,
     'ArrowRight': false,
     'ArrowUp': false,
@@ -733,7 +733,7 @@ if (WebGL.isWebGL2Available()) {
     renderer.setAnimationLoop(render);
 } else {
     const warning = WebGL.getWebGL2ErrorMessage();
-    document.getElementById('error-container').appendChild(warning);
+    document.getElementById('error-container')!.appendChild(warning);
 }
 
 const audioManager = new AudioManager();
@@ -831,7 +831,7 @@ function started() {
 }
 
 function createMainMenu() {
-    const startButton = document.getElementById('start-game');
+    const startButton = document.getElementById('start-game')!;
 
     startButton.addEventListener('click', () => {
         heliattack?.start();

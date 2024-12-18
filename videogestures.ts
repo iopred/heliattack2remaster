@@ -24,6 +24,18 @@ class VideoGestures {
     private results: any; // Replace with the correct type for `results` if available
     private runningMode: string;
     private handLandmarker: any; // Replace with the correct type for `handLandmarker` if available
+
+    public restart: boolean;
+
+    public drawingUtils: DrawingUtils;
+
+    public enabled:boolean;
+    public aim: {x: number, y: number};
+    public firing: boolean;
+    public thumbUp: {0: boolean, 1: boolean, 2: boolean, 3: boolean, 4: boolean, 5: boolean};
+    public switching: boolean;
+    public gestureHands: { x: number, y: number, z: number }[];
+    public aiming: boolean;
   
     constructor(window: Window, document: Document) {
       this.window = window;
@@ -238,7 +250,7 @@ class VideoGestures {
         }
         this.dispatchAim(this.results?.landmarks, this.results?.worldLandmarks);
       } else {
-        this.dispatchAim([]);
+        this.dispatchAim([], []);
       }
   
       this.canvasCtx.restore();
@@ -272,9 +284,9 @@ class VideoGestures {
 
     dispatchAim(landmarks, worldLandmarks) {
       if (landmarks?.length && landmarks?.length == worldLandmarks?.length) {
-        let firings = [];
-        let aimings = [];
-        let gestureHands = [];
+        let firings: {x: number, y: number, length: number}[] = [];
+        let aimings: {x: number, y: number, length: number}[] = [];
+        let gestureHands: {x: number, y: number, z:number }[] = [];
         
         for (var i = 0; i < landmarks.length; i++) {
           var l = landmarks[i];
@@ -353,7 +365,7 @@ class VideoGestures {
       return {x: x/length, y: y/length, length: length};
     }
 
-    detectAimFromWrist(landmarks) {
+    detectAimFromWrist(landmarks): {x: number, y: number, length: number} {
       const wrist = landmarks[0];
       const index_finger_ip = landmarks[6];
 
@@ -362,7 +374,7 @@ class VideoGestures {
 
       let length = Math.sqrt(x * x + y * y);
       if (length == 0) {
-        return {x: 0, y: 0}
+        return {x: 0, y: 0, length: 0}
       }
       
       return {x: x/length, y: y/length, length: length};

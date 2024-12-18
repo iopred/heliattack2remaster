@@ -1,9 +1,11 @@
+import AudioManager from "./audiomanager";
+
 type LyricEvent = {
     time: number; // The timing in seconds when the lyric is played
     text: string; // The lyric text
 };
 
-type TimelineEvent = {
+export type TimelineEvent = {
     time: number;
     dimensions: number[];
     x: number,
@@ -11,9 +13,10 @@ type TimelineEvent = {
     z: number,
     dimension: number,
     text?: string; // The text at this event.
+    func: Function | null;
 }
 
-class Timeline {
+export class Timeline {
     // Sorted.
     private lyrics: LyricEvent[] = [];
     private audioManager: AudioManager;
@@ -82,9 +85,6 @@ class Timeline {
     public startPlayback(): void {
         this.started = true;
     }
-
-    public getLyricEventsBetweenTimes(startTime:number, endTime:number);
-    public dispatchLyrics(startTime:number, endTime:number);
 
     // Displays the lyric (can be replaced with custom logic to render lyrics on screen)
     private displayLyric(time:number, text:string, timelineEvent:TimelineEvent): void {

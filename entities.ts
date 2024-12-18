@@ -5,21 +5,24 @@ import Game from './game';
 class Entity {
     public tick:number;
     public position: Vector2;
-    public velocity: Vector2; 
+    public velocity: Vector2;
+    public textureUrl: string; 
     public texture: Texture;
+    public geometry: PlaneGeometry;
     public material: Material;
     public mesh: Mesh;
-    constructor(game, private textureUrl) {
+    constructor(game, textureUrl) {
         this.tick = 0;
         this.position = new Vector2(0, 0, 1);
         this.velocity = new Vector2(0, 0);
+        this.textureUrl = textureUrl;
         this.init(game)
     }
 
     init(game) {
         const texture = this.texture = game.textures[this.textureUrl];
 
-        const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
+        const geometry = this.geometry = new PlaneGeometry(texture.image.width, texture.image.height);
         const material = this.material = new MeshBasicMaterial({
             map: texture,
             transparent: true,
@@ -103,6 +106,8 @@ class DestroyedEnemy extends Entity {
         }
 
         this.updateMesh();
+
+        return false;
     }
 }
 
@@ -159,6 +164,8 @@ class Shard extends Entity {
         }
 
         this.updateMesh();
+
+        return false;
     }
 }
 
@@ -199,6 +206,7 @@ class DestroyedHeli extends Entity {
 }
 
 class Explosion extends Entity {
+    public targetSize: number;
     constructor(game, position, size) {
         super(game, './images/explosion.png');
 
@@ -244,6 +252,7 @@ class Explosion extends Entity {
 }
 
 class Smoke extends Entity {
+    public targetSize: number;
     constructor(game, position, size) {
         super(game, './images/smoke.png');
 
@@ -280,6 +289,7 @@ class Smoke extends Entity {
 }
 
 class Fire extends Entity {
+    public targetSize: number;
     constructor(game, position, size) {
         super(game, './images/flame.png');
 
@@ -316,6 +326,10 @@ class Fire extends Entity {
 }
 
 class Blood extends Entity {
+    public targetSize: number;
+    public pause: number;
+    public time: number;
+
     constructor(game, position, pause) {
         super(game, './images/blood.png');
 
@@ -368,15 +382,23 @@ class Blood extends Entity {
 }
 
 class Parachute {
+    public parent: Object3D;
+    public mesh: Mesh;
+
+    public opened: boolean;
+    public scale: number;
+    public tick: number;
+
+    public destroyed: boolean;
     constructor(game, parent, opened, scale) {
         
         this.parent = parent; 
     
-        const texture = this.texture = game.textures['./images/parachute.png'];
+        const texture = game.textures['./images/parachute.png'];
 
         const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
         geometry.translate(0, texture.image.height - 20, 0); 
-        const material = this.material = new MeshBasicMaterial({
+        const material = new MeshBasicMaterial({
             map: texture,
             transparent: true,
         });
@@ -405,8 +427,10 @@ class Parachute {
 
             if (this.mesh.scale.x <= 0.1) {
                 this.destroy(game);
+                return true;
             }
         }
+        return false;
     }
 
     destroy(game) {
@@ -418,6 +442,10 @@ class Parachute {
 const BOX_SIZE = 33;
 
 class Box extends Entity {
+    public type: number;
+    public group: Object3D;
+    public parachute: Parachute;
+
     constructor(game, position, type) {
         super(game, './images/box.png');
         this.position.copy(position);
@@ -495,7 +523,7 @@ class Box extends Entity {
 
         this.parachute.update(game, delta);
 
-        if (!game.player.dead && isPlayerCollisionRect(pos.x - BOX_SIZE/2, pos.y - BOX_SIZE, BOX_SIZE, BOX_SIZE, game.player)) {
+        if (!game.player?.dead && isPlayerCollisionRect(pos.x - BOX_SIZE/2, pos.y - BOX_SIZE, BOX_SIZE, BOX_SIZE, game.player)) {
             this.collect(game);
             return true;
         }

@@ -364,7 +364,7 @@ function constructFirePillar(game) {
     const width = bbox.max.x - bbox.min.x;
     const height = bbox.max.y - bbox.min.y
 
-    const flames = [];
+    const flames: {flame: Mesh, flameScale: number}[] = [];
 
     for (let i = 1; i < PILLAR_FLAMES; i++) {
         const flame = constructFlame(game)
@@ -434,7 +434,7 @@ function grappleUpdate(game, delta) {
 
         const lineMaterial = new LineBasicMaterial( { color: 0x000000, linewidth: 4 } );
 
-        const points = [];
+        const points: Vector3[] = [];
         points.push( this.object.position );
         points.push( game.player.group.position.clone().add(game.player.weaponObject.position) );
 

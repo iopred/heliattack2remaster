@@ -1,11 +1,21 @@
-import { MathUtils, Mesh, MeshBasicMaterial, PlaneGeometry, Vector2 } from 'three';
+import { MathUtils, Mesh, MeshBasicMaterial, PlaneGeometry, Texture, Vector2 } from 'three';
 import { createTintShader } from './utils';
 
 class Weapon {
     public reloading: number;
     public bullets: number;
     public bulletsSpread: number;
+    public bulletsOffset: number;
     public spread: number;
+
+    public update: Function | null;
+    public destroy: Function | null;
+    public mesh: Mesh;
+
+    public ammo: number;
+
+    public texture: Texture;
+    public bulletTexture: Texture;
 
     constructor(
         public name: string,
@@ -66,7 +76,7 @@ class Weapon {
     }
 
     init(textures) {
-        this.texture = textures[this.textureUrl];
+        this.texture = textures[this.textureUrl!];
         if (this.bulletTextureUrl) {
             this.bulletTexture = textures[this.bulletTextureUrl];
         }
