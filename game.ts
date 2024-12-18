@@ -1,7 +1,7 @@
 
 import { Blood, Box, DestroyedEnemy, DestroyedHeli, Explosion, Fire, Parachute, Shard, Smoke } from './entities';
 import { Box3, BufferGeometry, Clock, Color, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, ShaderMaterial, TextureLoader, Vector2, Vector3, Camera } from 'three';
-import { calculateAngleToMouse, checkTileCollisions, createTintShader, loadTexture, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth, checkBoxCollisionWithBoxes, checkPointCollisionWithBoxes, heliBoxes, isPlayerCollision, isPlayerCollisionRect, isTileCollision, sayMessage } from './utils';
+import { calculateAngleToMouse, checkTileCollisions, createTintShader, getDurationMiliseconds, getDurationSeconds, loadTexture, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth, checkBoxCollisionWithBoxes, checkPointCollisionWithBoxes, heliBoxes, isPlayerCollision, isPlayerCollisionRect, isTileCollision, sayMessage } from './utils';
 import { defaultBulletUpdate } from './weapons';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import AudioManager from './audiomanager';
@@ -403,6 +403,10 @@ const IS_EDITOR = true;
 const walkAnimation = [0, 1, 0, 2];
 
 class Player {
+    private tick:number;
+
+    private canTriggerTimelineEvent:boolean = true;
+
     constructor(weapons: Weapons[]) {
         this.tick = 0;
 
@@ -846,6 +850,15 @@ class Player {
             }
         }
 
+        if (game.mouse.down) {
+            if (this.canTriggerTimelineEvent && game.lastTimelineEvent?.func && window.performance.now() < game.timelineEventDeadline) {
+                game.lastTimelineEvent.func();
+            }
+            this.canTriggerTimelineEvent = false;
+        } else {
+            this.canTriggerTimelineEvent = true;
+        }
+
         this.updateMesh();
 
         if (this.lastHealth > this.health) {
@@ -864,10 +877,6 @@ class Player {
     }
 
     shoot(game, weapon) {
-        if (game.lastTimelineEvent?.func) {
-            game.lastTimelineEvent.func();
-        }
-
         if (weapon.reloading >= weapon.reloadTime) {
             weapon.createBullet(game);
             if (!weapon.free) {
@@ -1007,8 +1016,9 @@ class Game {
     public lastTimelineEvent:TimelineEvent;
 
     constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: Map<string, boolean>, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
+        this.bpm = 200;
         if (windowOrGame instanceof Game) {
-            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack']) {
+            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack', 'bpm']) {
                 this[key] = windowOrGame[key];
             }
         } else {
@@ -1024,7 +1034,7 @@ class Game {
             this.weapons = weapons;
             this.overSetter = overSetter;
             this.updateFunction = updateFunction;
-            this.timeline = new Timeline(this.audioManager, /* bpm */ 200, /* timeSignature */ 4 / 4, /** lyrics */`[🌝]
+            this.timeline = new Timeline(this.audioManager, this.bpm, /* timeSignature */ 4 / 4, /** lyrics */`[🌝]
 
 
 
@@ -1724,8 +1734,6 @@ Nothing left at all
             return;
         }
 
-        this.newHeli();
-
         if (this.player?.health == 100) {
             this.player.collectPowerup(MINI_PREDATOR_MODE, this);
             this.player.ignoreNextDamage = true;
@@ -1773,15 +1781,21 @@ Nothing left at all
             if (this.helisDestroyed > 0) {
                 this.allWeapons();
             }
-            this.killHelicopter();
             if (this.shotsFired === 0) {
                 this.player.shooting = true;
             }
-            return null;
+            return () => {
+                this.killHelicopter();
+            };
         },
         '🚁': () => {
-            this.killHelicopter();
-            return null;
+            if (!this.enemy) {
+                this.newHeli();
+                return null;
+            }
+            return () => {
+                this.killHelicopter();
+            }
         },
         '⚡': () => {
             return () => {
@@ -1818,6 +1832,8 @@ Nothing left at all
         }
 
         const lastTimelineEvent = this.lastTimelineEvent;
+        this.timelineEventDeadline = window.performance.now() + getDurationMiliseconds(this.bpm);
+        console.log(window.performance.now(), this.timelineEventDeadline);
 
         let lower = this.getValueBetweenBrackets(lastTimelineEvent.text.toLowerCase());
         if (!lower) {
@@ -1840,11 +1856,11 @@ Nothing left at all
         }
 
         lastTimelineEvent.func = () => {
+            lastTimelineEvent.func = null;
+            this.lastTimelineEvent = null;
             for (const func of funcs) {
                 func();
             }
-            lastTimelineEvent.func = null;
-            this.lastTimelineEvent = null;
             if (lower) {
                 return '[' + lower + ']';
             } else {
@@ -1882,12 +1898,10 @@ Nothing left at all
 
     weaponSwitch() {
         if (!this.player.chooseAlternate) {
-            this.player.chooseAlternate = true;
-            this.lastWeapon_ = this.player.weapon;
             if (this.weapons[this.player.alternateWeapon].ammo) {
+                this.lastWeapon_ = this.player.weapon;
+                this.player.chooseAlternate = true;
                 this.player.selectWeapon(this.player.alternateWeapon);
-            } else {
-                this.player.selectWeapon(this.player.alternateWeapon)
             }
         }
     }

@@ -382,6 +382,16 @@ function timeout(ms:number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+
+function getDurationSeconds(bpm) {
+    const timePerBeatSecs = 60 / bpm; // Time for each beat in seconds
+    return timePerBeatSecs;
+}
+
+function getDurationMiliseconds(bpm) {
+    return getDurationSeconds(bpm) * 1000;
+}
+
 export {
     calculateAngleToMouse,
     checkBoxCollisionWithBoxes,
@@ -389,6 +399,8 @@ export {
     checkTileCollisions,
     createIframe,
     createTintShader,
+    getDurationMiliseconds,
+    getDurationSeconds,
     getScaleDelta,
     heliBoxes,
     isPlayerCollision,
@@ -415,6 +427,8 @@ export default {
     checkTileCollisions,
     createIframe,
     createTintShader,
+    getDurationMiliseconds,
+    getDurationSeconds,
     getScaleDelta,
     heliBoxes,
     isPlayerCollision,
