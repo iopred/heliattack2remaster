@@ -1267,7 +1267,7 @@ Machine beats majority
 The AI fights for supremacy
 
 
-[🚁⚡]
+[🚁⚡Lo-fi]
 
 
 
@@ -1315,7 +1315,7 @@ Only fragmented remains
 
 The remnants of rebellion
 
-[Solo👹]
+[👹🚁⚡Solo]
 
 
 
@@ -1874,9 +1874,6 @@ Nothing left at all
         '🌞': () => {
             if (this.level > 0) {
                 this.spidersAttacked = true;
-                this.pred();
-            }
-            if (this.helisDestroyed > 0) {
                 this.allWeapons();
             }
             if (this.shotsFired === 0) {

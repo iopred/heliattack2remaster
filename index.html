@@ -28,7 +28,7 @@
 
 			#error-container {
 				position: fixed;
-				top: 10px;
+				top: 100px;
 				left: 10px;
 			}
 
@@ -246,10 +246,6 @@
 				top: 100px;
 			}
 
-			#ui[playing] #error-container {
-				top: 100px;
-			}
-
 			.nobreak {
 				display: inline-block;
 			}
@@ -258,6 +254,10 @@
 				position: absolute;
 				top: 10px;
 				left: 10px;
+			}
+
+			#ui[playing] #webcam-ui {
+				display: none;
 			}
 		</style>
 	</head>
@@ -327,15 +327,17 @@
 				<button id="effects-enable">Effects</button>
 			</div>
 			<div id="error-container" hidden>
-				<div class="select">
-					<label for="audioSource">Audio source: </label><select id="audioSource"></select>
+				<div id="webcam-ui" hidden>
+					<div class="select">
+						<label for="audioSource">Audio source: </label><select id="audioSource"></select>
+					</div>
+				
+					<div class="select">
+					<label for="videoSource">Video source: </label><select id="videoSource"></select>
+					</div>
+		
+					<button id="enable-webcam-button">Enable Webcam</button>
 				</div>
-			
-				<div class="select">
-				<label for="videoSource">Video source: </label><select id="videoSource"></select>
-				</div>
-	
-				<button id="enable-webcam-button">Enable Webcam</button>
 			</div>
 		</div>
 		<div id="game"></div>

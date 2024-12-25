@@ -19,6 +19,9 @@ class VideoGestures {
     private canvasElement: HTMLCanvasElement;
     private canvasCtx: CanvasRenderingContext2D;
     private enableWebcamButton: HTMLButtonElement;
+    private audioSelect:HTMLSelectElement;
+    private videoSelect:HTMLSelectElement;
+
     private webcamRunning: boolean;
     private lastVideoTime: number;
     private results: any; // Replace with the correct type for `results` if available
@@ -36,26 +39,18 @@ class VideoGestures {
     public switching: boolean;
     public gestureHands: { x: number, y: number, z: number }[];
     public aiming: boolean;
+
   
     constructor(window: Window, document: Document) {
       this.window = window;
       this.document = document;
   
       // Element references
-      this.video = this.document.getElementById("webcam") as HTMLVideoElement;
-      this.canvasElement = this.document.getElementById(
-        "gesture-canvas"
-      ) as HTMLCanvasElement;
+      this.video = this.queryElement('webcam');
+      this.canvasElement = this.queryElement('canvas')
       this.canvasCtx = this.canvasElement.getContext(
         "2d"
       ) as CanvasRenderingContext2D;
-      this.enableWebcamButton = this.document.getElementById(
-        "enable-webcam-button"
-      ) as HTMLButtonElement;
-      this.audioSelect = document.querySelector('select#audioSource') as HTMLSelectElement;
-      this.videoSelect = document.querySelector('select#videoSource') as HTMLSelectElement;
-      this.audioSelect.onchange = () => this.getStream();
-      this.videoSelect.onchange = () => this.getStream();
 
       // State variables
       this.webcamRunning = false;
@@ -72,15 +67,10 @@ class VideoGestures {
       this.thumbUp = {0: false, 1: false, 2: false, 3: false, 4: false, 5: false};
       this.switching = false;
       this.gestureHands = [];
-      
-      this.enableWebcamButton = this.queryElement('enableWebcamButton');
-      this.enableWebcamButton.style.hidden = true;
+
+      document.querySelector('#webcam-ui')?.removeAttribute('hidden');
     
       this.enable();
-    }
-
-    private queryDomByKey(key:string) {
-      return this.document.querySelector(this.queryElement(key));
     }
 
     private queryElement<T extends HTMLElement>(selectorKey: string): T {
@@ -98,8 +88,8 @@ class VideoGestures {
         webcam: "#webcam",
         canvas: "#gesture-canvas",
         enableWebcamButton: "#enable-webcam-button",
-        audioSource: "select#audioSource",
-        videoSource: "select#videoSource",
+        audioSource: "#audioSource",
+        videoSource: "#videoSource",
       };
     }
 
@@ -124,15 +114,20 @@ class VideoGestures {
           delegate: "GPU"
       },
       runningMode: this.runningMode,
-      numHands: 6,
+      numHands: 2,
       });
-  
-      await this.getStream().then(() => this.getDevices()).then((deviceInfos) => this.gotDevices(deviceInfos));
 
-      this.enableWebcamButton.style.hidden = false;
+  
+      this.enableWebcamButton = this.queryElement<HTMLButtonElement>('enableWebcamButton');
+      this.audioSelect = this.queryElement<HTMLSelectElement>('audioSource');// as HTMLSelectElement;
+      this.videoSelect = this.queryElement<HTMLSelectElement>('videoSource');// as HTMLSelectElement;
+      this.audioSelect.onchange = () => this.getStream();
+      this.videoSelect.onchange = () => this.getStream();
       this.enableWebcamButton.addEventListener("click", (e) => {
         this.enableCam(e);
       });  
+
+      await this.getStream().then(() => this.getDevices()).then((deviceInfos) => this.gotDevices(deviceInfos));
     }
 
 
@@ -142,19 +137,19 @@ class VideoGestures {
     }
 
     private gotDevices(deviceInfos) {
-        this.window.deviceInfos = deviceInfos; // make available to console
-        console.log('Available input and output devices:', deviceInfos);
-        for (const deviceInfo of deviceInfos) {
-            const option = document.createElement('option');
-            option.value = deviceInfo.deviceId;
-            if (deviceInfo.kind === 'audioinput') {
-              option.text = deviceInfo.label || `Microphone ${this.audioSelect.length + 1}`;
-              this.audioSelect.appendChild(option);
-            } else if (deviceInfo.kind === 'videoinput') {
-              option.text = deviceInfo.label || `Camera ${this.videoSelect.length + 1}`;
-              this.videoSelect.appendChild(option);
-            }
-        }
+      this.window.deviceInfos = deviceInfos; // make available to console
+      console.log('Available input and output devices:', deviceInfos);
+      for (const deviceInfo of deviceInfos) {
+          const option = document.createElement('option');
+          option.value = deviceInfo.deviceId;
+          if (deviceInfo.kind === 'audioinput') {
+            option.text = deviceInfo.label || `Microphone ${this.audioSelect.length + 1}`;
+            this.audioSelect.add(option);
+          } else if (deviceInfo.kind === 'videoinput') {
+            option.text = deviceInfo.label || `Camera ${this.videoSelect.length + 1}`;
+            this.videoSelect.add(option);
+          }
+      }
     }
 
     private getStream() {
