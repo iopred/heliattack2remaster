@@ -93,7 +93,7 @@ const VHSEffectShader = {
         scanlineIntensity: { value: 1.0 }, // Intensity of scanlines
         scanlineCount: { value: 480.0 }, // Number of scanlines
         colorShift: { value: 0.2 }, // Amount of RGB color shift
-        largeLineAberration: { value: 0.4 }, // Toggle large VHS line aberration
+        largeLineAberration: { value: 0.6 }, // Toggle large VHS line aberration
         animatedColorShift: { value: 0.005 }, // Animatable color shift amount
         enabled: { value: 0.0 }, // Overall strength of the effect.
     },
@@ -219,7 +219,7 @@ const VHSEffectShader = {
         color.rgb += noise;
 
         // Apply scanlines
-        float scanline = applyScanlines(warpedUV, scanlineCount);
+        float scanline = applyScanlines(vUv, scanlineCount);
         color.rgb = mix(color.rgb, color.rgb * scanline, scanlineIntensity);
 
         // Blend final result with effect strength
