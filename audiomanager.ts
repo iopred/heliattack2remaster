@@ -369,7 +369,7 @@ class AudioManager {
         this.loopingVolume_ = volume;
     }
 
-    setLoopVolume(key: string | undefined, volume: number): void {
+    setLoopVolume(key: string | undefined, volume: number, useMusicVolume = true): void {
         const targetKey = key || this.looping;
 
         if (!targetKey) {
@@ -388,7 +388,7 @@ class AudioManager {
         }
 
         const { gainNode } = this.gainNodes.get(targetKey)!;
-        gainNode.gain.value = volume * this.masterVolume * this.musicVolume_;
+        gainNode.gain.value = volume * this.masterVolume * (useMusicVolume ? this.musicVolume_ : this.effectVolume_);
     }
 
     pause(): void {

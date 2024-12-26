@@ -64,22 +64,34 @@
 				position: fixed;
 				top: 10px;
 				left: 10px;
+				font-size: 19px;
 				filter: drop-shadow(1px 1px 0px black);
 			}
 
 			#health {
 				position: fixed;
-				right: 10px;                
-				top: 10px;  
+				left: 10px;                
+				bottom: 10px;  
 			}
 
-			#health-text {
+			#health-bar {
+				position: relative;
 				display: inline-block;
-				vertical-align: top;
-				filter: drop-shadow(1px 1px 0px black);
+				vertical-align: bottom;
+				width: 75px;
+				height: 14px;
+				background: url('images/ui/health-empty.png') no-repeat center center;
+				background-size: contain;             
 			}
 
-			#health-bar,
+			#health-fill {
+				position: absolute;
+				bottom: 0;
+				width: 75px;
+				height: 14px;
+				background: url('images/ui/health-full.png') no-repeat center left;
+			}
+
 			#powerup-bar {
 				position: relative;
 				display: inline-block;
@@ -89,7 +101,6 @@
 				background-size: contain;             
 			}
 
-			#health-fill,
 			#powerup-fill {
 				position: absolute;
 				bottom: 0;
@@ -105,81 +116,67 @@
 				text-align: right;
 			}
 
-			#hyperjump-text {
-				display: inline-block;
-				vertical-align: middle;
-				
-				filter: drop-shadow(1px 1px 0px black);
-			}
-
 			#hyperjump-bar {
 				display: inline-block;
-				vertical-align: middle;
+				vertical-align: bottom;
 				
-				width: 78px;
-				height: 17px;
-				background: url('images/ui/longbar-white.png') no-repeat center center;
+				width: 75px;
+				height: 14px;
+				background: url('images/ui/hyperjump-empty.png') no-repeat center center;
 				background-size: contain;             
 			}
 
 			#hyperjump-fill {
 				bottom: 0;
-				width: 78px;
-				height: 17px;
-				background: url('images/ui/longbar-blue.png') no-repeat center left;
-			}
-
-			#time-text {
-				display: inline-block;
-				vertical-align: middle;
-				
-				filter: drop-shadow(1px 1px 0px black);
+				width: 75px;
+				height: 14px;
+				background: url('images/ui/hyperjump-full.png') no-repeat center left;
 			}
 
 			#time-bar {
 				display: inline-block;
-				vertical-align: middle;
+				vertical-align: bottom;
 				
-				width: 78px;
-				height: 17px;
-				background: url('images/ui/longbar-white.png') no-repeat center center;
+				width: 75px;
+				height: 14px;
+				background: url('images/ui/timedistort-empty.png') no-repeat center center;
 				background-size: contain;             
 			}
 
 			#time-fill {
 				bottom: 0;
-				width: 78px;
-				height: 17px;
-				background: url('images/ui/longbar-green.png') no-repeat center left;
-			}
-
-			#reload-text {
-				display: inline-block;
-				vertical-align: middle;
-				
-				filter: drop-shadow(1px 1px 0px black);
+				width: 75px;
+				height: 14px;
+				background: url('images/ui/timedistort-full.png') no-repeat center left;
 			}
 
 			#reload-bar {
 				display: inline-block;
 				vertical-align: middle;
 				
-				width: 42px;
-				height: 17px;
-				background: url('images/ui/bar-white.png') no-repeat center center;
+				width: 16px;
+				height: 32px;
+				background: url('images/ui/bullet-empty.png') no-repeat center center;
 				background-size: contain;
 			}
 
 			#reload-fill {
-				width: 42px;
-				height: 17px;
-				background: url('images/ui/bar-yellow.png') no-repeat center left;
+				position: absolute;
+				bottom: 0;
+				width: 16px;
+				height: 32px;
+				background: url('images/ui/bullet-full.png') no-repeat bottom center;
+			}
+
+			#reload-fill[ready] {
+				background: url('images/ui/bullet-ready.png') no-repeat bottom center;
 			}
 
 			#bullets-text {
-				display: inline-block;
-				vertical-align: bottom;
-
+				position: absolute;
+				right: 55px;
+				bottom: 13px;
+				font-size: 15px;
 				filter: drop-shadow(1px 1px 0px black);
 			}
 
@@ -194,10 +191,22 @@
 				background-repeat: no-repeat;
 			}
 
+			#weapon-name {
+				font-size: 15px;
+				filter: drop-shadow(1px 1px 0px black);
+				visibility: hidden;
+			}
+
+			#powerup {
+				margin-right: -1px;
+				visibility: hidden;
+			}
+
 			#powerup-text {
 				display: inline-block;
+				margin-right: 4px;
 				vertical-align: bottom;
-
+				font-size: 15px;
 				filter: drop-shadow(1px 1px 0px black);
 			}
 
@@ -212,29 +221,43 @@
 				background-repeat: no-repeat;
 			}
 
-			#pause {
+			#paused-menu {
 				position: fixed;
-				left: 10px;                
-				bottom: 10px;
+				right: 10px;                
+				top: 10px;
 				display: none;  
+			}
+
+			#paused-menu button {
+				margin-left: 16px;
+				width: 32px;
+				height: 32px;
+			}
+
+			#ui {
+				-webkit-user-select: none; /* Safari */
+				-ms-user-select: none; /* IE 10 and IE 11 */
+				user-select: none; /* Standard syntax */
+				font-size: 0;
 			}
 
 			#ui[playing] {
 				pointer-events: none;
-				-webkit-user-select: none; /* Safari */
-				-ms-user-select: none; /* IE 10 and IE 11 */
-				user-select: none; /* Standard syntax */
 			}
 
-			#ui:not([playing]) #pause {
+			#ui #playing-menu {
+				pointer-events: initial;
+			}
+
+			#ui:not([playing]) #paused-menu {
 				display: initial;
 			}
 
-			#ui:not([playing]) #health {
+			#ui:not([ingame]) #health {
 				display: none;
 			}
 
-			#ui:not([playing]) #bottom {
+			#ui:not([ingame]) #bottom {
 				display: none;
 			}
 
@@ -244,6 +267,19 @@
 
 			#ui[playing] #message {
 				top: 100px;
+			}
+
+			#text {
+				position: fixed;
+				overflow: hidden;
+				width: 100%;
+				height: 100%;
+				font-size: 15px;
+			}
+
+			#error-container,
+			#message {
+				font-size: 19px;
 			}
 
 			.nobreak {
@@ -256,65 +292,133 @@
 				left: 10px;
 			}
 
-			#ui[playing] #webcam-ui {
+			#ui[playing] #error-container {
 				display: none;
+			}
+
+			#ui:not([playing]) #playing-menu {
+				display: none;
+			}
+
+			#playing-menu {
+				position: fixed;
+				right: 10px;                
+				top: 10px;
+			}
+
+			button::-moz-focus-inner,
+			input::-moz-focus-inner {
+				border: 0;
+				padding: 0;
+			}
+
+			button {
+				all: unset;
+				cursor:pointer;
+				font-size: 19px;
+			}
+
+			button svg {
+				width: 32px;
+				height: 32px;
+			}
+
+			#resume-game {
+				display: none;
+
+				margin-left: 32px !important;
+			}
+
+			#ui[ingame] #resume-game {
+				display: initial;
+			}
+
+			.text-overlay {
+				transform: translate(-50%, -50%);
+				background-color: rgba(0, 0, 0, 0.25);
+				white-space: nowrap;
+				padding: 0px 4px;
+			}
+
+			#naamba:not([hidden]) {
+				position: fixed;
+				width: 100%;
+				height: 100%;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				background: linear-gradient(to bottom, yellow, green);
+			}
+
+			#naamba img {
+				max-width: 100%;
+				max-height: 100%;
+				animation: jiggle 1.2s 1;
+				opacity: 0;
+			}
+
+			@keyframes jiggle {
+				0% { transform: scale(1%); }
+				25% {
+					transform: scale(100%) rotate(1deg);
+					opacity: 1;
+				}
+				50% { transform: rotate(-1deg); }
+				75% {
+					transform: rotate(1deg);
+					opacity: 1;
+				}
+				100% {
+					transform: rotate(-1deg);
+					opacity: 0;
+				}
+			}
+
+			#scc {
+				position: fixed;
+				width: 100%;
+				height: 100%;
+				background: white;
 			}
 		</style>
 	</head>
 	<body>
 		<script type="module" src="/main.ts"></script>
 		<video id="webcam" autoplay muted></video>
+		<div id="naamba" hidden>
+			<img src="/images/naamba.png" alt="naa.mba">
+		</div>
+		<div id="scc" hidden>
+		</div>
 		<div id="ui">
 			<canvas id="gesture-canvas"></canvas>
+			<div id="text"></div>
 			<div id="info"></div>
 			<div id="health">
-				<div id="health-text">
-					Health:
-				</div>
 				<div id="health-bar">
 					<div id="health-fill"></div>
 				</div>
 			</div>
 			<div id="bottom">
-				<div id="powerup-bar">
-					<div id="powerup-fill"></div>
-				</div>
 				<div id="powerup">
-					<div id="powerup-text">
-						Predator Mode
-					</div>
+					<div id="powerup-text"></div>
 					<div id="powerup-box"></div>
-				</div>
-				<div>
-					<div id="bullets-text">
-						Infinite x 
+					<div id="powerup-bar">
+						<div id="powerup-fill"></div>
 					</div>
+				</div>
+				<div id="weapon-name"></div>
+				<div>
+					<div id="hyperjump-bar">
+						<div id="hyperjump-fill"></div>
+					</div>
+					<div id="time-bar">
+						<div id="time-fill"></div>
+					</div>
+					<div id="bullets-text"></div>
 					<div id="bullets-box"></div>
-				</div>
-				<div>
-					<div class="nobreak">
-						<div id="hyperjump-text">
-							Hyper Jump:
-						</div>
-						<div id="hyperjump-bar">
-							<div id="hyperjump-fill"></div>
-						</div>
-					</div>
-					<div class="nobreak">
-						<div id="time-text">
-							Time Distort:
-						</div>
-						<div id="time-bar">
-							<div id="time-fill"></div>
-						</div>
-					</div>
-					<div class="nobreak">
-						<div id="reload-text">
-							Reload:
-						</div>
-						<div id="reload-bar">
-							<div id="reload-fill"></div>
-						</div>
+					<div id="reload-bar">
+						<div id="reload-fill"></div>
 					</div>
 				</div>
 			</div>
@@ -322,9 +426,23 @@
 			<div id="main-menu" hidden>
 				<button id="start-game">Start Game</button>
 			</div>
-			<div id="pause">
-				<button id="music-enable">Music</button>
-				<button id="effects-enable">Effects</button>
+			<div id="playing-menu">
+				<button id="pause-game">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#e8eaed"><path d="M520-200v-560h240v560H520Zm-320 0v-560h240v560H200Zm400-80h80v-400h-80v400Zm-320 0h80v-400h-80v400Zm0-400v400-400Zm320 0v400-400Z"/></svg>
+				</button>
+			</div>
+			<div id="paused-menu">
+				<button id="music-enable">
+					<svg id="music-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#e8eaed"><path d="M400-120q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T480-418v-422h240v160H560v400q0 66-47 113t-113 47Z"/></svg>
+					<svg id="music-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#e8eaed"><path d="M792-56 56-792l56-56 736 736-56 56ZM560-514l-80-80v-246h240v160H560v166ZM400-120q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T480-418v-62l80 80v120q0 66-47 113t-113 47Z"/></svg>
+				</button>
+				<button id="effects-enable">
+					<svg id="effects-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#e8eaed"><path d="M560-131v-82q90-26 145-100t55-168q0-94-55-168T560-749v-82q124 28 202 125.5T840-481q0 127-78 224.5T560-131ZM120-360v-240h160l200-200v640L280-360H120Zm440 40v-322q47 22 73.5 66t26.5 96q0 51-26.5 94.5T560-320ZM400-606l-86 86H200v80h114l86 86v-252ZM300-480Z"/></svg>
+					<svg id="effects-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#e8eaed"><path d="M792-56 671-177q-25 16-53 27.5T560-131v-82q14-5 27.5-10t25.5-12L480-368v208L280-360H120v-240h128L56-792l56-56 736 736-56 56Zm-8-232-58-58q17-31 25.5-65t8.5-70q0-94-55-168T560-749v-82q124 28 202 125.5T840-481q0 53-14.5 102T784-288ZM650-422l-90-90v-130q47 22 73.5 66t26.5 96q0 15-2.5 29.5T650-422ZM480-592 376-696l104-104v208Zm-80 238v-94l-72-72H200v80h114l86 86Zm-36-130Z"/></svg>
+				</button>
+				<button id="resume-game">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#e8eaed"><path d="M320-200v-560l440 280-440 280Zm80-280Zm0 134 210-134-210-134v268Z"/></svg>
+				</button>
 			</div>
 			<div id="error-container" hidden>
 				<div id="webcam-ui" hidden>
@@ -336,7 +454,7 @@
 					<label for="videoSource">Video source: </label><select id="videoSource"></select>
 					</div>
 		
-					<button id="enable-webcam-button">Enable Webcam</button>
+					<button id="enable-webcam-button">Enable Gestures</button>
 				</div>
 			</div>
 		</div>

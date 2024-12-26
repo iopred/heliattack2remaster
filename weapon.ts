@@ -1,4 +1,5 @@
 import { MathUtils, Mesh, MeshBasicMaterial, PlaneGeometry, Texture, Vector2 } from 'three';
+import { TextOverlay } from './entities';
 import { createTintShader } from './utils';
 
 class Weapon {
@@ -120,6 +121,7 @@ class Weapon {
         if (this.announcerSoundKey) {
             game.audioManager.playEffect(this.announcerSoundKey);
         }
+        new TextOverlay(game, this.name);
     }
 }
 

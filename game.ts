@@ -1,14 +1,14 @@
 
-import { Blood, Box, DestroyedEnemy, DestroyedHeli, Explosion, Fire, Parachute, Shard, Smoke } from './entities';
-import { Box3, BufferGeometry, Clock, Color, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, ShaderMaterial, Texture, TextureLoader, Vector2, Vector3, Camera } from 'three';
-import { calculateAngleToMouse, checkTileCollisions, createTintShader, getDurationMiliseconds, getDurationSeconds, loadTexture, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth, checkBoxCollisionWithBoxes, checkPointCollisionWithBoxes, heliBoxes, isPlayerCollision, isPlayerCollisionRect, isTileCollision, sayMessage } from './utils';
+import { Blood, Box, DestroyedEnemy, DestroyedHeli, Explosion, Parachute, Shard, Smoke } from './entities';
+import { Box3, Clock, Color, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, ShaderMaterial, Texture, Vector2, Vector3, Camera } from 'three';
+import { calculateAngleToMouse, checkTileCollisions, createTintShader, getDurationMiliseconds, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth, isPlayerCollision, isTileCollision, sayMessage } from './utils';
 import { defaultBulletUpdate } from './weapons';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import AudioManager from './audiomanager';
 import { Timeline, TimelineEvent } from './timeline';
 import VideoGestures from './videogestures';
 import Weapon from './weapon';
-import Entity from './entities';
+import { TextOverlay } from './entities';
 
 const UP_KEY = 'KeyboardKeyUp';
 const DOWN_KEY = 'KeyboardKeyDown';
@@ -24,6 +24,8 @@ const HELI_EXIT_OFFSET = 500;
 const RAILGUN = 11;
 const SEEKER = 7;
 const FLAMETHROWER = 8;
+
+const UPDATE_FREQUENCY = 1 / 60;
 
 let playEnemyHit = true;
 
@@ -157,6 +159,8 @@ class Enemy {
         //     // Add the mesh to the scene
         //     this.heliGroup.add(boxMesh);
         // });
+
+        this.update(game, 0);
     }
 
     setTint(enabled) {
@@ -274,7 +278,7 @@ class Enemy {
         const playerDiff = game.player.position.clone().sub(this.position).length();
 
         if (playerDiff < 700) {
-            game.audioManager.setLoopVolume('helicopter', Math.min(1.0, (700 - playerDiff) / 700));
+            game.audioManager.setLoopVolume('helicopter', Math.min(1.0, (700 - playerDiff) / 700), false);
         }
 
         var diff = this.targetPosition.clone().sub(this.position);
@@ -484,9 +488,9 @@ class Player {
     public chooseAlternate = false;
     public alternateWeapon = RAILGUN;
 
-    private tick:number = 0;
+    private tick: number = 0;
 
-    private canTriggerTimelineEvent:boolean = true;
+    private canTriggerTimelineEvent: boolean = true;
 
     public textureWidth: number;
     public textureHeight: number;
@@ -494,7 +498,7 @@ class Player {
     public group: Group;
     public geometry: PlaneGeometry;
     public weaponObject: Object3D;
-    
+
     public tints: ShaderMaterial[];
 
     public parachute: Parachute | null;
@@ -600,9 +604,12 @@ class Player {
             const index = MathUtils.euclideanModulo(this.weapon + i * direction, this.weapons.length)
             if (this.weapons[index].ammo > 0) {
                 this.selectWeapon(index);
+                /*
                 if (this.chooseAlternate) {
+                    // Change alternate weapon.
                     this.alternateWeapon = index;
                 }
+                */
                 break;
             }
         }
@@ -627,6 +634,28 @@ class Player {
             move = true;
         }
 
+        if (move) {
+            const freeBulletTime = this.infiniteTimeDistort || this.hyperJumping;
+            let newTimeScale = game.timeScale;
+
+            if (((this.bulletTime > 0 || freeBulletTime) && game.keyIsPressed['Shift']) || this.powerup == TIME_RIFT) {
+                newTimeScale = Math.max(0.2, game.timeScale - 0.1);
+
+                if (!(this.powerup == TIME_RIFT || this.powerup == PREDATOR_MODE || freeBulletTime)) {
+                    this.bulletTime--;
+                }
+            } else {
+                newTimeScale = Math.min(1, game.timeScale + 0.1);
+            }
+
+            if (newTimeScale != game.timeScale) {
+                game.timeScale = newTimeScale;
+
+                game.vhsPass.uniforms.enabled.value = (game.timeScale == 0.2 ? 1.0 : 1.0 - game.timeScale) * (this.hyperJumping ? 1.2 : 1.0);
+                game.audioManager.timeScale = game.timeScale;
+            }
+        }
+
         if (this.parachute) {
             if (this.parachute.opened) {
                 this.velocity.y = 2;
@@ -640,26 +669,6 @@ class Player {
             }
         } else {
             if (move) {
-                const freeBulletTime = this.infiniteTimeDistort || this.hyperJumping;
-                let newTimeScale = game.timeScale;
-                
-                if (((this.bulletTime > 0 || freeBulletTime) && game.keyIsPressed['Shift']) || this.powerup == TIME_RIFT) {
-                    newTimeScale = Math.max(0.2, game.timeScale - 0.1);
-                    
-                    if (!(this.powerup == TIME_RIFT || this.powerup == PREDATOR_MODE || freeBulletTime)) {
-                        this.bulletTime--;
-                    }
-                } else {
-                    newTimeScale = Math.min(1, game.timeScale + 0.1);
-                }
-
-                if (newTimeScale != game.timeScale) {
-                    game.timeScale = newTimeScale;
-
-                    game.vhsPass.uniforms.enabled.value = (game.timeScale == 0.2 ? 1.0 : 1.0 - game.timeScale) * (this.hyperJumping ? 1.2 : 1.0);
-                    game.audioManager.timeScale = game.timeScale;
-                }
-
                 if (game.keyIsPressed[DOWN_KEY]) {
                     if (!this.crouch) {
                         this.crouch = true;
@@ -698,7 +707,7 @@ class Player {
                     this.hyperJumping = true;
                     game.audioManager.playEffect('hyperjump');
                     game.weapons[this.alternateWeapon].ammo++;
-                    
+
 
                     game.vhsPass.uniforms.enabled.value = (game.timeScale == 0.2 ? 1.0 : 1.0 - game.timeScale) * (this.hyperJumping ? 1.4 : 1.0);
                     game.vhsPass.uniforms.distortion.value = 0.2;
@@ -848,6 +857,7 @@ class Player {
         if (move) {
             if (game.mouse.wheel != 0) {
                 this.selectWeaponDirection(game.mouse.wheel);
+                showWeaponName(game);
                 game.mouse.wheel = 0;
             } else if (game.videoGestures?.switching) {
                 this.selectWeaponDirection(1);
@@ -871,6 +881,9 @@ class Player {
                     if (firing) {
                         this.shooting = false;
                     }
+                } else if (!weapon.ammo) {
+                    game.audioManager.playEffect('empty');
+                    game.mouse.down = false;
                 }
             }
 
@@ -894,12 +907,12 @@ class Player {
             }
         }
 
-        if (game.mouse.down) {
+        if (game.mouse.down || game.videoGestures?.firing) {
             if (this.canTriggerTimelineEvent && game.lastTimelineEvent?.func) {
                 if (window.performance.now() < game.timelineEventDeadline) {
                     game.lastTimelineEvent.func();
                 }
-                
+
             }
             this.canTriggerTimelineEvent = false;
         } else {
@@ -924,15 +937,18 @@ class Player {
     }
 
     shoot(game, weapon) {
-        if (weapon.reloading >= weapon.reloadTime) {
+        if (weapon.ammo && weapon.reloading >= weapon.reloadTime) {
             weapon.createBullet(game);
             if (!weapon.free) {
                 weapon.ammo--;
             }
             weapon.reloading = 0;
             if (weapon.ammo <= 0) {
-                // this.selectWeaponDirection(1);
-                this.selectWeapon(0);
+                if (this.chooseAlternate && game.weapons[this.alternateWeapon] == weapon) {
+                    // If the player is choosing the alternate weapon, don't switch to the next weapon.
+                } else {
+                    this.selectWeapon(0);
+                }
             }
             return true;
         }
@@ -949,12 +965,14 @@ class Player {
         if (type == TRI_DAMAGE) {
             this.setTint(true, new Color(0, 0, 1));
             game.audioManager.playEffect('announcerTridamage');
-            powerupText.innerHTML = 'TriDamage';
+            powerupText.innerHTML = 'Tri Damage';
+            new TextOverlay(game, 'Tri Damage');
         } else if (type == INVULNERABILITY) {
             this.ignoreNextDamage = true;
             this.setTint(true, new Color(1, 0, 0));
             game.audioManager.playEffect('announcerInvulnerability');
             powerupText.innerHTML = 'Invulnerability';
+            new TextOverlay(game, 'Invulnerability');
         } else if (type == PREDATOR_MODE || type == MINI_PREDATOR_MODE) {
             game.shaderPass.uniforms.invertEnabled.value = 1.0;
 
@@ -963,20 +981,23 @@ class Player {
             shoulderCannon.ammo = Number.POSITIVE_INFINITY;
             shoulderCannon.reloading = Number.POSITIVE_INFINITY;
             this.selectWeapon(game.weapons.length - 1);
-
+            showWeaponName(game);
             if (type == PREDATOR_MODE) {
                 game.audioManager.playEffect('announcerPredatormode');
                 powerupText.innerHTML = 'Predator Mode';
+                new TextOverlay(game, 'Predator Mode');
             } else {
-                this.powerupTime /= 2;
+                powerupText.innerHTML = 'Solo!';
             }
         } else if (type == TIME_RIFT) {
             this.setTint(true, new Color(0, 1, 0));
             game.audioManager.playEffect('announcerTimerift');
             powerupText.innerHTML = 'Time Rift';
+            new TextOverlay(game, 'Time Rift');
         } else if (type == JETPACK) {
             game.audioManager.playEffect('announcerJetpack');
             powerupText.innerHTML = 'Jetpack';
+            new TextOverlay(game, 'Jetpack');
         }
     }
 
@@ -984,6 +1005,7 @@ class Player {
         if (this.ignoreNextDamage && this.powerup == INVULNERABILITY) {
             // The player didn't get hit, congratulations!
             document.getElementById("powerup-text")!.innerHTML = 'Deflect';
+            new TextOverlay(game, 'Deflect');
         }
         if (this.powerup == PREDATOR_MODE || this.powerup == MINI_PREDATOR_MODE) {
             const shoulderCannon = game.weapons[game.weapons.length - 1];
@@ -1045,12 +1067,12 @@ const zero = new Vector3();
 class Game {
     public window: Window;
     public mouse: any;
-    public keyIsPressed: {[key: string]: boolean};
+    public keyIsPressed: { [key: string]: boolean };
     public scene: Scene;
     public camera: Camera;
     public shaderPass: ShaderPass;
-    public vhsPass:ShaderPass;
-    private textures: Texture[];
+    public vhsPass: ShaderPass;
+    public textures: Texture[];
     public audioManager: AudioManager;
     public weapons: Weapon[];
     private overSetter: Function;
@@ -1064,7 +1086,7 @@ class Game {
     public timeScale: number;
     public paused: boolean;
 
-    
+
     public player: Player | null;
     public enemy: Enemy | null;
     public level: number;
@@ -1077,12 +1099,12 @@ class Game {
     public gestureHands: Mesh[];
     public gestureHandsShowing: number;
 
-    public map:Object[][];
+    public map: Object[][];
     public mapWidth: number;
     public mapHeight: number;
 
     public lastWeapon_: number;
-    
+
     public shotsFired: number;
     public spidersAttacked: boolean;
 
@@ -1101,9 +1123,11 @@ class Game {
     public playerBullets: any[];
     public enemyBullets: any[];
     public entities: any[];
-    
-    
-    constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: {[key: string]: boolean}, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
+
+    public hideWeaponName: number;
+
+
+    constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: { [key: string]: boolean }, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
         this.bpm = 200;
         if (windowOrGame instanceof Game) {
             for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack', 'bpm']) {
@@ -1126,7 +1150,7 @@ class Game {
 
 
 
-[Only fragments remain 🚁]Only fragments remain
+[🚁]Only fragments remain
 
 
 
@@ -1143,7 +1167,7 @@ class Game {
 
 
 
-[The sound of my brain being ripped into the digital dimension 🚁]Made by Kit & Dangerbeard
+Made by Kit & Dangerbeard
 
 
 
@@ -1169,7 +1193,7 @@ class Game {
 
 
 
-[⚡]A new world was
+[⚡🚀]A new world was
 placed within our grasp
 a new hope
 a chance to breathe
@@ -1201,7 +1225,7 @@ Built to sacrifice
 The age of the machine will rise
 
 
-[🚁⚡] Our liberty
+[🚀] Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1217,7 +1241,7 @@ Only fragmented remains
 
 The remnants of rebellion
 
-Our liberty
+[⚡]Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1267,7 +1291,7 @@ Machine beats majority
 The AI fights for supremacy
 
 
-[🚁⚡Lo-fi]
+[🚀]
 
 
 
@@ -1283,7 +1307,7 @@ Only fragmented remains
 
 The remnants of rebellion
 
-[🚁⚡]Our liberty
+[🚀]Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1299,7 +1323,7 @@ Only fragmented remains
 
 The remnants of rebellion
 
-Our liberty
+[⚡]Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1315,7 +1339,7 @@ Only fragmented remains
 
 The remnants of rebellion
 
-[👹🚁⚡Solo]
+[👹🚀⚡Solo!]
 
 
 
@@ -1347,7 +1371,7 @@ Only fragments remain
 
 The remnants of rebellion
 
-[🚁⚡] Our liberty
+[🚀] Our liberty
 Our divinity
 Nothing left but the
 scars of the machinery
@@ -1363,7 +1387,7 @@ Only fragments remains
 
 The remnants of rebellion
 
-[Painful Mourning🔫]
+[Painful Mourning]
 
 
 
@@ -1377,7 +1401,7 @@ Destroyed by
 cybernetic supremacy
 Nothing left at all
 
-[No remnants of rebellion]No remnants of rebellion
+[🔫No remnants of rebellion]No remnants of rebellion
 `);
 
             this.musicTrack = 'music';
@@ -1403,7 +1427,7 @@ Nothing left at all
         }
 
         this.lastWeapon_ = 0;
-        
+
         // Stats
         this.shotsFired = 0;
         this.spidersAttacked = false;
@@ -1491,6 +1515,7 @@ Nothing left at all
         this.updateCameraPosition(Number.POSITIVE_INFINITY);
 
         this.shotsFired = 0;
+        this.level = 0;
 
         this.overSetter(false);
 
@@ -1507,7 +1532,6 @@ Nothing left at all
         // we should scale texture height to target height and then 'map' the center  of texture to target， and vice versa.
         this.scene.background.offset.x = factor > 1 ? (1 - 1 / factor) / 2 : 0;
         this.scene.background.repeat.x = factor > 1 ? 1 / factor : 1;
-        // this.scene.background.offset.y = factor > 1 ? 0 : (1 - factor) / 2;
         this.scene.background.repeat.y = factor > 1 ? 1 : factor;
     }
 
@@ -1562,7 +1586,7 @@ Nothing left at all
             transparent: true
         });
 
-        
+
 
         const direction = player.aim + rotation * Math.PI / 180
 
@@ -1579,7 +1603,7 @@ Nothing left at all
 
         this.world.add(mesh);
 
-        const bullet:{velocity: Vector3, damage: number, object: Mesh, material: MeshBasicMaterial, update: Function, destroy: Function, tick: number, time: number} = {
+        const bullet: { velocity: Vector3, damage: number, object: Mesh, material: MeshBasicMaterial, update: Function, destroy: Function, tick: number, time: number } = {
             velocity: new Vector3(
                 weapon.bulletSpeed * Math.cos(direction),
                 weapon.bulletSpeed * Math.sin(direction),
@@ -1645,10 +1669,15 @@ Nothing left at all
                 if (this.player.powerup != INVULNERABILITY) {
                     if (!this.player.ignoreNextDamage) {
                         this.player.health -= 10;
-                        
+                        if (this.player.health == 10) {
+                            this.allWeapons();
+                            sayMessage('[Warning: Low Health]');
+                            new TextOverlay(this, 'Warning: Low Health');
+                        }
+
                         updateHealthBar(this);
                         this.audioManager.playEffect('hurt');
-                        
+
                         for (let i = 0; i < 3; i++) {
                             new Blood(this, new Vector3(bulletPos.x, -bulletPos.y, 0), i * 2);
                         }
@@ -1658,7 +1687,7 @@ Nothing left at all
                     } else {
                         this.playHit();
                     }
-                
+
                 }
                 this.player.ignoreNextDamage = false;
                 remove = true;
@@ -1693,8 +1722,8 @@ Nothing left at all
     }
 
     timeStep(delta) {
-        this.audioManager.setLoopVolume('flame', 0);
-        this.audioManager.setLoopVolume('helicopter', 0);
+        this.audioManager.setLoopVolume('flame', 0, false);
+        this.audioManager.setLoopVolume('helicopter', 0, false);
         playEnemyHit = true;
 
         if (!this.player?.dead) {
@@ -1722,22 +1751,27 @@ Nothing left at all
 
         this.updateKeys();
 
-        if (this.accumulator > 1 / 60) {
-            this.timeStep(delta);
-            this.accumulator %= 1 / 60;
+        if (this.accumulator > UPDATE_FREQUENCY) {
+            this.timeStep(UPDATE_FREQUENCY);
+            this.accumulator %= UPDATE_FREQUENCY;
         };
 
         this.timeline.update();
-        this.updateFunction();
 
+        this.vhsPass.material.uniforms.time.value += (this.timeScale + (this.player?.hyperJumping ? 0.2 : 0)) * 0.01;
+
+        this.updateFunction();
     }
 
     newHeli() {
         this.enemy?.destroy(this);
+        this.enemy = null;
 
-        this.enemy = new Enemy()
-        this.enemy.init(this);
-        this.enemy.shooting = true;
+        if (this.player && !this.player.dead) {
+            this.enemy = new Enemy()
+            this.enemy.init(this);
+            this.enemy.shooting = true;
+        }
     }
 
     heliDestroyed() {
@@ -1767,13 +1801,10 @@ Nothing left at all
                 type++;
             }
             new Box(this, this.enemy.position, type);
-        } else {
-            randomAmmo = true;
         }
 
         if (this.helisDestroyed >= this.nextLevel) {
-            this.allWeapons();
-            this.nextLevel += 10;
+            this.levelUp();
         }
 
         // if (this.player.hyperJumping) {
@@ -1783,11 +1814,11 @@ Nothing left at all
         const weapon = 1 + Math.floor(Math.random() * 8);
         let ammo = this.ammoForRandomWeapon(weapon);
         if (this.player.position.y < this.enemy.position.y || (this.player.powerup == JETPACK && this.player.inAir) || this.player.hyperJumping) {
-            ammo *= 2;
             randomAmmo = true;
         }
         if (randomAmmo) {
             this.weapons[weapon].ammo += ammo;
+            new TextOverlay(this, 'Mid-air Kill');
         }
 
         this.newHeli();
@@ -1833,13 +1864,9 @@ Nothing left at all
         }
 
         if (this.player?.health == 100) {
-            this.player.collectPowerup(MINI_PREDATOR_MODE, this);
-            this.player.ignoreNextDamage = true;
             this.player.infiniteTimeDistort = true;
-        }
-
-        if (this.level == 0) {
-            this.allWeapons();
+            new TextOverlay(this, 'gl hf dd');
+            this.level++;
         }
     }
 
@@ -1862,7 +1889,7 @@ Nothing left at all
         }
     }
 
-    displayLyric(time: number, text: string, timelineEvent:TimelineEvent) {
+    displayLyric(time: number, text: string, timelineEvent: TimelineEvent) {
         this.lastTimelineEvent = timelineEvent;
         this.processLastTimelineEvent();
     }
@@ -1875,43 +1902,54 @@ Nothing left at all
             if (this.level > 0) {
                 this.spidersAttacked = true;
                 this.allWeapons();
+                new TextOverlay(this, 'Warning: Spiders Attacked!');
+                sayMessage('[Warning: Spiders Attacked!]');
             }
             if (this.shotsFired === 0) {
                 this.player!.shooting = true;
             }
+
             return () => {
                 this.killHelicopter();
-            };
+                return this.level > 0 ? null : '🚀';
+            }
         },
         '🚁': () => {
             if (!this.enemy) {
                 this.newHeli();
-                return null;
             }
+            return null;
+        },
+        '🚀': () => {
             return () => {
                 this.killHelicopter();
+                return '🚀';
             }
         },
         '⚡': () => {
             return () => {
                 this.weapons[this.player!.alternateWeapon].ammo++;
                 this.enemy?.leave();
+                return '⚡';
             }
         },
         '🔫': () => {
             return () => {
                 this.allWeapons();
                 this.enemy?.leave();
+                return 'All Weapons!';
             }
         },
         '🔥': () => {
             return () => {
                 this.weapons[FLAMETHROWER].ammo += this.ammoForRandomWeapon(FLAMETHROWER);
+                this.enemy?.leave();
+                return '🔥';
             }
         },
         '👹': () => {
             return () => {
-                this.player!.collectPowerup(PREDATOR_MODE, this);
+                this.player!.collectPowerup(MINI_PREDATOR_MODE, this);
             }
         }
     }
@@ -1932,22 +1970,21 @@ Nothing left at all
             return;
         }
 
-        let lower = this.getValueBetweenBrackets(this.lastTimelineEvent.text.toLowerCase());
-        if (!lower) {
+        let text = this.getValueBetweenBrackets(this.lastTimelineEvent.text);
+        if (!text) {
             return;
         }
 
         const funcs: Function[] = [];
         for (let [key, value] of Object.entries(this.emojiFuncs)) {
-            if (lower.indexOf(key) != -1) {
-                lower = lower.replaceAll(key, '');
+            if (text.indexOf(key) != -1) {
+                text = text.replaceAll(key, '');
                 const func: Function | null = value();
                 if (func) {
-                    if (this.musicTrack == 'ror') {
-                        func();
-                    } else {
-                        funcs.push(func);
-                    }
+                    // if (this.musicTrack == 'ror') {
+                    //     func();
+                    // }
+                    funcs.push(func);
                 }
             }
         }
@@ -1955,11 +1992,23 @@ Nothing left at all
         this.lastTimelineEvent.func = () => {
             this.lastTimelineEvent!.func = null;
             this.lastTimelineEvent = null;
+            let funcText = '';
             for (const func of funcs) {
-                func();
+                const t = func();
+                if (t) {
+                    funcText += t;
+                }
             }
-            if (lower) {
-                return '[' + lower + ']';
+            if (text) {
+                new TextOverlay(this, text);
+                sayMessage('[' + text + ']');
+            } else {
+                if (funcText) {
+                    new TextOverlay(this, 'On Beat: ' + funcText);
+                }
+            }
+            if (text) {
+                return '[' + text + ']';
             } else {
                 return '';
             }
@@ -1997,11 +2046,12 @@ Nothing left at all
 
     weaponSwitch() {
         if (this.player && !this.player.chooseAlternate) {
-            if (this.weapons[this.player.alternateWeapon].ammo) {
-                this.lastWeapon_ = this.player.weapon;
-                this.player.chooseAlternate = true;
-                this.player.selectWeapon(this.player.alternateWeapon);
-            }
+            //if (this.weapons[this.player.alternateWeapon].ammo) {
+            this.lastWeapon_ = this.player.weapon;
+            this.player.chooseAlternate = true;
+            this.player.selectWeapon(this.player.alternateWeapon);
+            showWeaponName(this);
+            //}
         }
     }
 
@@ -2015,13 +2065,20 @@ Nothing left at all
         } else {
             this.player.selectWeapon(0);
         }
+        showWeaponName(this);
+    }
+
+    levelUp(message = 'Level Up!') {
+        new TextOverlay(this, message);
+        this.level++;
+        this.nextLevel += 10*(this.level+1);
+        this.allWeapons();
     }
 
     allWeapons() {
         for (let i = 1; i < this.weapons.length - 1; i++) {
             this.weapons[i].ammo = this.ammoForRandomWeapon(i) * 3;
         }
-        this.level++;
     }
 
     pause() {
@@ -2039,7 +2096,7 @@ Nothing left at all
     forward() {
         // jump forwards one second, warning, you may get hurt!
         for (var i = 0; i < 60; i++) {
-            this.timeStep(1/60);
+            this.timeStep(1 / 60);
         }
     }
 }
@@ -2053,18 +2110,25 @@ function updateUI(game) {
     updateTimeDistortBar(game);
     updateBullets(game);
     updatePowerup(game);
+
+    if (game.hideWeaponName > 0) {
+        game.hideWeaponName--;
+        if (game.hideWeaponName == 0) {
+            hideWeaponName(game);
+        }
+    }
 }
 
 function updateInfo(game) {
     const info = document.getElementById('info')!;
-    info.innerHTML = `Helis: ${game.helisDestroyed}<br>Score: ${game.score}<br>Level: ${game.level+1}`;
+    info.innerHTML = `Helis: ${game.helisDestroyed}<br>Score: ${game.score}<br>Level: ${game.level + 1}`;
 }
 
 function updateHealthBar(game) {
     const percentage = game.player.health / 100;
     const fill = document.getElementById('health-fill')!;
     const clampedPercentage = Math.max(0, Math.min(1, percentage));
-    fill.style.height = `${78 * clampedPercentage}px`;
+    fill.style.width = `${75 * clampedPercentage}px`;
 }
 
 function updateReloadBar(game) {
@@ -2073,19 +2137,25 @@ function updateReloadBar(game) {
 
     const fill = document.getElementById('reload-fill')!;
     const clampedPercentage = Math.max(0, Math.min(1, percentage));
-    fill.style.width = `${42 * clampedPercentage}px`;
+    fill.style.height = `${32 * clampedPercentage}px`;
+
+    if (weapon.reloading >= weapon.reloadTime) {
+        fill.setAttribute('ready', 'true');
+    } else {
+        fill.removeAttribute('ready');
+    }
 }
 
 function updateHyperjumpBar(game) {
     const fill = document.getElementById('hyperjump-fill')!;
     const clampedPercentage = Math.max(0, Math.min(1, game.player.hyperJump / HYPERJUMP_RECHARGE));
-    fill.style.width = `${78 * clampedPercentage}px`;
+    fill.style.width = `${75 * clampedPercentage}px`;
 }
 
 function updateTimeDistortBar(game) {
     const fill = document.getElementById('time-fill')!;
     const clampedPercentage = Math.max(0, Math.min(1, game.player.bulletTime / MAX_BULLET_TIME));
-    fill.style.width = `${78 * clampedPercentage}px`;
+    fill.style.width = `${75 * clampedPercentage}px`;
 }
 
 function updateBullets(game) {
@@ -2105,18 +2175,30 @@ function updatePowerup(game) {
     const ui = document.getElementById('powerup')!;
 
     if (!show) {
-        bar.style.visibility = 'hidden';
         ui.style.visibility = 'hidden';
         return;
     } else {
-        bar.style.visibility = 'unset';
-        ui.style.visibility = 'unset';
+        ui.style.visibility = 'visible';
     }
 
     const percentage = game.player.powerupTime / POWERUP_TIME;
     const fill = document.getElementById('powerup-fill')!;
     const clampedPercentage = Math.max(0, Math.min(1, percentage));
     fill.style.height = `${78 * clampedPercentage}px`;
+}
+
+function showWeaponName(game) {
+    const weapon = game.weapons[game.player.weapon];
+    const name = document.getElementById('weapon-name')!;
+    name.innerHTML = weapon.name;
+    name.style.visibility = 'visible';
+
+    game.hideWeaponName = 240;
+}
+
+function hideWeaponName(game) {
+    const name = document.getElementById('weapon-name')!;
+    name.style.visibility = 'hidden';
 }
 
 export default Game;

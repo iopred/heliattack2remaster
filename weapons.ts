@@ -48,7 +48,6 @@ function rpgUpdate(game, delta) {
         this.tick %= 1;
 
         if (this.time == 8) {
-            // play sound
             game.audioManager.playEffect('rocketlauncher');
         } else if (this.time > 8 && this.time < 16) {
             this.velocity.x *= 1.4;
@@ -191,7 +190,7 @@ function flameUpdate(game, delta) {
     if (this.time > FLAME_TIME) {
         return true;
     } else {
-        game.audioManager.setLoopVolume('flame', 1.0);
+        game.audioManager.setLoopVolume('flame', 1.0, false);
     }
 
     if (game.enemy) {
@@ -301,7 +300,7 @@ function fireMinesUpdate(game, delta) {
             }
         }
 
-        game.audioManager.setLoopVolume('flame', 1.0);
+        game.audioManager.setLoopVolume('flame', 1.0, false);
 
         return this.time >= FIRE_TIME;
     } else {

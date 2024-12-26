@@ -12,6 +12,7 @@ import { getDurationMiliseconds, getDurationSeconds, sayMessage, setMessage, set
 import SquareCircleCo from './scc/squarecircleco';
 
 import SmoothScrollHandler from './smoothscrollhandler';
+import { LocalStorageWrapper } from './localstoragewrapper';
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
@@ -125,7 +126,7 @@ const VHSEffectShader = {
         vec2 delta = uv - center;
         float dist = length(delta);
         float edgeFactor = smoothstep(0.4, 0.5, dist); // Reduce bulge near the edges
-        delta *= 1.0 + distortion * dist * dist * (1.0 - edgeFactor);
+        delta *= 1.0 + distortion * enabled * dist * dist * (1.0 - edgeFactor);
         return center + delta;
     }
 
@@ -494,7 +495,7 @@ t.onWordDetected((word) => {
     heliattack?.start();
 });
 
-let lastMessage = 0;
+
 
 let showWebcam = false;
 const o = new WordListener('o');
@@ -502,7 +503,12 @@ o.onWordDetected(async (word) => {
     showWebcam = !showWebcam;
 
     setVisible(document.getElementById('webcam'), showWebcam);
+});
 
+
+let lastMessage = 0;
+const l = new WordListener('l');
+l.onWordDetected(async (word) => {
     if (heliattack?.game?.lastTimelineEvent) {
         const thisMessage = ++lastMessage;
 
@@ -511,26 +517,35 @@ o.onWordDetected(async (word) => {
         } else {
             setMessage(heliattack.game.lastTimelineEvent.text);
         }
-        if (heliattack.game.lastTimelineEvent.func) {
-            const message = heliattack.game.lastTimelineEvent.func();
-            if (message) {
-                sayMessage(message);
-            }
-        }
-        heliattack.game.lastTimelineEvent = null;
         await timeout(getDurationMiliseconds(BPM) * 4);
         if (thisMessage === lastMessage) {
             setMessage('');
         }
     }
-});
+})
+
+function updateMusicIcon() {
+    document.getElementById('music-on')!.style.display = audioManager.musicVolume === 0.0 ? 'none' : 'block';
+    document.getElementById('music-off')!.style.display = audioManager.musicVolume !== 0.0 ? 'none' : 'block';
+}
+
+function updateEffectsIcon() {
+    document.getElementById('effects-on')!.style.display = audioManager.effectVolume === 0.0 ? 'none' : 'block';
+    document.getElementById('effects-off')!.style.display = audioManager.effectVolume !== 0.0 ? 'none' : 'block';
+}
 
 function toggleMusic() {
-    audioManager.musicVolume = (audioManager.musicVolume === 0.0 ? settings.musicVolume : 0.0);
+    settings.musicMuted = !settings.musicMuted;
 }
 
 function toggleEffects() {
-    audioManager.effectVolume = (audioManager.effectVolume === 0.0 ? settings.effectVolume : 0.0);
+    settings.effectMuted = !settings.effectMuted;
+}
+
+function togglePause() {
+    if (heliattack?.playing) {
+        setPlaying(!playing);
+    }
 }
 
 const m = new WordListener('m');
@@ -555,12 +570,14 @@ io.onWordDetected((word) => {
     if (!videoGestures) {
         videoGestures = new VideoGestures(window, document);
         videoGestures.setSize(window.innerWidth, window.innerHeight);
-    }
-    if (heliattack?.isLoaded()) {
-        heliattack.initVideoGestures(videoGestures);
+        
+        if (heliattack?.isLoaded()) {
+            heliattack.initVideoGestures(videoGestures);
+        }
+    
+        showCheat("input/output");
     }
 
-    showCheat("webcam");
 });
 
 const retro = new WordListener('retro');
@@ -665,6 +682,7 @@ window.addEventListener('keydown', (e) => {
         o.listen(key);
         m.listen(key);
         n.listen(key);
+        l.listen(key);
     }
     xylander.listen(history.join(''));
     pred.listen(history.join(''));
@@ -677,9 +695,7 @@ window.addEventListener('keydown', (e) => {
         }
     }
     if (e.key == 'Escape') {
-        if (heliattack?.playing) {
-            setPlaying(!playing);
-        }
+        togglePause();
     }
 });
 window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });
@@ -727,9 +743,24 @@ document.getElementById('effects-enable')?.addEventListener('click', event => {
     toggleEffects();
 });
 
+document.getElementById('pause-game')?.addEventListener('click', event => {
+    togglePause();
+});
+
+document.getElementById('pause-game')?.addEventListener('touch', event => {
+    togglePause();
+});
+
+document.getElementById('resume-game')?.addEventListener('click', event => {
+    togglePause();
+});
+
+document.getElementById('resume-game')?.addEventListener('touch', event => {
+    togglePause();
+});
+
 document.addEventListener("contextmenu", (event) => {
     event.preventDefault();
-    // mouse.down = true;
 });
 
 
@@ -744,12 +775,18 @@ const audioManager = new AudioManager();
 window.audioManager = audioManager;
 
 const settings = {
-    set over(value) {
+    set over(value:boolean) {
         setVisible(mainMenu, value);
         if (heliattack) {
             heliattack.playing = !value;
         }
-        document.getElementById('ui')?.removeAttribute('playing');
+        if (value) {
+            document.getElementById('ui')?.removeAttribute('playing'); 
+            document.getElementById('ui')?.removeAttribute('ingame');
+        } else {
+            document.getElementById('ui')?.setAttribute('playing', 'true');
+            document.getElementById('ui')?.setAttribute('ingame', 'true');
+        }
     },
     update() {
         if (videoGestures) {
@@ -758,31 +795,53 @@ const settings = {
         if (smoothScrollHandler) {
             smoothScrollHandler.update()
         }
-
-        if (heliattack) {
-            vhsPass.material.uniforms.time.value += (heliattack.game.timeScale + (heliattack.game.player.hyperJumping ? 0.2 : 0)) * 0.01;
-        }
     },
-    set musicVolume(value) {
+    set musicMuted(value:boolean) {
+        audioManager.musicVolume = value ? 0.0 : settings.musicVolume;
+        LocalStorageWrapper.setItem('musicMuted', value);
+        updateMusicIcon();
+    },
+    get musicMuted():boolean {
+        const muted = LocalStorageWrapper.getItem<boolean>('musicMuted');
+        return (muted !== null && muted !== undefined) ? muted : false;
+    },
+    set musicVolume(value:number) {
         audioManager.musicVolume = value;
-        // TODO(Store in localstorage)
+        LocalStorageWrapper.setItem('musicVolume', value);
+        updateMusicIcon();
     },
-    get musicVolume() {
-        return 0.8;
+    get musicVolume():number {
+        const volume = LocalStorageWrapper.getItem<number>('musicVolume');
+        return (volume !== null && volume !== undefined) ? volume : 0.8;
     },
-    set effectVolume(value) {
+    set effectMuted(value:boolean) {
+        audioManager.effectVolume = value ? 0.0 : settings.effectVolume;
+        LocalStorageWrapper.setItem('effectMuted', value);
+        updateEffectsIcon();
+    },
+    get effectMuted():boolean {
+        const muted = LocalStorageWrapper.getItem<boolean>('effectMuted');
+        return (muted !== null && muted !== undefined) ? muted : false;
+    },
+    set effectVolume(value:number) {
         audioManager.effectVolume = value;
-        // TODO(Store in localstorage)
+        LocalStorageWrapper.setItem('effectVolume', value);
+        updateEffectsIcon();
     },
-    get effectVolume() {
-        return 0.8;
+    get effectVolume():number {
+        const volume = LocalStorageWrapper.getItem<number>('effectVolume');
+        return (volume !== null && volume !== undefined) ? volume : 0.8;
     },
-    get bpm() {
+    get bpm():number {
         return 200;
     }
 }
 
-// settings.musicVolume = 0.0;
+audioManager.musicVolume = settings.musicMuted ? 0.0 : settings.musicVolume;
+audioManager.effectVolume = settings.effectMuted ? 0.0 : settings.effectVolume;
+
+updateMusicIcon();
+updateEffectsIcon();
 
 let initialized = false;
 
@@ -815,9 +874,15 @@ function ha(shape) {
 let squarecircleco: SquareCircleCo | null = null;
 async function scc() {
     setMessage("[kit]");
-    setMessage("naa.mba");
+    setMessage("");
+    
+    const naamba = document.getElementById('naamba')!;
+    naamba.removeAttribute('hidden');
     await timeout(getDurationMiliseconds(BPM) * 4);
-    await new SquareCircleCo(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, document.getElementById('gesture-canvas') as HTMLCanvasElement, (shape) => ha(shape));
+    naamba.setAttribute('hidden', '');
+    await new SquareCircleCo(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, document.getElementById('gesture-canvas') as HTMLCanvasElement, (shape) => {});
+    await timeout(getDurationMiliseconds(BPM) * 4);
+    ha(null);
 }
 
 function loaded() {
@@ -841,7 +906,7 @@ function createMainMenu() {
         heliattack?.start();
     });
 
-    startButton.addEventListener('touchstart', () => {
+    startButton.addEventListener('touch', () => {
         heliattack?.start();
     });
 

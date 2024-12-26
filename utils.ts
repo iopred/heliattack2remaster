@@ -1,4 +1,4 @@
-import { Box3, Color, NearestFilter, Plane, Raycaster, ShaderMaterial, SRGBColorSpace, Texture, Vector3 } from 'three';
+import { Box3, Color, NearestFilter, Object3D, PerspectiveCamera, Plane, Raycaster, ShaderMaterial, SRGBColorSpace, Texture, Vector3 } from 'three';
 
 const planeZ = new Plane(new Vector3(0, 0, 1), 0);
 const raycaster = new Raycaster();
@@ -392,6 +392,18 @@ function getDurationMiliseconds(bpm) {
     return getDurationSeconds(bpm) * 1000;
 }
 
+// Function to map 3D position to 2D screen position
+function get2DPosition(camera: PerspectiveCamera, vector: Vector3): { x: number, y: number } {
+    // Project the 3D position to 2D using the camera's projection matrix
+    vector.project(camera);
+    
+    // Convert NDC to pixel coordinates
+    const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+    const y = ( -vector.y * 0.5 + 0.5) * window.innerHeight;
+
+    return { x, y };
+}
+
 export {
     calculateAngleToMouse,
     checkBoxCollisionWithBoxes,
@@ -399,6 +411,7 @@ export {
     checkTileCollisions,
     createIframe,
     createTintShader,
+    get2DPosition,
     getDurationMiliseconds,
     getDurationSeconds,
     getScaleDelta,
@@ -427,6 +440,7 @@ export default {
     checkTileCollisions,
     createIframe,
     createTintShader,
+    get2DPosition,
     getDurationMiliseconds,
     getDurationSeconds,
     getScaleDelta,
