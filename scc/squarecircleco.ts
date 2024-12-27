@@ -1,31 +1,229 @@
 import AudioManager from '../audiomanager';
-import { Scene, Camera } from 'three';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { Camera, Clock, Color, DOMElement, MathUtils, Scene } from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import TouchVisualizer from './touchvisualizer';
-import { setMessage, timeout } from '../utils';
+import { timeout } from '../utils';
+import Tween from '../tween';
+
+import {DampedSpringMotionParams, calcDampedSpringMotionParams, updateDampedSpringMotion } from '../spring';
+
+const UPDATE_FREQUENCY = 1 / 60;
 
 class SquareCircleCo {
+    private clock:Clock;
+    private accumulator:number = 0.0;
+
     private touchVisualizer:TouchVisualizer;;
     private timeout:number;
+    private gltf:any;
+    private controls:OrbitControls;
 
-    constructor(private window: Window, private mouse: Object, private keyIsPressed: Object, private scene: Scene, private camera: Camera, private shaderPass: ShaderPass, private vhsPass: ShaderPass, private audioManager: AudioManager, private gestureCanvas: HTMLCanvasElement, private onComplete:Function) {
-        //this.touchVisualizer = new TouchVisualizer(window, window.document, gestureCanvas);
+    private audioPreload: Promise<void>;
+    private gltfPreload: Promise<any>;
 
-        this.timeout = setTimeout(() => this.onComplete(null), 2000);
-        // this.touchVisualizer.onShape((shape) => this.finish(shape));
+    private position:number = 5.0;
+    private velocity:number = 60.0;
+    private equilibrium:number = 10.0;
+    private params:DampedSpringMotionParams;
 
-        audioManager.preload([
+    private targetCameraPosition = { x: 0, y: 0, z: 0 };
+    private cameraVelocity = { x: 0, y: 0, z: 0 };
+
+    constructor(private window: Window, private domElement:DOMElement, private scene: Scene, private camera: Camera, private audioManager: AudioManager) {
+        this.audioPreload = audioManager.preload([
             { key: 'scc', url: './sounds/scc.mp3'},
-        ]).then(async () => {
-            audioManager.playEffect('scc');
-            setMessage('*');
-            await timeout(100);
-            setMessage('square', 'append');
-            await timeout(300);
-            setMessage('circle', 'append');
-            await timeout(400);
-            setMessage('co.', 'append');
+        ]);
+
+        this.clock = new Clock();
+
+        scene.background = new Color(0xffffff);
+        camera.position.z = 10;
+
+        const angularFrequency = 14.0;
+        const dampingRatio = 0.45;
+        this.params = calcDampedSpringMotionParams(UPDATE_FREQUENCY, angularFrequency, dampingRatio);
+        
+        //this.controls = new OrbitControls( camera, domElement );
+
+        const loader = new GLTFLoader();
+        this.gltfPreload = new Promise<any>((resolve, reject) => {
+            loader.load(
+                './scc/squarecircleco.glb',
+                (gltf) => {
+                    this.gltf = gltf;
+                    resolve(gltf);
+                },
+                (xhr) => {
+                    // console.log((xhr.loaded / xhr.total) * 100 + '% loaded'); // Progress feedback
+                },
+                (error) => {
+                    reject('An error occurred: ' + error);
+                }
+            );
         });
+    }
+
+    async begin() {
+        await Promise.all([this.audioPreload, this.gltfPreload]);
+
+        this.scene.add(this.gltf.scene);
+        for (const child of this.gltf.scene.children) {
+            child.visible = false;
+        }
+
+        const cameraPositions = [
+            {
+                position: {
+                    "x": -5.895971978789558,
+                    "y": 0.6067273532552642,
+                    "z": 3.410383853916852
+                },
+            },
+            {
+                position: {
+                    "x": -3.109639346099596,
+                    "y": 0.049793801292462664,
+                    "z": 3.8071172589585682
+                },
+            },
+            {
+                position: {
+                    "x": 1.4695206414011055,
+                    "y": 0.049793801292462664,
+                    "z": 3.8071172589585682
+                }
+            },
+            {
+                position: {
+                    "x": 4.549108823782917,
+                    "y": 0.049793801292462664,
+                    "z": 3.8071172589585682
+                }
+            },
+            {
+                position: {
+                    "x": 0,
+                    "y": 0,
+                    "z": 10,
+                }
+            }
+        ]
+        
+
+        this.camera.position.x = cameraPositions[0].position.x;
+        this.camera.position.y = cameraPositions[0].position.y;
+        this.camera.position.z = cameraPositions[0].position.z;
+        this.targetCameraPosition = cameraPositions[0].position;
+        
+        const cube = this.show('cube');
+        cube.material = cube.material.clone();
+        cube.material.transparent = true;
+        cube.material.depthWrite = false;
+        cube.material.depthTest = true;
+
+        cube.scale.set(0.00375, 0.00375, 0.00375);
+
+
+        const logo = this.get('logo');
+        logo.material = logo.material.clone();
+        logo.material.transparent = true;
+        logo.material.opacity = 0;
+        logo.material.depthWrite = false;
+        logo.material.depthTest = true;
+
+        logo.scale.y = 0.1;
+
+        const square = this.get('square');
+        square.material = square.material.clone();
+        square.material.transparent = true;
+        square.material.opacity = 0;
+
+        square.scale.y = 0.1;
+
+        const circle = this.get('circle');
+        circle.material = circle.material.clone();
+        circle.material.transparent = true;
+        circle.material.opacity = 0;
+
+        circle.scale.y = 0.1;
+
+        const co = this.get('co');
+        co.material = co.material.clone();
+        co.material.transparent = true;
+        co.material.opacity = 0;
+
+        co.scale.y = 0.1;
+
+        cube.position.copy(logo.position);
+        cube.position.x += 0.15
+
+        const rot = Math.PI * 2 + 45 * Math.PI / 180;
+
+        cube.rotation.y = 0;
+        // logo.rotation.z = rot;
+
+        
+        await new Tween(cube.rotation, { y: 0 + rot }, 750).animate();
+
+        logo.visible = true;
+        logo.material.opacity = 1;
+        // new Tween(logo.material, { opacity: 1 }, 500).animate();
+
+        await new Tween(cube.material, { opacity: 0 }, 250).animate();
+
+        this.audioManager.playEffect('scc');
+
+        await timeout(200)
+
+        // square
+        square.visible = true;
+        new Tween(square.material, { opacity: 1 }, 100).animate();
+        
+        this.targetCameraPosition = cameraPositions[1].position;
+
+        await timeout(300)
+
+        // circle
+        circle.visible = true;
+        new Tween(circle.material, { opacity: 1 }, 100).animate();
+        
+        this.targetCameraPosition = cameraPositions[2].position;
+
+        await timeout(300);
+        
+        // co
+        co.visible = true;
+        new Tween(co.material, { opacity: 1 }, 100).animate();
+        
+        this.targetCameraPosition = cameraPositions[3].position;
+
+        await timeout(300);
+        
+        new Tween(this.camera.position, { x: 0, y: 0 }, 250).animate();
+
+        this.targetCameraPosition = cameraPositions[4].position;
+    }
+
+    get(shape) {
+        if (!this.gltf) {
+            return null;
+        }
+
+        for (const child of this.gltf.scene.children) {
+            if (child.name === shape) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    show(shape) {
+        const s = this.get(shape)
+        if (s) {
+            s.visible = true;
+        }
+        return s;
     }
 
     finish(shape) {
@@ -33,8 +231,49 @@ class SquareCircleCo {
         this.onComplete(shape);
     }
 
+    render() {
+        const delta = this.clock.getDelta();
+
+        this.accumulator += delta;
+
+        if (this.accumulator > UPDATE_FREQUENCY) {
+            const x = updateDampedSpringMotion(this.camera.position.x, this.cameraVelocity.x, this.targetCameraPosition.x, this.params);
+            this.camera.position.x = x.pos;
+            this.cameraVelocity.x = x.vel;
+
+            const y = updateDampedSpringMotion(this.camera.position.y, this.cameraVelocity.y, this.targetCameraPosition.y, this.params);
+            this.camera.position.y = y.pos;
+            this.cameraVelocity.y = y.vel;
+
+            const z = updateDampedSpringMotion(this.camera.position.z, this.cameraVelocity.z, this.targetCameraPosition.z, this.params);
+            this.camera.position.z = z.pos;
+            this.cameraVelocity.z = z.vel;
+
+            // this.camera.rotation.y = (this.camera.position.z - 10) / 100;
+            this.camera.lookAt(this.targetCameraPosition.x, this.targetCameraPosition.y, 0);
+
+            this.accumulator %= UPDATE_FREQUENCY;
+        };
+    }
+
+    update() {
+        const cube = this.show('cube');
+        const logo = this.show('logo');
+        if (!cube || !logo) {
+            return;
+        }
+
+        cube.rotation.y += 0.05;
+        cube.position.x += (logo.position.x - cube.position.x)/2;
+        cube.position.y += (logo.position.y - cube.position.y)/2;
+        cube.position.z += (logo.position.z - cube.position.z)/2;
+    }
+
     destroy() {
-        // this.touchVisualizer.destroy();
+        this.controls?.dispose();
+        if (this.gltf) {
+            this.scene.remove(this.gltf.scene);
+        }
     }
 }
 

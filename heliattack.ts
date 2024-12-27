@@ -175,11 +175,12 @@ class HeliAttack {
     isLoaded() {
         const ready = this.ready()
         if (ready) {
-            if (!this.initialized) {
-                this.game.init(this.textures, this.weapons);
-            }
             if (this.loadedFunc) {
                 this.loadedFunc();
+            }
+            if (!this.initialized) {
+                this.initialized = true;
+                this.game.init(this.textures, this.weapons);
             }
         }
         return ready;

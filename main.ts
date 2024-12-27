@@ -10,15 +10,12 @@ import HeliAttack from './heliattack';
 import TouchInputHandler from './touchinputhandler';
 import { getDurationMiliseconds, getDurationSeconds, sayMessage, setMessage, setVisible, timeout } from './utils';
 import SquareCircleCo from './scc/squarecircleco';
-
+import Naamba from './naamba'
 import SmoothScrollHandler from './smoothscrollhandler';
 import { LocalStorageWrapper } from './localstoragewrapper';
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-
-camera.position.set(0, 0, 300);
-camera.lookAt(0, 0, 0);
 
 ColorManagement.enabled = true;
 
@@ -262,10 +259,42 @@ function createBlueLine(x, y, object) {
     const line = new Line(geometry2, material2);
     object.add(line);
 }
+
+function resetScene(scene) {
+    // Loop through all child objects in the scene
+    while (scene.children.length > 0) {
+        const object = scene.children[0];
+
+        // If the object has a geometry, dispose of it
+        if (object.geometry) object.geometry.dispose();
+
+        // If the object has a material, dispose of it
+        if (object.material) {
+            if (Array.isArray(object.material)) {
+                object.material.forEach(mat => mat.dispose());
+            } else {
+                object.material.dispose();
+            }
+        }
+
+        // Remove the object from the scene
+        scene.remove(object);
+    }
+
+    // Clear the background (if any)
+    scene.background = null;
+
+    // Optional: Clear environment map
+    scene.environment = null;
+}
+
+
 let heliattack: HeliAttack;
 function render() {
+    naamba?.render();
+    squarecircleco?.render();
     heliattack?.render();
-
+    
     // renderer.render(scene, camera);
     composer.render();
 }
@@ -860,32 +889,37 @@ async function init() {
     await scc();
 }
 
-function ha(shape) {
-    // console.error(shape);
-    squarecircleco?.destroy();
-    squarecircleco = null;
-
+function ha() {
     setMessage('Loading...');
 
     createMainMenu();
     createHeliAttack();
 }
 
+let naamba: Naamba | null = null;
 let squarecircleco: SquareCircleCo | null = null;
 async function scc() {
-    setMessage("[kit]");
-    setMessage("");
-    
-    const naamba = document.getElementById('naamba')!;
-    naamba.removeAttribute('hidden');
-    await timeout(getDurationMiliseconds(BPM) * 4);
-    naamba.setAttribute('hidden', '');
-    await new SquareCircleCo(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, document.getElementById('gesture-canvas') as HTMLCanvasElement, (shape) => {});
-    await timeout(getDurationMiliseconds(BPM) * 4);
-    ha(null);
+    setMessage('');
+
+    naamba = new Naamba(window, renderer.domElement, scene, camera);
+    await timeout(getDurationMiliseconds(BPM) * 6);
+    naamba.destroy();
+    naamba = null;
+    resetScene(scene);
+
+    squarecircleco = new SquareCircleCo(window, renderer.domElement, scene, camera, audioManager, document.getElementById('gesture-canvas') as HTMLCanvasElement, (shape) => {});
+    await squarecircleco.begin();
+
+    await timeout(getDurationMiliseconds(BPM) * 2);
+
+    ha();
 }
 
 function loaded() {
+    squarecircleco?.destroy();
+    squarecircleco = null;
+    resetScene(scene);
+
     setMessage('');
 
     setVisible(mainMenu, true);

@@ -1444,6 +1444,9 @@ Nothing left at all
 
         const tileSize = this.tileSize = 50;
 
+        this.camera.position.set(0, 0, 300);
+        this.camera.lookAt(0, 0, 0);
+
         const world = this.world = new Group();
         this.scene.add(world);
 
@@ -1525,6 +1528,10 @@ Nothing left at all
     }
 
     resizeBackground() {
+        if (!this.textures) {
+            return;
+        }
+
         const targetAspect = this.window.innerWidth / this.window.innerHeight;
         const imageAspect = this.bgTexture.image.width / this.bgTexture.image.height;
         const factor = imageAspect / targetAspect;
