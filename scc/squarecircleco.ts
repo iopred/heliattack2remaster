@@ -200,8 +200,6 @@ class SquareCircleCo {
 
         await timeout(300);
         
-        new Tween(this.camera.position, { x: 0, y: 0 }, 250).animate();
-
         this.targetCameraPosition = cameraPositions[4].position;
     }
 
