@@ -365,12 +365,12 @@ function getScaleDelta(totalFrames, currentFrame, minScale = 1, maxScale = 2) {
 
 let speakErrors = false;
 function setMessage(text, mode: 'replace' | 'append'='replace') {
-    const message = document.getElementById('message');
+    const message = document.getElementById('message')!;
     setVisible(message, text);
     if (mode === 'replace') {
-        message!.innerHTML = sayMessage(text);
+        message.innerHTML = sayMessage(text);
     } else if (mode === 'append') {
-        message!.innerHTML += sayMessage(text);
+        message.innerHTML += sayMessage(text);
     }
 }
 
@@ -404,6 +404,18 @@ function get2DPosition(camera: PerspectiveCamera, vector: Vector3): { x: number,
     return { x, y };
 }
 
+function waitForImageLoad(element: HTMLImageElement): Promise<void> {
+    return new Promise((resolve, reject) => {
+        if (element.complete) {
+            resolve();
+            return;
+        }
+
+        element.addEventListener('load', () => resolve(), { once: true });
+        element.addEventListener('error', () => reject(new Error('Failed to load element')), { once: true });
+    });
+}
+
 export {
     calculateAngleToMouse,
     checkBoxCollisionWithBoxes,
@@ -431,6 +443,7 @@ export {
     timeout,
     visibleHeightAtZDepth,
     visibleWidthAtZDepth,
+    waitForImageLoad,
 };
 
 export default {
@@ -460,4 +473,5 @@ export default {
     timeout,
     visibleHeightAtZDepth,
     visibleWidthAtZDepth,
+    waitForImageLoad,
 };

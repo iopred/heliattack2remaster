@@ -169,20 +169,22 @@ class Enemy {
         }
     }
 
-    destroy(game) {
+    destroy(game, showExplosion: boolean = true) {
         game.world.remove(this.group);
 
-        new DestroyedHeli(game, this);
-        new DestroyedEnemy(game, this, false);
+        if (showExplosion) {
+            new DestroyedHeli(game, this);
+            new DestroyedEnemy(game, this, false);
 
-        for (var i = 0; i < 3; i++) {
-            const p = this.position.clone()
-            p.x += -40 + Math.random() * 80;
-            p.y += -20 + Math.random() * 40;
-            new Shard(game, p);
+            for (var i = 0; i < 3; i++) {
+                const p = this.position.clone()
+                p.x += -40 + Math.random() * 80;
+                p.y += -20 + Math.random() * 40;
+                new Shard(game, p);
+            }
+
+            new Explosion(game, this.position.clone(), 150);
         }
-
-        new Explosion(game, this.position.clone(), 150);
     }
 
     randomizePosition(game) {
@@ -1018,14 +1020,16 @@ class Player {
         game.shaderPass.uniforms.invertEnabled.value = 0.0;
     }
 
-    destroy(game) {
+    destroy(game, showExplosion = true) {
         game.timeScale = 0.2;
         game.audioManager.timeScale = game.timeScale;
         game.shaderPass.uniforms.tintEnabled.value = 1.0;
         this.dead = true;
         game.world.remove(this.group);
-        new DestroyedEnemy(game, this, true);
-        new Explosion(game, this.position.clone(), 500);
+        if (showExplosion) {
+            new DestroyedEnemy(game, this, true);
+            new Explosion(game, this.position.clone(), 500);
+        }
     }
 }
 
@@ -1118,7 +1122,8 @@ class Game {
     public visibleHeight: number;
     public mapBox: Box3;
 
-    public clock: Clock;
+    public clock: Clock = new Clock();
+        
     public accumulator: number;
     public playerBullets: any[];
     public enemyBullets: any[];
@@ -1129,10 +1134,33 @@ class Game {
 
     constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: { [key: string]: boolean }, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
         this.bpm = 200;
+
+        this.paused = false;
+
+        this.enemy = null;
+        this.level = 0;
+        this.score = 0;
+        this.helisDestroyed = 0;
+        this.nextHealth = 15;
+        this.nextLevel = 10;
+
+        this.gestureHands = [];
+        this.gestureHandsShowing = 0;
+
+        // TODO(Support map changes).
+        this.map = map1;
+
+        this.lastWeapon_ = 0;
+
+        // Stats
+        this.shotsFired = 0;
+        this.spidersAttacked = false;
+
         if (windowOrGame instanceof Game) {
-            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'textures', 'audioManager', 'weapons', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack', 'bpm']) {
+            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'audioManager', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack', 'bpm']) {
                 this[key] = windowOrGame[key];
             }
+            this.init(windowOrGame.textures, windowOrGame.weapons);    
         } else {
             this.window = window;
             this.mouse = mouse;
@@ -1146,6 +1174,10 @@ class Game {
             this.weapons = weapons;
             this.overSetter = overSetter;
             this.updateFunction = updateFunction;
+            this.musicTrack = 'music';
+        }
+
+        if (!this.timeline) {
             this.timeline = new Timeline(this.audioManager, this.bpm, /* timeSignature */ 4 / 4, /** lyrics */`[🌝]
 
 
@@ -1403,49 +1435,24 @@ Nothing left at all
 
 [🔫No remnants of rebellion]No remnants of rebellion
 `);
-
-            this.musicTrack = 'music';
         }
-
-        this.paused = false;
-
-        this.enemy = null;
-        this.level = 0;
-        this.score = 0;
-        this.helisDestroyed = 0;
-        this.nextHealth = 15;
-        this.nextLevel = 10;
-
-        this.gestureHands = [];
-        this.gestureHandsShowing = 0;
-
-        // TODO(Support map changes).
-        this.map = map1;
-
-        if (this.textures) {
-            this.init(this.textures, this.weapons);
-        }
-
-        this.lastWeapon_ = 0;
-
-        // Stats
-        this.shotsFired = 0;
-        this.spidersAttacked = false;
 
         this.timeline.listener = (time: number, text: string, timelineEvent) => this.displayLyric(time, text, timelineEvent);
     }
 
     init(textures, weapons) {
+        if (this.textures) {
+            return;
+        }
+        
         this.textures = textures;
+        this.weapons = weapons;
 
         const tilesheet = this.tilesheet = textures['./images/tilesheet.png'];
         const bgTexture = this.bgTexture = textures['./images/bg.png'];
         const bulletTexture = this.bulletTexture = textures['./images/bullet.png'];
 
         const tileSize = this.tileSize = 50;
-
-        this.camera.position.set(0, 0, 300);
-        this.camera.lookAt(0, 0, 0);
 
         const world = this.world = new Group();
         this.scene.add(world);
@@ -1503,7 +1510,6 @@ Nothing left at all
     }
 
     restart() {
-        const clock = this.clock = new Clock();
         let accumulator = this.accumulator = 0;
 
         let timeScale = this.timeScale = 1;
@@ -1511,6 +1517,9 @@ Nothing left at all
         const playerBullets = this.playerBullets = [];
         const enemyBullets = this.enemyBullets = [];
         this.entities = [];
+
+        this.camera.position.set(0, 0, 300);
+        this.camera.lookAt(0, 0, 0);
 
         this.player = new Player(this.weapons);
         this.player.init(this);
@@ -1743,31 +1752,32 @@ Nothing left at all
         updateUI(this);
     }
 
-    update() {
+    update(): boolean {
         if (this.paused) {
-            return;
-        }
-
-        if (!this.clock) {
-            return;
+            return false;
         }
 
         const delta = this.clock.getDelta();
 
         this.accumulator += delta;
 
-        this.updateKeys();
-
         if (this.accumulator > UPDATE_FREQUENCY) {
+            this.updateKeys();
+
             this.timeStep(UPDATE_FREQUENCY);
+
+            this.timeline.update();
+
+            this.vhsPass.material.uniforms.time.value += (this.timeScale + (this.player?.hyperJumping ? 0.2 : 0)) * 0.01;
+    
+            this.updateFunction();
+
             this.accumulator %= UPDATE_FREQUENCY;
+
+            return true;
         };
 
-        this.timeline.update();
-
-        this.vhsPass.material.uniforms.time.value += (this.timeScale + (this.player?.hyperJumping ? 0.2 : 0)) * 0.01;
-
-        this.updateFunction();
+        return false;
     }
 
     newHeli() {
@@ -1882,8 +1892,8 @@ Nothing left at all
     }
 
     destroy() {
-        this.enemy?.destroy(this);
-        this.player?.destroy(this);
+        this.enemy?.destroy(this, false);
+        this.player?.destroy(this, false);
         this.scene.remove(this.world);
         this.shaderPass.uniforms.invertEnabled.value = 0.0;
         this.shaderPass.uniforms.tintEnabled.value = 0.0;

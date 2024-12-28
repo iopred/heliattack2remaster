@@ -1,6 +1,6 @@
 import { Camera, Clock, DOMElement, Scene } from 'three';
 import {DampedSpringMotionParams, calcDampedSpringMotionParams, updateDampedSpringMotion } from './spring';
-import { sayMessage } from './utils';
+import { sayMessage, setVisible, waitForImageLoad } from './utils';
 
 const UPDATE_FREQUENCY = 1 / 60;
 
@@ -13,13 +13,15 @@ export default class Naamba {
     private equilibrium:number = 0.0;
     private params:DampedSpringMotionParams;
 
+    private started:boolean = false;
+
     constructor(private window: Window, private domElement:DOMElement, private scene: Scene, private camera: Camera) { 
         sayMessage('[kit]');
 
         this.clock = new Clock();
 
         const naamba = document.getElementById('naamba')!;
-        naamba.removeAttribute('hidden');
+        setVisible(naamba, true);
 
         const naambaImage = naamba.getElementsByTagName('img')[0];
 
@@ -29,7 +31,22 @@ export default class Naamba {
         this.params = calcDampedSpringMotionParams(UPDATE_FREQUENCY, angularFrequency, dampingRatio);
     }
 
-    render() {
+    preload():Promise<any> {
+        const naamba = document.getElementById('naamba')!;
+        const naambaImage = naamba.getElementsByTagName('img')[0];
+        return waitForImageLoad(naambaImage)
+    }
+
+    async begin() {
+        await this.preload();
+        this.started = true;
+    }
+
+    render(): boolean {
+        if (!this.started) {
+            return false;
+        }
+        
         const delta = this.clock.getDelta();
 
         this.accumulator += delta;
@@ -45,11 +62,14 @@ export default class Naamba {
             naambaImage.style.transform = `rotate(${this.position}deg)`;
 
             this.accumulator %= UPDATE_FREQUENCY;
+
+            return true;
         };
+
+        return false;
     }
 
     destroy() {
-        const naamba = document.getElementById('naamba')!;
-        naamba.setAttribute('hidden', '');
+        setVisible(document.getElementById('naamba')!, false);
     }
 }

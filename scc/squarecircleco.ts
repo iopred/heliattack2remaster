@@ -19,7 +19,7 @@ class SquareCircleCo {
     private gltf:any;
     private controls:OrbitControls;
 
-    private audioPreload: Promise<void>;
+    private audioPreload: Promise<any>;
     private gltfPreload: Promise<any>;
 
     private position:number = 5.0;
@@ -30,42 +30,52 @@ class SquareCircleCo {
     private targetCameraPosition = { x: 0, y: 0, z: 0 };
     private cameraVelocity = { x: 0, y: 0, z: 0 };
 
+    private started:boolean = false;
+
     constructor(private window: Window, private domElement:DOMElement, private scene: Scene, private camera: Camera, private audioManager: AudioManager) {
-        this.audioPreload = audioManager.preload([
-            { key: 'scc', url: './sounds/scc.mp3'},
-        ]);
-
         this.clock = new Clock();
-
-        scene.background = new Color(0xffffff);
-        camera.position.z = 10;
 
         const angularFrequency = 14.0;
         const dampingRatio = 0.45;
         this.params = calcDampedSpringMotionParams(UPDATE_FREQUENCY, angularFrequency, dampingRatio);
         
         //this.controls = new OrbitControls( camera, domElement );
+    }
 
-        const loader = new GLTFLoader();
-        this.gltfPreload = new Promise<any>((resolve, reject) => {
-            loader.load(
-                './scc/squarecircleco.glb',
-                (gltf) => {
-                    this.gltf = gltf;
-                    resolve(gltf);
-                },
-                (xhr) => {
-                    // console.log((xhr.loaded / xhr.total) * 100 + '% loaded'); // Progress feedback
-                },
-                (error) => {
-                    reject('An error occurred: ' + error);
-                }
-            );
-        });
+    async preload():Promise<any> {
+        if (!this.audioPreload) {
+            this.audioPreload = this.audioManager.preload([
+                { key: 'scc', url: './sounds/scc.mp3'},
+            ]);
+        }
+
+        if (!this.gltfPreload) {
+            const loader = new GLTFLoader();
+            this.gltfPreload = new Promise<any>((resolve, reject) => {
+                loader.load(
+                    './scc/squarecircleco.glb',
+                    (gltf) => {
+                        this.gltf = gltf;
+                        resolve(gltf);
+                    },
+                    (xhr) => {
+                        // console.log((xhr.loaded / xhr.total) * 100 + '% loaded'); // Progress feedback
+                    },
+                    (error) => {
+                        reject('An error occurred: ' + error);
+                    }
+                );
+            });
+        }
+
+        return Promise.all([this.audioPreload, this.gltfPreload]);
     }
 
     async begin() {
-        await Promise.all([this.audioPreload, this.gltfPreload]);
+        await this.preload();
+
+        this.scene.background = new Color(0xffffff);
+        this.camera.position.z = 10;
 
         this.scene.add(this.gltf.scene);
         for (const child of this.gltf.scene.children) {
@@ -161,7 +171,8 @@ class SquareCircleCo {
         const rot = Math.PI * 2 + 45 * Math.PI / 180;
 
         cube.rotation.y = 0;
-        // logo.rotation.z = rot;
+        
+        this.started = true;
 
         
         await new Tween(cube.rotation, { y: 0 + rot }, 750).animate();
@@ -224,12 +235,11 @@ class SquareCircleCo {
         return s;
     }
 
-    finish(shape) {
-        clearTimeout(this.timeout);
-        this.onComplete(shape);
-    }
+    render(): boolean {
+        if (!this.started) {
+            return false;
+        }
 
-    render() {
         const delta = this.clock.getDelta();
 
         this.accumulator += delta;
@@ -251,7 +261,11 @@ class SquareCircleCo {
             this.camera.lookAt(this.targetCameraPosition.x, this.targetCameraPosition.y, 0);
 
             this.accumulator %= UPDATE_FREQUENCY;
-        };
+
+            return true;
+        }
+
+        return false;
     }
 
     update() {

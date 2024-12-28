@@ -1,4 +1,4 @@
-import { BufferGeometry, Color, ColorManagement, DirectionalLight, Line, LineBasicMaterial, PerspectiveCamera, Scene, ShaderMaterial, SRGBColorSpace, UniformsUtils, Vector3, WebGLRenderer } from 'three';
+import { BufferGeometry, Color, ColorManagement, DirectionalLight, Line, LineBasicMaterial, PCFSoftShadowMap, PerspectiveCamera, Scene, ShaderMaterial, SRGBColorSpace, UniformsUtils, Vector3, WebGLRenderer } from 'three';
 import WebGL from 'three/addons/capabilities/WebGL.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -19,11 +19,14 @@ const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight,
 
 ColorManagement.enabled = true;
 
-const renderer = new WebGLRenderer();
+const renderer = new WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.gammaOutput = true;
 renderer.gammaFactor = 2.2;
 renderer.outputColorSpace = SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = PCFSoftShadowMap;
+
 
 // Set up EffectComposer
 const composer = new EffectComposer(renderer);
@@ -291,12 +294,15 @@ function resetScene(scene) {
 
 let heliattack: HeliAttack;
 function render() {
-    naamba?.render();
-    squarecircleco?.render();
-    heliattack?.render();
+    let rendered = false;
     
-    // renderer.render(scene, camera);
-    composer.render();
+    rendered = rendered || (naamba?.render() || false);
+    rendered = rendered || (squarecircleco?.render() || false);
+    rendered = rendered || (heliattack?.render() || false);
+
+    if (rendered) {
+        composer.render();
+    }
 }
 
 function onWindowResize() {
@@ -324,9 +330,6 @@ const mouse = {
     down_: false,
     set down(value) {
         this.down_ = value;
-        if (value) {
-            debug('mouse is down.');
-        }
     },
     get down() {
         return this.down_;
@@ -379,7 +382,7 @@ function onMouseUp(event) {
         mouse.down = false;
         wasShooting = false;
     } else if (event.button === 1) {
-        mouse.wheel = 1;
+        
     } else if (event.button === 2) {
         heliattack?.lastWeapon();
         mouse.down = wasShooting;
@@ -399,6 +402,8 @@ function onMouseClick(event) {
 let lastWheelMove = 0;
 let lastWheelTime = 0
 function onMouseWheel(event) {
+    event.preventDefault();
+
     if (!heliattack?.playing) {
         return;
     }
@@ -699,8 +704,9 @@ let inGame = false;
 if (TOUCH_CONTROLS) {
     window.addEventListener("wheel", e => e.preventDefault(), { passive: false })
 } else {
-    window.addEventListener('wheel', onMouseWheel, false);
+    window.addEventListener('wheel', onMouseWheel, { passive: false });
 }
+
 window.addEventListener('keydown', (e) => {
     keyIsPressed[e.key] = true;
     history.push(e.key);
@@ -805,7 +811,8 @@ window.audioManager = audioManager;
 
 const settings = {
     set over(value:boolean) {
-        setVisible(mainMenu, value);
+        setVisible(gameOverMenu, value);
+        setVisible(mainMenu, false);
         if (heliattack) {
             heliattack.playing = !value;
         }
@@ -816,6 +823,7 @@ const settings = {
             document.getElementById('ui')?.setAttribute('playing', 'true');
             document.getElementById('ui')?.setAttribute('ingame', 'true');
         }
+
     },
     update() {
         if (videoGestures) {
@@ -875,6 +883,9 @@ updateEffectsIcon();
 let initialized = false;
 
 const mainMenu = document.getElementById('main-menu');
+const gameOverMenu = document.getElementById('game-over-menu');
+
+const SKIP_INTRO = false;
 
 async function init() {
     if (initialized) {
@@ -886,55 +897,55 @@ async function init() {
 
     setMessage('Loading...');
 
-    await scc();
-}
-
-function ha() {
-    setMessage('Loading...');
-
-    createMainMenu();
-    createHeliAttack();
-}
-
-let naamba: Naamba | null = null;
-let squarecircleco: SquareCircleCo | null = null;
-async function scc() {
-    setMessage('');
-
-    naamba = new Naamba(window, renderer.domElement, scene, camera);
-    await timeout(getDurationMiliseconds(BPM) * 6);
-    naamba.destroy();
-    naamba = null;
-    resetScene(scene);
-
-    squarecircleco = new SquareCircleCo(window, renderer.domElement, scene, camera, audioManager, document.getElementById('gesture-canvas') as HTMLCanvasElement, (shape) => {});
-    await squarecircleco.begin();
-
-    await timeout(getDurationMiliseconds(BPM) * 2);
-
-    ha();
-}
-
-function loaded() {
-    squarecircleco?.destroy();
-    squarecircleco = null;
-    resetScene(scene);
-
-    setMessage('');
-
+    if (!SKIP_INTRO) {
+        await createNaamba();
+        await createSquareCircleCo();
+    }
+    await createHeliAttack();
+    await createMainMenu();
+    await createGameOverMenu();
+    
+    heliattack.showMainMenu();
     setVisible(mainMenu, true);
 }
 
-function started() {
+function setMessageColor(color) {
+    document.getElementById('message')!.style.color = 'white';
+}
+
+let naamba: Naamba | null = null;
+
+async function createNaamba() {
+    setMessage('Loading...');
+
+    naamba = new Naamba(window, renderer.domElement, scene, camera);
+    await naamba.preload();
+    
     setMessage('');
+    await naamba.begin();
+    await timeout(getDurationMiliseconds(BPM) * 6);
+}
 
-    setVisible(mainMenu, false);
+let squarecircleco: SquareCircleCo | null = null;
+async function createSquareCircleCo() {
+    setMessage('Loading...');
 
-    setPlaying(true);
+    squarecircleco = new SquareCircleCo(window, renderer.domElement, scene, camera, audioManager);
+    await squarecircleco.preload();
+
+    setMessageColor('black');
+    setMessage('');
+    naamba?.destroy();
+    naamba = null;
+    resetScene(scene);
+
+    await squarecircleco.begin();
+
+    await timeout(getDurationMiliseconds(BPM) * 2);
 }
 
 function createMainMenu() {
-    const startButton = document.getElementById('start-game')!;
+    const startButton = document.getElementById('start-game-button')!;
 
     startButton.addEventListener('click', () => {
         heliattack?.start();
@@ -943,20 +954,62 @@ function createMainMenu() {
     startButton.addEventListener('touch', () => {
         heliattack?.start();
     });
-
-    if (playing) {
-        heliattack?.start();
-    }
 }
 
-function createHeliAttack() {
+function createGameOverMenu() {
+    const restartButton = document.getElementById('restart-game-button')!;
+
+    restartButton.addEventListener('click', () => {
+        heliattack?.start();
+    });
+
+    restartButton.addEventListener('touch', () => {
+        heliattack?.start();
+    });
+
+    const mainMenuButton = document.getElementById('main-menu-button')!;
+
+    mainMenuButton.addEventListener('click', () => {
+        resetMainMenu();
+    });
+
+    mainMenuButton.addEventListener('touch', () => {
+        resetMainMenu();
+    });
+}
+
+function resetMainMenu() {
+    setVisible(gameOverMenu, false);
+    setVisible(mainMenu, true);
+
+    shaderPass.uniforms.invertEnabled.value = 0.0;
+    shaderPass.uniforms.tintEnabled.value = 0.0;
+    heliattack?.destroy();
+    heliattack?.showMainMenu();
+
+    audioManager.timeScale = 1.0;
+}
+
+async function createHeliAttack() {
+    setMessage('Loading...');
+
     heliattack?.destroy();
 
     heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, settings);
-    heliattack.init(loaded, started);
+    await heliattack.preload();
+    
+    setMessageColor('white');
+    setMessage('');
+    squarecircleco?.destroy();
+    squarecircleco = null;
+    resetScene(scene);
+
+    heliattack.init();
     if (videoGestures) {
         heliattack.initVideoGestures(videoGestures);
     }
+
+    
 }
 
 setMessage('Tap to continue');
