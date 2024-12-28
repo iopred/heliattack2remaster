@@ -15,6 +15,7 @@
 				font-family: "SF Pixelate", sans-serif;
 				font-optical-sizing: auto;
 				font-size: 19px;
+				background: black;
 				color: white;
 
 				overflow: hidden;
@@ -34,7 +35,8 @@
 				left: 10px;
 			}
 
-			#main-menu {
+			#main-menu,
+			#game-over-menu {
 				position: absolute;
 				display: flex;
 				align-items: center;
@@ -45,9 +47,30 @@
 			}
 
 			#main-menu[hidden],
-			#ui[playing] #main-menu {
+			#game-over-menu[hidden],
+			#ui[playing] #main-menu,
+			#ui[playing] #game-over-menu {
 				display: none;
 			}
+
+			#main-menu button,
+			#game-over-menu button {
+				
+			}
+
+			.menu-background {
+				margin-top: 100px;
+				background-color: rgba(0, 0, 0, 0.5);
+				padding: 25px;
+
+				display: flex;
+				align-items: center;
+				flex-direction: column;
+				justify-content: center;
+
+				gap: 20px;
+			}
+
 
 			#webcam {
 				position: fixed;
@@ -353,40 +376,6 @@
 				max-height: 100%;
 			}
 
-			@keyframes spring-rotate {
-				0% {
-					transform: rotate(0deg);
-				}
-				30% {
-					transform: rotate(15deg);
-				}
-				50% {
-					transform: rotate(-10deg);
-				}
-				70% {
-					transform: rotate(5deg);
-				}
-				100% {
-					transform: rotate(0deg);
-				}
-			}
-
-			@keyframes jiggle {
-				0% { transform: scale(1%); }
-				25% {
-					transform: scale(100%) rotate(1deg);
-					opacity: 1;
-				}
-				50% { transform: rotate(-1deg); }
-				75% {
-					transform: rotate(1deg);
-					opacity: 1;
-				}
-				100% {
-					transform: rotate(-1deg);
-				}
-			}
-
 			#scc {
 				position: fixed;
 				width: 100%;
@@ -394,9 +383,9 @@
 				background: white;
 			}
 		</style>
-		<script type="module" crossorigin src="/game/assets/index-DSFyz13m.js"></script>
+		<script type="module" crossorigin src="/game/assets/index-C7dYic8K.js"></script>
 	</head>
-	<body>
+	<body>
 		<video id="webcam" autoplay muted></video>
 		<div id="naamba" hidden>
 			<img src="/game/assets/naamba-8kxX-8WO.png" alt="naa.mba">
@@ -438,7 +427,15 @@
 			</div>
 			<div id="message">Loading...</div>
 			<div id="main-menu" hidden>
-				<button id="start-game">Start Game</button>
+				<div class="menu-background">
+					<button id="start-game-button">Start Game</button>
+				</div>
+			</div>
+			<div id="game-over-menu" hidden>
+				<div class="menu-background">
+					<button id="restart-game-button">Restart Game</button>
+					<button id="main-menu-button">Main Menu</button>
+				</div>
 			</div>
 			<div id="playing-menu">
 				<button id="pause-game">
