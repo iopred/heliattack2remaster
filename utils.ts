@@ -375,7 +375,11 @@ function setMessage(text, mode: 'replace' | 'append'='replace') {
 }
 
 function setVisible(element, visible) {
-    element.hidden = !visible;
+    if (visible) {
+        element.removeAttribute('hidden');
+    } else {
+        element.setAttribute('hidden', '');
+    }
 }
 
 function timeout(ms:number) {

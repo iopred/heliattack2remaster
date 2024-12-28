@@ -11,4 +11,5 @@ mkdir dist/scc
 cp scc/squarecircleco.glb dist/scc/
 
 cd dist
+find . -name "*:Zone.Identifier" -type f -delete
 zip -r dist.zip *

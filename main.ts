@@ -510,6 +510,9 @@ function getAvatar() {
 
 const k = new WordListener('k');
 k.onWordDetected((word) => {
+    if (heliattack?.playing) {
+        setPlaying(true);
+    }
     heliattack?.suicide();
 });
 
@@ -559,13 +562,13 @@ l.onWordDetected(async (word) => {
 })
 
 function updateMusicIcon() {
-    document.getElementById('music-on')!.style.display = audioManager.musicVolume === 0.0 ? 'none' : 'block';
-    document.getElementById('music-off')!.style.display = audioManager.musicVolume !== 0.0 ? 'none' : 'block';
+    setVisible(document.getElementById('music-on')!, audioManager.musicVolume !== 0.0);
+    setVisible(document.getElementById('music-off')!, audioManager.musicVolume === 0.0);
 }
 
 function updateEffectsIcon() {
-    document.getElementById('effects-on')!.style.display = audioManager.effectVolume === 0.0 ? 'none' : 'block';
-    document.getElementById('effects-off')!.style.display = audioManager.effectVolume !== 0.0 ? 'none' : 'block';
+    setVisible(document.getElementById('effects-on')!, audioManager.effectVolume !== 0.0);
+    setVisible(document.getElementById('effects-off')!, audioManager.effectVolume === 0.0);
 }
 
 function toggleMusic() {
@@ -694,7 +697,7 @@ function setPlaying(value) {
             heliattack.play();
         }
         audioManager.play();
-        document.getElementById('ui')?.setAttribute('playing', 'true');
+        document.getElementById('ui')?.setAttribute('playing', '');
     }
 }
 
@@ -820,8 +823,8 @@ const settings = {
             document.getElementById('ui')?.removeAttribute('playing'); 
             document.getElementById('ui')?.removeAttribute('ingame');
         } else {
-            document.getElementById('ui')?.setAttribute('playing', 'true');
-            document.getElementById('ui')?.setAttribute('ingame', 'true');
+            document.getElementById('ui')?.setAttribute('playing', '');
+            document.getElementById('ui')?.setAttribute('ingame', '');
         }
 
     },
@@ -910,7 +913,7 @@ async function init() {
 }
 
 function setMessageColor(color) {
-    document.getElementById('message')!.style.color = 'white';
+    document.getElementById('message')!.style.color = color;
 }
 
 let naamba: Naamba | null = null;

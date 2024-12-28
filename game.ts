@@ -2157,7 +2157,7 @@ function updateReloadBar(game) {
     fill.style.height = `${32 * clampedPercentage}px`;
 
     if (weapon.reloading >= weapon.reloadTime) {
-        fill.setAttribute('ready', 'true');
+        fill.setAttribute('ready', '');
     } else {
         fill.removeAttribute('ready');
     }
