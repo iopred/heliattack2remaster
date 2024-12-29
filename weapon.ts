@@ -18,7 +18,7 @@ class Weapon {
     public texture: Texture;
     public bulletTexture: Texture;
 
-    private destroyFunc: Function | null;
+    private destroy: Function | null;
 
     constructor(
         public name: string,
@@ -50,7 +50,7 @@ class Weapon {
         this.bulletsOffset = 0;
         this.spread = 0;
         this.update = null;
-        this.destroyFunc = null;
+        this.destroy = null;
         // How much ammo in a box.
         this.boxAmmo = boxAmmo;
         this.ammo = 0;
@@ -74,7 +74,7 @@ class Weapon {
     }
 
     setDestroy(destroy: Function) {
-        this.destroyFunc = destroy;
+        this.destroy = destroy;
         return this;
     }
 
@@ -124,15 +124,6 @@ class Weapon {
             game.audioManager.playEffect(this.announcerSoundKey);
         }
         new TextOverlay(game, this.name);
-    }
-
-    destroy(game: Game) {
-        this.destroyFunc?.(game);
-
-        if (this.mesh) {
-            this.mesh.material.dispose();
-            this.mesh.geometry.dispose();
-        }        
     }
 }
 

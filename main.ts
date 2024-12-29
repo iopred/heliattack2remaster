@@ -413,6 +413,10 @@ let lastWheelTime = 0
 function onMouseWheel(event) {
     event.preventDefault();
 
+    if (ignoreDocumentMouseMove) {
+        return;
+    }
+
     if (!heliattack?.playing) {
         return;
     }
@@ -723,14 +727,10 @@ function setPlaying(value) {
     }
 }
 
-const TOUCH_CONTROLS = false;
 let inGame = false;
 
-if (TOUCH_CONTROLS) {
-    window.addEventListener("wheel", e => e.preventDefault(), { passive: false })
-} else {
-    window.addEventListener('wheel', onMouseWheel, { passive: false });
-}
+window.addEventListener('wheel', onMouseWheel, { passive: false });
+
 
 window.addEventListener('keydown', (e) => {
     history.push(e.key);

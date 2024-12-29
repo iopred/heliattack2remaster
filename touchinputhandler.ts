@@ -37,7 +37,7 @@ class TouchInputHandler {
     this.emitHandlers(this.onStartHandlers, event);
 
     // Initialize joystick origin if needed
-    if (this.joystickOrigin === null && event.touches.length === 1) {
+    if (this.joystickOrigin === null && event.touches.length) {
       const touch = event.touches[0];
       this.joystickOrigin = { x: touch.clientX, y: touch.clientY };
       this.joystickThumbPosition = { x: touch.clientX, y: touch.clientY };
@@ -54,7 +54,7 @@ class TouchInputHandler {
     this.emitHandlers(this.onMoveHandlers, event);
 
     // Handle joystick movement
-    if (this.joystickOrigin && event.touches.length === 1) {
+    if (this.joystickOrigin && event.touches.length) {
       const touch = event.touches[0];
 
       this.joystickThumbPosition = {

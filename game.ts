@@ -397,7 +397,12 @@ class Enemy {
                 3.5 * Math.cos(direction),
                 3.5 * Math.sin(direction),
                 0),
-            object: mesh
+            object: mesh,
+            destroy: (game) => {
+                game.world.remove(mesh);
+                mesh.geometry.dispose();
+                mesh.material.dispose();
+            }
         };
         game.enemyBullets.push(bullet);
     }
@@ -1516,21 +1521,9 @@ Nothing left at all
 
         let timeScale = this.timeScale = 1;
 
-        for (const bullet of this.playerBullets) {
-            bullet.destroy(this);
-        }
+        this.destroy();
 
-        for (const bullet of this.enemyBullets) {
-            bullet.destroy(this);
-        }
-
-        for (const entity of this.entities) {
-            entity.destroy(this);
-        }
-
-        this.playerBullets = [];
-        this.enemyBullets = [];
-        this.entities = [];
+        this.scene.add(this.world);
 
         this.camera.position.set(0, 0, 300);
         this.camera.lookAt(0, 0, 0);
@@ -1644,7 +1637,12 @@ Nothing left at all
             update: weapon.update,
             tick: 0,
             time: 0,
-            destroy: weapon.destroy,
+            destroy: (game) => {
+                weapon.destroy?.apply(this, [game]);
+                game.world.remove(mesh);
+                mesh.material.dispose();
+                mesh.geometry.dispose();
+            }
         };
 
         this.playerBullets.push(bullet);
@@ -1681,7 +1679,6 @@ Nothing left at all
 
             if (remove) {
                 this.playerBullets.splice(i, 1);
-                this.world.remove(bullet.object);
             }
         }
         if (!this.player) {
@@ -1729,7 +1726,7 @@ Nothing left at all
 
             if (remove || !this.mapBox.containsPoint(bulletPos)) {
                 this.enemyBullets.splice(i, 1);
-                this.world.remove(bullet.object);
+                bullet.destroy(this);
             }
         }
     }
@@ -1907,7 +1904,25 @@ Nothing left at all
 
     destroy() {
         this.enemy?.destroy(this, false);
+        this.enemy = null;
         this.player?.destroy(this, false);
+        this.player = null;
+        for (const bullet of this.playerBullets) {
+            bullet.destroy(this);
+        }
+
+        for (const bullet of this.enemyBullets) {
+            bullet.destroy(this);
+        }
+
+        for (const entity of this.entities) {
+            entity.destroy(this);
+        }
+        
+        this.playerBullets = [];
+        this.enemyBullets = [];
+        this.entities = [];
+
         this.scene.remove(this.world);
         this.shaderPass.uniforms.invertEnabled.value = 0.0;
         this.shaderPass.uniforms.tintEnabled.value = 0.0;

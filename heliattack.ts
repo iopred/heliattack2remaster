@@ -193,6 +193,7 @@ class HeliAttack {
         this.destroy();
 
         if (oldGame) {
+            oldGame.destroy();
             this.game = new Game(oldGame);
             this.init();
         }
@@ -210,6 +211,10 @@ class HeliAttack {
 
     setSize(width: number, height: number) {
         this.game?.resizeBackground();
+
+        if (this.showMenu) {
+            this.resizeMenu();
+        }
     }
 
     get(shape) {
@@ -383,13 +388,28 @@ class HeliAttack {
             });
         }
 
-        this.camera.position.set(0, -2, 8);
-
         this.showMenu = true;
+
+        this.scene.position.x = -0.2
 
         this.audioManager.playMusic('menu', 0.4);
 
-        window.a = this;
+        this.resizeMenu();
+    }
+
+    resizeMenu() {
+        let targetZ = 8;
+        let targetY = -2;
+
+        const referenceAspect = 1;
+        if (this.camera.aspect < referenceAspect) {
+            const scale = referenceAspect / this.camera.aspect;
+            
+            targetZ = targetZ * scale;
+            targetY = targetY * scale;
+        }
+
+        this.camera.position.set(0, targetY, targetZ);
     }
 
     hideMainMenu() {
