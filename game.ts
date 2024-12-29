@@ -1638,7 +1638,7 @@ Nothing left at all
             tick: 0,
             time: 0,
             destroy: (game) => {
-                weapon.destroy?.apply(this, [game]);
+                weapon.destroy?.apply(bullet, [game]);
                 game.world.remove(mesh);
                 mesh.material.dispose();
                 mesh.geometry.dispose();
