@@ -1,7 +1,7 @@
 
 import AudioManager from './audiomanager.js';
 import Weapon from './weapon.ts';
-import { Scene, Texture, TextureLoader, Vector2, Vector3, Camera, SpotLight, SpotLightHelper, MeshBasicMaterial } from 'three';
+import { AmbientLight, Scene, Texture, TextureLoader, Vector2, Vector3, Camera, SpotLight, SpotLightHelper, MeshBasicMaterial } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import {
@@ -240,13 +240,15 @@ class HeliAttack {
             if (this.gltf) {
                 this.game.clock.getDelta()
                 const cube = this.get('Cube');
-                cube.rotation.x = Math.sin(this.game.clock.elapsedTime * 0.5) * 0.1;
-                cube.rotation.y = Math.cos(this.game.clock.elapsedTime * 0.5) * 0.2;
+                cube.rotation.x = 0.05 + Math.sin(this.game.clock.elapsedTime * 0.5) * 0.05;
+                cube.rotation.y = Math.cos(this.game.clock.elapsedTime * 0.5) * 0.1;
+
+                const ha = this.get('HA');
+                ha.rotation.x = cube.rotation.x;
+                ha.rotation.y = cube.rotation.y;
 
                 const plane = this.get('Plane');
-                plane.position.z = 0.5;
-
-                plane.position.y = 1.5 + Math.sin(this.game.clock.elapsedTime * 0.25) * 0.1;
+                plane.position.y = -0.8 + Math.sin(this.game.clock.elapsedTime * 0.25) * 0.1;
 
                 this.gltf.scene.rotation.y = Math.sin(this.game.clock.elapsedTime) * 0.05;
 
@@ -340,8 +342,12 @@ class HeliAttack {
             const cube = this.get('Cube');
             cube.receiveShadow = true;
 
-            // var ambientLight = new AmbientLight( 0xFFFFFF, 0.1 );
-            // scene.add( ambientLight );
+            const ha = this.get('HA');
+            ha.receiveShadow = true;
+
+            const ambientLight = new AmbientLight( 0xffffff, 0.5);
+
+            this.scene.add(ambientLight);
 
             const spotLight = new SpotLight( 0xffffff, 10);
 

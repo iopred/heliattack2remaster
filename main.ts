@@ -314,6 +314,9 @@ function onWindowResize() {
     gestureCanvas.width = width;
     gestureCanvas.height = height;
 
+    gestureCanvas.style.width = `${width}px`;
+    gestureCanvas.style.height = `${height}px`;
+
     composer.render();
 }
 
