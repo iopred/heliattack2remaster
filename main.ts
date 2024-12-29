@@ -14,6 +14,10 @@ import Naamba from './naamba'
 import SmoothScrollHandler from './smoothscrollhandler';
 import { LocalStorageWrapper } from './localstoragewrapper';
 
+const gestureCanvas = document.getElementById('gesture-canvas')! as HTMLCanvasElement;
+gestureCanvas.width = window.innerWidth;
+gestureCanvas.height = window.innerHeight;
+
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
 
@@ -27,22 +31,18 @@ renderer.outputColorSpace = SRGBColorSpace;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = PCFSoftShadowMap;
 
-
-// Set up EffectComposer
 const composer = new EffectComposer(renderer);
 composer.setSize(window.innerWidth, window.innerHeight);
 
-// Add a render pass (renders the scene as usual)
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
 
-// Add the inversion shader pass
 const shaderPass = new ShaderPass(new ShaderMaterial({
     uniforms: {
-        tDiffuse: { value: null },              // Rendered texture
+        tDiffuse: { value: null },
         invertEnabled: { value: 0.0 },         // Toggle inversion (0 = off, 1 = on)
         tintEnabled: { value: 0.0 },           // Toggle tinting (0 = off, 1 = on)
-        tintColor: { value: new Color(1, 0.5, 0.5) }, // Red tint
+        tintColor: { value: new Color(1, 0.5, 0.5) },
     },
     vertexShader: `
         varying vec2 vUv;
@@ -84,8 +84,6 @@ const shaderPass = new ShaderPass(new ShaderMaterial({
 }));
 composer.addPass(shaderPass);
 
-
-// VHS Shader
 const VHSEffectShader = {
     uniforms: {
         tDiffuse: { value: null }, // The texture from the previous render
@@ -230,7 +228,6 @@ const VHSEffectShader = {
     `,
 };
 
-// Create a ShaderPass for the VHS effect
 function createVHSEffectPass(): ShaderPass {
     const shaderPass = new ShaderPass(new ShaderMaterial({
         uniforms: UniformsUtils.clone(VHSEffectShader.uniforms),
@@ -250,28 +247,24 @@ dirLight.position.set(0, 0, 1).normalize();
 scene.add(dirLight);
 
 function createBlueLine(x, y, object) {
-    //create a blue LineBasicMaterial
-    const material2 = new LineBasicMaterial({ color: 0x0000ff });
+    const material = new LineBasicMaterial({ color: 0x0000ff });
 
     const points:Vector3[] = [];
     points.push(new Vector3(x - 10, y - 10, -0));
     points.push(new Vector3(x, y, -0));
     points.push(new Vector3(x + 10, y - 10, -0));
 
-    const geometry2 = new BufferGeometry().setFromPoints(points);
-    const line = new Line(geometry2, material2);
+    const geometry = new BufferGeometry().setFromPoints(points);
+    const line = new Line(geometry, material);
     object.add(line);
 }
 
 function resetScene(scene) {
-    // Loop through all child objects in the scene
     while (scene.children.length > 0) {
         const object = scene.children[0];
 
-        // If the object has a geometry, dispose of it
         if (object.geometry) object.geometry.dispose();
 
-        // If the object has a material, dispose of it
         if (object.material) {
             if (Array.isArray(object.material)) {
                 object.material.forEach(mat => mat.dispose());
@@ -280,7 +273,6 @@ function resetScene(scene) {
             }
         }
 
-        // Remove the object from the scene
         scene.remove(object);
     }
 
@@ -318,6 +310,11 @@ function onWindowResize() {
     videoGestures?.setSize(width, height);
 
     heliattack?.setSize(width, height)
+
+    gestureCanvas.width = width;
+    gestureCanvas.height = height;
+
+    composer.render();
 }
 
 const BPM = 200;
@@ -337,6 +334,13 @@ const mouse = {
     wheel: 0,
 }
 
+const joystick = {
+    left: false,
+    right: false,
+    up: false,
+    down: false,
+}
+
 
 const smoothScrollHandler = new SmoothScrollHandler(document.body, BPM * 4)
 
@@ -348,6 +352,11 @@ smoothScrollHandler.onScroll((direction: 'up' | 'down') => {
 
 function onDocumentMouseMove(event) {
     event.preventDefault();
+
+    if (ignoreDocumentMouseMove) {
+        return;
+    }
+    
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 }
@@ -426,20 +435,22 @@ function onMouseWheel(event) {
     lastWheelTime = now;
 };
 
-const touchInputHandler = new TouchInputHandler(document.body);
-
+const touchInputHandler = new TouchInputHandler(document.body, gestureCanvas);
+let ignoreDocumentMouseMove = false;
 touchInputHandler.onStart((event) => {
+    ignoreDocumentMouseMove = true;
+    
     init();
 
     if (!heliattack?.playing) {
         return;
     }
 
-    const touch = event.touches[0];
-    if (!touch) {
-        console.error("no touches while in on start.");
+    if (event.touches.length < 2) {
         return;
     }
+
+    const touch = event.touches[1];
 
     mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
@@ -451,7 +462,7 @@ touchInputHandler.onEnd((event) => {
         return;
     }
 
-    if (!event.touches.length) {
+    if (event.touches.length < 2) {
         mouse.down = false;
     }
 })
@@ -461,15 +472,26 @@ touchInputHandler.onMove((event) => {
         return;
     }
 
-    const touch = event.touches[0];
-    if (!touch) {
-        console.error("no touches while in on start.");
-        return;
+    if (event.touches.length < 2) {
+        return
     }
+
+    const touch = event.touches[1];
 
     mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
 })
+
+touchInputHandler.onJoystickMove((vector) => {
+    if (!heliattack?.playing) {
+        return;
+    }
+
+    joystick.left = vector.x < -0.1;
+    joystick.right = vector.x > 0.1;
+    joystick.up = vector.y < -0.25;
+    joystick.down = vector.y > 0.5;
+});
 
 const ENABLE_DEBUGGER = false;
 function debug(text) {
@@ -711,7 +733,6 @@ if (TOUCH_CONTROLS) {
 }
 
 window.addEventListener('keydown', (e) => {
-    keyIsPressed[e.key] = true;
     history.push(e.key);
     if (e.key.length == 1) {
         let key = e.key.toLowerCase();
@@ -721,6 +742,10 @@ window.addEventListener('keydown', (e) => {
         m.listen(key);
         n.listen(key);
         l.listen(key);
+
+        keyIsPressed[key] = true;
+    } else {
+        keyIsPressed[e.key] = true;
     }
     xylander.listen(history.join(''));
     pred.listen(history.join(''));
@@ -736,7 +761,13 @@ window.addEventListener('keydown', (e) => {
         togglePause();
     }
 });
-window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });
+window.addEventListener('keyup', (e) => {
+    if (e.key.length == 1) {
+        keyIsPressed[e.key.toLowerCase()] = false;
+    } else {
+        keyIsPressed[e.key] = false;
+    }
+});
 
 let wasPlaying = false;
 let paused = false;
@@ -829,12 +860,9 @@ const settings = {
 
     },
     update() {
-        if (videoGestures) {
-            videoGestures.update();
-        }
-        if (smoothScrollHandler) {
-            smoothScrollHandler.update()
-        }
+        videoGestures?.update();
+        smoothScrollHandler?.update();
+        touchInputHandler?.update();
     },
     set musicMuted(value:boolean) {
         audioManager.musicVolume = value ? 0.0 : settings.musicVolume;
@@ -998,7 +1026,7 @@ async function createHeliAttack() {
 
     heliattack?.destroy();
 
-    heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, settings);
+    heliattack = new HeliAttack(window, mouse, joystick, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, settings);
     await heliattack.preload();
     
     setMessageColor('white');

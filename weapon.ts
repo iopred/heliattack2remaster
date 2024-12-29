@@ -1,6 +1,7 @@
 import { MathUtils, Mesh, MeshBasicMaterial, PlaneGeometry, Texture, Vector2 } from 'three';
 import { TextOverlay } from './entities';
 import { createTintShader } from './utils';
+import { Game } from './game';
 
 class Weapon {
     public reloading: number;
@@ -10,13 +11,14 @@ class Weapon {
     public spread: number;
 
     public update: Function | null;
-    public destroy: Function | null;
     public mesh: Mesh;
 
     public ammo: number;
 
     public texture: Texture;
     public bulletTexture: Texture;
+
+    private destroyFunc: Function | null;
 
     constructor(
         public name: string,
@@ -48,31 +50,31 @@ class Weapon {
         this.bulletsOffset = 0;
         this.spread = 0;
         this.update = null;
-        this.destroy = null;
+        this.destroyFunc = null;
         // How much ammo in a box.
         this.boxAmmo = boxAmmo;
         this.ammo = 0;
     }
 
-    setSpread(spread) {
+    setSpread(spread: number) {
         this.spread = spread;
         return this;
     }
 
-    setBullets(bullets, bulletsSpread, bulletsOffset) {
+    setBullets(bullets: number, bulletsSpread: number, bulletsOffset: number) {
         this.bullets = bullets;
         this.bulletsSpread = bulletsSpread || 0;
         this.bulletsOffset = bulletsOffset || 0;
         return this;
     }
 
-    setUpdate(update) {
+    setUpdate(update: Function) {
         this.update = update;
         return this;
     }
 
-    setDestroy(destroy) {
-        this.destroy = destroy;
+    setDestroy(destroy: Function) {
+        this.destroyFunc = destroy;
         return this;
     }
 
@@ -102,7 +104,7 @@ class Weapon {
         return mesh;
     }
 
-    createBullet(game) {
+    createBullet(game: Game) {
         if (this.soundKey) {
             game.audioManager.playEffect(this.soundKey);
         }
@@ -116,12 +118,21 @@ class Weapon {
         }
     }
 
-    collect(game) {
+    collect(game: Game) {
         this.ammo += this.boxAmmo;
         if (this.announcerSoundKey) {
             game.audioManager.playEffect(this.announcerSoundKey);
         }
         new TextOverlay(game, this.name);
+    }
+
+    destroy(game: Game) {
+        this.destroyFunc?.(game);
+
+        if (this.mesh) {
+            this.mesh.material.dispose();
+            this.mesh.geometry.dispose();
+        }        
     }
 }
 

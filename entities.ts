@@ -2,7 +2,7 @@ import { MathUtils, Material, Mesh, MeshBasicMaterial, Object3D, PerspectiveCame
 import { get2DPosition, isPlayerCollisionRect, isTileCollision, setUV } from './utils.ts';
 import Game from './game';
 
-class Entity {
+export class Entity {
     public tick: number;
     public position: Vector2;
     public velocity: Vector2;
@@ -131,6 +131,10 @@ class MeshEntity extends Entity {
 
     destroy(game: Game): void {
         game.world.remove(this.mesh);
+        if (this.mesh) {
+            this.mesh.material.dispose();
+            this.mesh.geometry.dispose();
+        }
     }
 }
 

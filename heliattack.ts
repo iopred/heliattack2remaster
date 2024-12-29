@@ -1,13 +1,12 @@
 
 import AudioManager from './audiomanager.js';
 import Weapon from './weapon.ts';
-import { Scene, Texture, TextureLoader, Vector2, Vector3, Camera, PointLight, SpotLight, AmbientLight, SpotLightHelper, Mesh, SphereGeometry, MeshBasicMaterial } from 'three';
+import { Scene, Texture, TextureLoader, Vector2, Vector3, Camera, SpotLight, SpotLightHelper, MeshBasicMaterial } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import {
     abombDestroy,
     abombUpdate,
-    defaultBulletUpdate,
     explosionDestroy,
     fireMinesUpdate,
     flameUpdate,
@@ -93,8 +92,8 @@ class HeliAttack {
     private gltfPreload: Promise<any>;
     private texturePreload: Promise<any>;
 
-    constructor(window: Window, mouse: Object, keyIsPressed: {[key: string]: boolean}, private scene: Scene, private camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, private audioManager: AudioManager, private settings: Object) {
-        this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
+    constructor(window: Window, mouse: Object, joystick: Object, keyIsPressed: {[key: string]: boolean}, private scene: Scene, private camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, private audioManager: AudioManager, private settings: Object) {
+        this.game = new Game(window, mouse, joystick, keyIsPressed, scene, camera, shaderPass, vhsPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
     }
 
     async preload():Promise<any> {

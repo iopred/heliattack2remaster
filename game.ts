@@ -8,7 +8,7 @@ import AudioManager from './audiomanager';
 import { Timeline, TimelineEvent } from './timeline';
 import VideoGestures from './videogestures';
 import Weapon from './weapon';
-import { TextOverlay } from './entities';
+import { Entity, TextOverlay } from './entities';
 
 const UP_KEY = 'KeyboardKeyUp';
 const DOWN_KEY = 'KeyboardKeyDown';
@@ -1071,6 +1071,7 @@ const zero = new Vector3();
 class Game {
     public window: Window;
     public mouse: any;
+    public joystick: any;
     public keyIsPressed: { [key: string]: boolean };
     public scene: Scene;
     public camera: Camera;
@@ -1125,14 +1126,14 @@ class Game {
     public clock: Clock = new Clock();
         
     public accumulator: number;
-    public playerBullets: any[];
-    public enemyBullets: any[];
-    public entities: any[];
+    public playerBullets: any[] = [];
+    public enemyBullets: any[] = [];
+    public entities: Entity[] = [];
 
     public hideWeaponName: number;
 
 
-    constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: { [key: string]: boolean }, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
+    constructor(windowOrGame: Window | Game, mouse: Object, joystick: Object, keyIsPressed: { [key: string]: boolean }, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
         this.bpm = 200;
 
         this.paused = false;
@@ -1157,13 +1158,14 @@ class Game {
         this.spidersAttacked = false;
 
         if (windowOrGame instanceof Game) {
-            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'audioManager', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack', 'bpm']) {
+            for (const key of ['window', 'mouse', 'joystick', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'audioManager', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack', 'bpm']) {
                 this[key] = windowOrGame[key];
             }
             this.init(windowOrGame.textures, windowOrGame.weapons);    
         } else {
             this.window = window;
             this.mouse = mouse;
+            this.joystick = joystick;
             this.keyIsPressed = keyIsPressed;
             this.scene = scene;
             this.camera = camera;
@@ -1514,8 +1516,20 @@ Nothing left at all
 
         let timeScale = this.timeScale = 1;
 
-        const playerBullets = this.playerBullets = [];
-        const enemyBullets = this.enemyBullets = [];
+        for (const bullet of this.playerBullets) {
+            bullet.destroy(this);
+        }
+
+        for (const bullet of this.enemyBullets) {
+            bullet.destroy(this);
+        }
+
+        for (const entity of this.entities) {
+            entity.destroy(this);
+        }
+
+        this.playerBullets = [];
+        this.enemyBullets = [];
         this.entities = [];
 
         this.camera.position.set(0, 0, 300);
@@ -1731,10 +1745,10 @@ Nothing left at all
     }
 
     updateKeys() {
-        this.keyIsPressed[UP_KEY] = this.keyIsPressed['w'] || this.keyIsPressed['ArrowUp'];
-        this.keyIsPressed[DOWN_KEY] = this.keyIsPressed['s'] || this.keyIsPressed['ArrowDown'];
-        this.keyIsPressed[LEFT_KEY] = this.keyIsPressed['a'] || this.keyIsPressed['ArrowLeft'];
-        this.keyIsPressed[RIGHT_KEY] = this.keyIsPressed['d'] || this.keyIsPressed['ArrowRight'];
+        this.keyIsPressed[UP_KEY] = this.keyIsPressed['w'] || this.keyIsPressed['ArrowUp'] || this.joystick.up;
+        this.keyIsPressed[DOWN_KEY] = this.keyIsPressed['s'] || this.keyIsPressed['1ArrowDown'] || this.joystick.down;
+        this.keyIsPressed[LEFT_KEY] = this.keyIsPressed['a'] || this.keyIsPressed['ArrowLeft'] || this.joystick.left;
+        this.keyIsPressed[RIGHT_KEY] = this.keyIsPressed['d'] || this.keyIsPressed['ArrowRight'] || this.joystick.right;
     }
 
     timeStep(delta) {
