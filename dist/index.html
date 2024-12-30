@@ -5,7 +5,7 @@
 		<title>Heli Attack 2000</title>
 		<link rel="preconnect" href="https://fonts.cdnfonts.com">
 		<link href="https://fonts.cdnfonts.com/css/sf-pixelate" rel="stylesheet">
-		<meta name="viewport" content="width=device-width">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 		<style>
 			body {
 				margin: 0;
@@ -20,10 +20,21 @@
 
 				overflow: hidden;
 
-				user-select: none; /* standard */
-				-moz-user-select: none; /* firefox specific */
-				-webkit-user-select: none; /* Chrome, Opera and Safari*/
-				-ms-user-select: none; /* IE, ms-edge */
+				user-select: none !important;
+				-moz-user-select: none !important;
+				-webkit-user-select: none !important;
+				-ms-user-select: none !important;
+			}
+
+			* {
+				touch-action: none;
+				user-select: none !important;
+				-webkit-tap-highlight-color: transparent;
+				-webkit-touch-callout: none !important;
+				-webkit-text-size-adjust: none !important;
+				-moz-user-select: none !important;
+				-webkit-user-select: none !important;
+				-ms-user-select: none !important;
 			}
 
 			#gesture-canvas {
@@ -393,10 +404,10 @@
 				display: none;
 			}
 		</style>
-		<script type="module" crossorigin src="/game/assets/index-BmCo9NuC.js"></script>
+		<script type="module" crossorigin src="/game/assets/index-DATcEMhH.js"></script>
 	</head>
 	<body>
-		<video id="webcam" autoplay muted></video>
+		<video id="webcam" muted hidden></video>
 		<div id="naamba" hidden>
 			<img src="/game/assets/naamba-DrFWqjRT.png" alt="naa.mba">
 			<span>Made in Queensland, Australia</span>

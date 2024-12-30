@@ -297,6 +297,31 @@ function render() {
     }
 }
 
+document.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+});
+
+function createDoubleTapPreventer(timeout_ms: number) {
+    let dblTapTimer = 0;
+    let dblTapPressed = false;
+
+    return function (e: TouchEvent) {
+        clearTimeout(dblTapTimer);
+        if (dblTapPressed) {
+            e.preventDefault();
+            dblTapPressed = false;
+        } else {
+            dblTapPressed = true;
+            dblTapTimer = setTimeout(() => {
+                dblTapPressed = false;
+            }, timeout_ms);
+        }
+    };
+}
+
+document.body.addEventListener('touchstart', createDoubleTapPreventer(500), { passive: false });
+
+
 function onWindowResize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -348,7 +373,7 @@ const joystick = {
 const smoothScrollHandler = new SmoothScrollHandler(document.body, BPM * 4)
 
 smoothScrollHandler.onScroll((direction: 'up' | 'down') => {
-    mouse.wheel = 1 * (direction === "up" ? 1 : -1);
+    mouse.wheel = 1 * (direction === 'up' ? 1 : -1);
 })
 
 
@@ -520,7 +545,7 @@ function getAvatar() {
     const kit = new Kit();
     kit.pulse()
     // WARNING: For POST requests, body is set to null by browsers.
-    var data = '{\r\n    \"launcherJwt\": {{JWT}}\r\n}';
+    var data = '{\r\n    \'launcherJwt\': {{JWT}}\r\n}';
 
     var xhr = new XMLHttpRequest();
     xhr.withCredentials = true;
@@ -553,7 +578,7 @@ i.onWordDetected((word) => {
 
     setVisible(document.getElementById('error-container'), showErrors);
 
-    showCheat("errors");
+    showCheat('errors');
 });
 
 const t = new WordListener('t');
@@ -618,14 +643,14 @@ const m = new WordListener('m');
 m.onWordDetected((word) => {
     toggleMusic();
 
-    showCheat(audioManager.musicVolume === 0.0 ? "music off" : "music on");
+    showCheat(audioManager.musicVolume === 0.0 ? 'music off' : 'music on');
 });
 
 const n = new WordListener('n');
 n.onWordDetected((word) => {
     toggleEffects();
 
-    showCheat(audioManager.effectVolume === 0.0 ? "sound off" : "sound on");
+    showCheat(audioManager.effectVolume === 0.0 ? 'sound off' : 'sound on');
 });
 
 
@@ -636,12 +661,9 @@ io.onWordDetected((word) => {
     if (!videoGestures) {
         videoGestures = new VideoGestures(window, document);
         videoGestures.setSize(window.innerWidth, window.innerHeight);
-        
-        if (heliattack?.isLoaded()) {
-            heliattack.initVideoGestures(videoGestures);
-        }
+        heliattack?.initVideoGestures(videoGestures);
     
-        showCheat("input/output");
+        showCheat('input/output');
     }
 
 });
@@ -651,10 +673,10 @@ retro.onWordDetected((word) => {
     history.splice(0, history.length);
 
     heliattack?.start();
-    console.error("could not load heli attack 1 assets.")
+    console.error('could not load heli attack 1 assets.')
     setVisible(document.getElementById('error-container'), showErrors);
 
-    showCheat("retro assets")
+    showCheat('retro assets')
 });
 
 const xylander = new WordListener('xylander');
@@ -664,7 +686,7 @@ xylander.onWordDetected((word) => {
 
     heliattack?.playSong('https://player-widget.mixcloud.com/widget/iframe/?hide_cover=1&feed=%2FAudioInterface%2Fforgotten-futures-8-december-2024%2F');
 
-    showCheat("go outside and breathe the fumes");
+    showCheat('go outside and breathe the fumes');
 });
 
 const kit = new WordListener('kit');
@@ -673,7 +695,7 @@ kit.onWordDetected((word) => {
 
     heliattack?.playSong('ror');
 
-    showCheat("remnants of rebellion");
+    showCheat('remnants of rebellion');
 });
 
 const pred = new WordListener('pred');
@@ -682,7 +704,7 @@ pred.onWordDetected((word) => {
 
     heliattack.pred();
 
-    showCheat("gl hf dd")
+    showCheat('gl hf dd')
 });
 
 function showCheat(text) {
@@ -831,7 +853,7 @@ document.getElementById('resume-game')?.addEventListener('touch', event => {
     togglePause();
 });
 
-document.addEventListener("contextmenu", (event) => {
+document.addEventListener('contextmenu', (event) => {
     event.preventDefault();
 });
 
