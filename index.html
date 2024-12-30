@@ -5,7 +5,7 @@
 		<title>Heli Attack 2000</title>
 		<link rel="preconnect" href="https://fonts.cdnfonts.com">
 		<link href="https://fonts.cdnfonts.com/css/sf-pixelate" rel="stylesheet">
-		<meta name="viewport" content="width=device-width">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 		<style>
 			body {
 				margin: 0;
@@ -19,6 +19,17 @@
 				color: white;
 
 				overflow: hidden;
+
+				user-select: none; /* standard */
+				-moz-user-select: none; /* firefox specific */
+				-webkit-user-select: none; /* Chrome, Opera and Safari*/
+				-ms-user-select: none; /* IE, ms-edge */	
+			}
+
+			* {
+				-webkit-tap-highlight-color: transparent;
+				-webkit-touch-callout: none;
+				touch-action: manipulation;
 			}
 
 			#gesture-canvas {
@@ -55,7 +66,7 @@
 
 			#main-menu button,
 			#game-over-menu button {
-				
+				text-align: center;
 			}
 
 			.menu-background {
@@ -255,9 +266,6 @@
 			}
 
 			#ui {
-				-webkit-user-select: none; /* Safari */
-				-ms-user-select: none; /* IE 10 and IE 11 */
-				user-select: none; /* Standard syntax */
 				font-size: 0;
 			}
 
