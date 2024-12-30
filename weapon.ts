@@ -97,7 +97,7 @@ class Weapon {
             map: texture,
             transparent: true,
         });
-        geometry.translate(texture.image.width / 2, -texture.image.height / 2, 0); 
+        geometry.translate(texture.image.width / 2, -texture.image.height / 2, 0);
         const mesh = new Mesh(geometry, material);
         mesh.position.x = -this.origin.x;
         mesh.position.y = this.origin.y;

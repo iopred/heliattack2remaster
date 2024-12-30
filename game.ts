@@ -645,7 +645,7 @@ class Player {
             const freeBulletTime = this.infiniteTimeDistort || this.hyperJumping;
             let newTimeScale = game.timeScale;
 
-            if (((this.bulletTime > 0 || freeBulletTime) && game.keyIsPressed['Shift']) || this.powerup == TIME_RIFT) {
+            if (((this.bulletTime > 0 || freeBulletTime) && (game.keyIsPressed['Shift'] || game.joystick.timeDistort)) || this.powerup == TIME_RIFT) {
                 newTimeScale = Math.max(0.2, game.timeScale - 0.1);
 
                 if (!(this.powerup == TIME_RIFT || this.powerup == PREDATOR_MODE || freeBulletTime)) {
@@ -705,7 +705,7 @@ class Player {
 
                 if (this.hyperJump < HYPERJUMP_RECHARGE) {
                     this.hyperJump++;
-                } else if (game.keyIsPressed[' '] && this.canJump) {
+                } else if ((game.keyIsPressed[' '] || game.joystick.hyperJump) && this.canJump) {
                     this.velocity.y = Math.min(this.velocity.y, -25);
                     this.inAir = true;
                     this.canJump = false;
@@ -866,6 +866,9 @@ class Player {
                 this.selectWeaponDirection(game.mouse.wheel);
                 showWeaponName(game);
                 game.mouse.wheel = 0;
+            } else if (game.joystick.changeWeapon) {
+                this.selectWeaponDirection(1);
+                game.joystick.changeWeapon = false;
             } else if (game.videoGestures?.switching) {
                 this.selectWeaponDirection(1);
                 game.videoGestures.switching = false;
@@ -1129,7 +1132,7 @@ class Game {
     public mapBox: Box3;
 
     public clock: Clock = new Clock();
-        
+
     public accumulator: number;
     public playerBullets: any[] = [];
     public enemyBullets: any[] = [];
@@ -1166,7 +1169,7 @@ class Game {
             for (const key of ['window', 'mouse', 'joystick', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'audioManager', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack', 'bpm']) {
                 this[key] = windowOrGame[key];
             }
-            this.init(windowOrGame.textures, windowOrGame.weapons);    
+            this.init(windowOrGame.textures, windowOrGame.weapons);
         } else {
             this.window = window;
             this.mouse = mouse;
@@ -1451,7 +1454,7 @@ Nothing left at all
         if (this.textures) {
             return;
         }
-        
+
         this.textures = textures;
         this.weapons = weapons;
 
@@ -1780,7 +1783,7 @@ Nothing left at all
             this.timeline.update();
 
             this.vhsPass.material.uniforms.time.value += (this.timeScale + (this.player?.hyperJumping ? 0.2 : 0)) * 0.01;
-    
+
             this.updateFunction();
 
             this.accumulator %= UPDATE_FREQUENCY;
@@ -1918,7 +1921,7 @@ Nothing left at all
         for (const entity of this.entities) {
             entity.destroy(this);
         }
-        
+
         this.playerBullets = [];
         this.enemyBullets = [];
         this.entities = [];
@@ -2117,7 +2120,7 @@ Nothing left at all
     levelUp(message = 'Level Up!') {
         new TextOverlay(this, message);
         this.level++;
-        this.nextLevel += 10*(this.level+1);
+        this.nextLevel += 10 * (this.level + 1);
         this.allWeapons();
     }
 

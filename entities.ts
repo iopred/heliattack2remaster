@@ -37,7 +37,7 @@ export class Entity {
 
 export class TextOverlay extends Entity {
     public text: string;
-    public element:HTMLDivElement = document.createElement('div');
+    public element: HTMLDivElement = document.createElement('div');
     public time: number;
     constructor(game, text) {
         super(game);
@@ -63,14 +63,14 @@ export class TextOverlay extends Entity {
     update(game: Game, delta: number): boolean {
         super.update(game, delta);
 
-        const { x, y } = get2DPosition(game.camera, new Vector3(this.position.x, this.position.y + (this.time/120 * 20), 0));
+        const { x, y } = get2DPosition(game.camera, new Vector3(this.position.x, this.position.y + (this.time / 120 * 20), 0));
 
         this.element.style.left = `${x}px`;
         this.element.style.top = `${y}px`;
 
         let opacity = 1.0;
         if (this.time < 10) {
-            opacity = this.time/10;
+            opacity = this.time / 10;
         } else if (this.time > 110) {
             opacity = 1 - (this.time - 110) / 10;
         }

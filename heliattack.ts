@@ -20,11 +20,11 @@ import {
     shotgunRocketUpdate,
 } from './weapons';
 import Game from './game';
-import { createIframe, isUrl, loadTexture} from './utils'
+import { createIframe, isUrl, loadTexture } from './utils'
 import VideoGestures from './videogestures.ts';
 
 async function loadAssets(weapons) {
-    const textureMap: {[key: string]: Texture} = {};
+    const textureMap: { [key: string]: Texture } = {};
     // Load the spritesheet
     const loader = new TextureLoader();
     const textures = [
@@ -82,63 +82,63 @@ class HeliAttack {
         new Weapon("Shoulder Cannon", null, null, 'railgun', new Vector2(0, 0), new Vector2(16, 0), 100, 20, 300, 0, './images/shouldercannon.png').setUpdate(railUpdate),
     ];
     private game: Game;
-    private textures: {[key: string]: Texture};
+    private textures: { [key: string]: Texture };
     private videoGestures: VideoGestures;
 
     public playing: boolean;
 
-    private gltf:any;
+    private gltf: any;
     private audioPreload: Promise<any>;
     private gltfPreload: Promise<any>;
     private texturePreload: Promise<any>;
 
-    constructor(window: Window, mouse: Object, joystick: Object, keyIsPressed: {[key: string]: boolean}, private scene: Scene, private camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, private audioManager: AudioManager, private settings: Object) {
+    constructor(window: Window, mouse: Object, joystick: Object, keyIsPressed: { [key: string]: boolean }, private scene: Scene, private camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, private audioManager: AudioManager, private settings: Object) {
         this.game = new Game(window, mouse, joystick, keyIsPressed, scene, camera, shaderPass, vhsPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
     }
 
-    async preload():Promise<any> {
+    async preload(): Promise<any> {
         if (!this.audioPreload) {
-            this.audioPreload =  this.audioManager.preload([
-                { key: 'boom', url: './sounds/game/boom.wav' },
-                { key: 'empty', url: './sounds/game/empty.wav' },
-                { key: 'flame', url: './sounds/game/flame.wav' },
-                { key: 'grapple', url: './sounds/game/grapple.wav' },
-                { key: 'grenade', url: './sounds/game/grenade.wav' },
-                { key: 'helicopter', url: './sounds/game/helicopter.wav' },
-                { key: 'helidestroyed', url: './sounds/game/helidestroyed.wav' },
-                { key: 'hurt', url: './sounds/game/hurt.wav' },
-                { key: 'hyperjump', url: './sounds/game/hyperjump.wav' },
-                { key: 'metal0', url: './sounds/game/metal0.wav' },
-                { key: 'metal1', url: './sounds/game/metal1.wav' },
-                { key: 'metal2', url: './sounds/game/metal2.wav' },
-                { key: 'metal3', url: './sounds/game/metal3.wav' },
-                { key: 'menu', url: './sounds/game/music.wav' },
+            this.audioPreload = this.audioManager.preload([
+                { key: 'boom', url: './sounds/game/boom.mp3' },
+                { key: 'empty', url: './sounds/game/empty.mp3' },
+                { key: 'flame', url: './sounds/game/flame.mp3' },
+                { key: 'grapple', url: './sounds/game/grapple.mp3' },
+                { key: 'grenade', url: './sounds/game/grenade.mp3' },
+                { key: 'helicopter', url: './sounds/game/helicopter.mp3' },
+                { key: 'helidestroyed', url: './sounds/game/helidestroyed.mp3' },
+                { key: 'hurt', url: './sounds/game/hurt.mp3' },
+                { key: 'hyperjump', url: './sounds/game/hyperjump.mp3' },
+                { key: 'metal0', url: './sounds/game/metal0.mp3' },
+                { key: 'metal1', url: './sounds/game/metal1.mp3' },
+                { key: 'metal2', url: './sounds/game/metal2.mp3' },
+                { key: 'metal3', url: './sounds/game/metal3.mp3' },
+                { key: 'menu', url: './sounds/game/music.mp3' },
                 { key: 'music', url: './sounds/music/heliattack.mp3' },
-                { key: 'pistol', url: './sounds/game/pistol.wav' },
-                { key: 'railgun', url: './sounds/game/railgun.wav' },
-                { key: 'rocketlauncher', url: './sounds/game/rocketlauncher.wav' },
-                { key: 'shotgun', url: './sounds/game/shotgun.wav' },
-                { key: 'shotgunrockets', url: './sounds/game/shotgunrockets.wav' },
-                { key: 'bigboom', url: './sounds/game/bigboom.wav' },
-                { key: 'boom', url: './sounds/game/boom.wav' },
-                { key: 'announcerAbomb', url: './sounds/announcer/abomb.wav' },
-                { key: 'announcerFiremines', url: './sounds/announcer/firemines.wav' },
-                { key: 'announcerFlamethrower', url: './sounds/announcer/flamethrower.wav' },
-                { key: 'announcerGrapplecannon', url: './sounds/announcer/grapplecannon.wav' },
-                { key: 'announcerGrenadelauncher', url: './sounds/announcer/grenadelauncher.wav' },
-                { key: 'announcerHealth', url: './sounds/announcer/health.wav' },
-                { key: 'announcerInvulnerability', url: './sounds/announcer/invulnerability.wav' },
-                { key: 'announcerJetpack', url: './sounds/announcer/jetpack.wav' },
-                { key: 'announcerMac10', url: './sounds/announcer/mac10.wav' },
-                { key: 'announcerPredatormode', url: './sounds/announcer/predatormode.wav' },
-                { key: 'announcerRailgun', url: './sounds/announcer/railgun.wav' },
-                { key: 'announcerRocketlauncher', url: './sounds/announcer/rocketlauncher.wav' },
-                { key: 'announcerRpg', url: './sounds/announcer/rpg.wav' },
-                { key: 'announcerSeekerlauncher', url: './sounds/announcer/seekerlauncher.wav' },
-                { key: 'announcerShotgun', url: './sounds/announcer/shotgun.wav' },
-                { key: 'announcerShotgunrockets', url: './sounds/announcer/shotgunrockets.wav' },
-                { key: 'announcerTimerift', url: './sounds/announcer/timerift.wav' },
-                { key: 'announcerTridamage', url: './sounds/announcer/tridamage.wav' },
+                { key: 'pistol', url: './sounds/game/pistol.mp3' },
+                { key: 'railgun', url: './sounds/game/railgun.mp3' },
+                { key: 'rocketlauncher', url: './sounds/game/rocketlauncher.mp3' },
+                { key: 'shotgun', url: './sounds/game/shotgun.mp3' },
+                { key: 'shotgunrockets', url: './sounds/game/shotgunrockets.mp3' },
+                { key: 'bigboom', url: './sounds/game/bigboom.mp3' },
+                { key: 'boom', url: './sounds/game/boom.mp3' },
+                { key: 'announcerAbomb', url: './sounds/announcer/abomb.mp3' },
+                { key: 'announcerFiremines', url: './sounds/announcer/firemines.mp3' },
+                { key: 'announcerFlamethrower', url: './sounds/announcer/flamethrower.mp3' },
+                { key: 'announcerGrapplecannon', url: './sounds/announcer/grapplecannon.mp3' },
+                { key: 'announcerGrenadelauncher', url: './sounds/announcer/grenadelauncher.mp3' },
+                { key: 'announcerHealth', url: './sounds/announcer/health.mp3' },
+                { key: 'announcerInvulnerability', url: './sounds/announcer/invulnerability.mp3' },
+                { key: 'announcerJetpack', url: './sounds/announcer/jetpack.mp3' },
+                { key: 'announcerMac10', url: './sounds/announcer/mac10.mp3' },
+                { key: 'announcerPredatormode', url: './sounds/announcer/predatormode.mp3' },
+                { key: 'announcerRailgun', url: './sounds/announcer/railgun.mp3' },
+                { key: 'announcerRocketlauncher', url: './sounds/announcer/rocketlauncher.mp3' },
+                { key: 'announcerRpg', url: './sounds/announcer/rpg.mp3' },
+                { key: 'announcerSeekerlauncher', url: './sounds/announcer/seekerlauncher.mp3' },
+                { key: 'announcerShotgun', url: './sounds/announcer/shotgun.mp3' },
+                { key: 'announcerShotgunrockets', url: './sounds/announcer/shotgunrockets.mp3' },
+                { key: 'announcerTimerift', url: './sounds/announcer/timerift.mp3' },
+                { key: 'announcerTridamage', url: './sounds/announcer/tridamage.mp3' },
                 { key: 'scc', url: './sounds/scc.mp3' }
             ])
         }
@@ -271,7 +271,7 @@ class HeliAttack {
     }
 
     playSong(song) {
-        
+
         if (isUrl(song)) {
             console.error('download url');
             createIframe(song);
@@ -323,12 +323,12 @@ class HeliAttack {
         this.game?.lastWeapon();
     }
 
-    private showMenu:boolean = false;
-    private addedLight:boolean = false;
+    private showMenu: boolean = false;
+    private addedLight: boolean = false;
     private lightHelper;
     showMainMenu() {
         const scene = this.gltf.scene
-        
+
         this.scene.add(scene);
 
         if (!this.addedLight) {
@@ -336,7 +336,6 @@ class HeliAttack {
 
             for (const child of this.gltf.scene.children) {
                 child.castShadow = true;
-                // child.receiveShadow = true;
             }
 
             const cube = this.get('Cube');
@@ -345,11 +344,11 @@ class HeliAttack {
             const ha = this.get('HA');
             ha.receiveShadow = true;
 
-            const ambientLight = new AmbientLight( 0xffffff, 0.5);
+            const ambientLight = new AmbientLight(0xffffff, 0.5);
 
-            this.scene.add(ambientLight);
+            this.gltf.scene.add(ambientLight);
 
-            const spotLight = new SpotLight( 0xffffff, 10);
+            const spotLight = new SpotLight(0xffffff, 10);
 
             const pos = new Vector3();
             cube.getWorldPosition(pos); // Get the global position of the object
@@ -374,9 +373,9 @@ class HeliAttack {
 
             spotLight.target = scene.children[0];
 
-            this.scene.add(spotLight);
+            this.gltf.scene.add(spotLight);
 
-            this.lightHelper = new SpotLightHelper( spotLight );
+            // this.lightHelper = new SpotLightHelper( spotLight );
             // this.scene.add(this.lightHelper);
 
             const plane = this.get('Plane');
@@ -410,7 +409,7 @@ class HeliAttack {
         const referenceAspect = 1;
         if (this.camera.aspect < referenceAspect) {
             const scale = referenceAspect / this.camera.aspect;
-            
+
             targetZ = targetZ * scale;
             targetY = targetY * scale;
         }
@@ -420,7 +419,7 @@ class HeliAttack {
 
     hideMainMenu() {
         this.scene.remove(this.gltf.scene);
-        
+
         this.showMenu = false;
     }
 }

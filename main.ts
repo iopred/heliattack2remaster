@@ -8,7 +8,7 @@ import VideoGestures from './videogestures';
 import WordListener from './wordlistener';
 import HeliAttack from './heliattack';
 import TouchInputHandler from './touchinputhandler';
-import { getDurationMiliseconds, getDurationSeconds, sayMessage, setMessage, setVisible, timeout } from './utils';
+import { getDurationMiliseconds, sayMessage, setMessage, setVisible, timeout } from './utils';
 import SquareCircleCo from './scc/squarecircleco';
 import Naamba from './naamba'
 import SmoothScrollHandler from './smoothscrollhandler';
@@ -23,7 +23,9 @@ const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight,
 
 ColorManagement.enabled = true;
 
-const renderer = new WebGLRenderer({antialias: true});
+const renderer = new WebGLRenderer({
+    powerPreference: "high-performance",
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.gammaOutput = true;
 renderer.gammaFactor = 2.2;
@@ -249,7 +251,7 @@ scene.add(dirLight);
 function createBlueLine(x, y, object) {
     const material = new LineBasicMaterial({ color: 0x0000ff });
 
-    const points:Vector3[] = [];
+    const points: Vector3[] = [];
     points.push(new Vector3(x - 10, y - 10, -0));
     points.push(new Vector3(x, y, -0));
     points.push(new Vector3(x + 10, y - 10, -0));
@@ -287,7 +289,7 @@ function resetScene(scene) {
 let heliattack: HeliAttack;
 function render() {
     let rendered = false;
-    
+
     rendered = rendered || (naamba?.render() || false);
     rendered = rendered || (squarecircleco?.render() || false);
     rendered = rendered || (heliattack?.render() || false);
@@ -367,6 +369,9 @@ const joystick = {
     right: false,
     up: false,
     down: false,
+    hyperJump: false,
+    changeWeapon: false,
+    timeDistort: false
 }
 
 
@@ -384,7 +389,7 @@ function onDocumentMouseMove(event) {
     if (ignoreDocumentMouseMove) {
         return;
     }
-    
+
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 }
@@ -419,7 +424,7 @@ function onMouseUp(event) {
         mouse.down = false;
         wasShooting = false;
     } else if (event.button === 1) {
-        
+
     } else if (event.button === 2) {
         heliattack?.lastWeapon();
         mouse.down = wasShooting;
@@ -471,7 +476,7 @@ const touchInputHandler = new TouchInputHandler(document.body, gestureCanvas);
 let ignoreDocumentMouseMove = false;
 touchInputHandler.onStart((event) => {
     ignoreDocumentMouseMove = true;
-    
+
     init();
 
     if (!heliattack?.playing) {
@@ -514,15 +519,38 @@ touchInputHandler.onMove((event) => {
     mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
 })
 
-touchInputHandler.onJoystickMove((vector) => {
+touchInputHandler.onJoystickMove(0, (vector) => {
     if (!heliattack?.playing) {
         return;
     }
 
     joystick.left = vector.x < -0.1;
     joystick.right = vector.x > 0.1;
-    joystick.up = vector.y < -0.25;
-    joystick.down = vector.y > 0.5;
+    joystick.up = vector.y < -0.5;
+    joystick.down = vector.y > 0.75;
+});
+
+touchInputHandler.onJoystickMove(1, (vector) => {
+    if (!heliattack?.playing) {
+        return;
+    }
+
+    mouse.down = vector.active;
+
+    mouse.x = vector.x * window.innerWidth;
+    mouse.y = vector.y * -1 * window.innerHeight;
+});
+
+touchInputHandler.onOnScreenButton('hyperJump', 30, 140, (active) => {
+    joystick.hyperJump = active;
+});
+
+touchInputHandler.onOnScreenButton('changeWeapon', -30, 140, (active) => {
+    joystick.changeWeapon = active;
+});
+
+touchInputHandler.onOnScreenButton('timeDistort', -90, 145, (active) => {
+    joystick.timeDistort = active;
 });
 
 const ENABLE_DEBUGGER = false;
@@ -662,7 +690,7 @@ io.onWordDetected((word) => {
         videoGestures = new VideoGestures(window, document);
         videoGestures.setSize(window.innerWidth, window.innerHeight);
         heliattack?.initVideoGestures(videoGestures);
-    
+
         showCheat('input/output');
     }
 
@@ -717,7 +745,7 @@ function showCheat(text) {
 let playing = true;
 
 // Key handling
-const keyIsPressed: {[key: string]: boolean} = {
+const keyIsPressed: { [key: string]: boolean } = {
     'ArrowLeft': false,
     'ArrowRight': false,
     'ArrowUp': false,
@@ -801,7 +829,7 @@ window.addEventListener('blur', () => {
         keyIsPressed[key] = false;
     }
     mouse.down = false;
-    
+
     wasPlaying = heliattack?.playing && playing;
     if (wasPlaying) {
         setPlaying(false);
@@ -810,7 +838,7 @@ window.addEventListener('blur', () => {
     }
 });
 window.addEventListener('focus', () => {
-    
+
 
     if (heliattack?.playing) {
         if (wasPlaying) {
@@ -869,14 +897,15 @@ const audioManager = new AudioManager();
 window.audioManager = audioManager;
 
 const settings = {
-    set over(value:boolean) {
+    set over(value: boolean) {
         setVisible(gameOverMenu, value);
         setVisible(mainMenu, false);
         if (heliattack) {
             heliattack.playing = !value;
         }
+        touchInputHandler.drawJoysticks = !value;
         if (value) {
-            document.getElementById('ui')?.removeAttribute('playing'); 
+            document.getElementById('ui')?.removeAttribute('playing');
             document.getElementById('ui')?.removeAttribute('ingame');
         } else {
             document.getElementById('ui')?.setAttribute('playing', '');
@@ -889,43 +918,43 @@ const settings = {
         smoothScrollHandler?.update();
         touchInputHandler?.update();
     },
-    set musicMuted(value:boolean) {
+    set musicMuted(value: boolean) {
         audioManager.musicVolume = value ? 0.0 : settings.musicVolume;
         LocalStorageWrapper.setItem('musicMuted', value);
         updateMusicIcon();
     },
-    get musicMuted():boolean {
+    get musicMuted(): boolean {
         const muted = LocalStorageWrapper.getItem<boolean>('musicMuted');
         return (muted !== null && muted !== undefined) ? muted : false;
     },
-    set musicVolume(value:number) {
+    set musicVolume(value: number) {
         audioManager.musicVolume = value;
         LocalStorageWrapper.setItem('musicVolume', value);
         updateMusicIcon();
     },
-    get musicVolume():number {
+    get musicVolume(): number {
         const volume = LocalStorageWrapper.getItem<number>('musicVolume');
         return (volume !== null && volume !== undefined) ? volume : 0.8;
     },
-    set effectMuted(value:boolean) {
+    set effectMuted(value: boolean) {
         audioManager.effectVolume = value ? 0.0 : settings.effectVolume;
         LocalStorageWrapper.setItem('effectMuted', value);
         updateEffectsIcon();
     },
-    get effectMuted():boolean {
+    get effectMuted(): boolean {
         const muted = LocalStorageWrapper.getItem<boolean>('effectMuted');
         return (muted !== null && muted !== undefined) ? muted : false;
     },
-    set effectVolume(value:number) {
+    set effectVolume(value: number) {
         audioManager.effectVolume = value;
         LocalStorageWrapper.setItem('effectVolume', value);
         updateEffectsIcon();
     },
-    get effectVolume():number {
+    get effectVolume(): number {
         const volume = LocalStorageWrapper.getItem<number>('effectVolume');
         return (volume !== null && volume !== undefined) ? volume : 0.8;
     },
-    get bpm():number {
+    get bpm(): number {
         return 200;
     }
 }
@@ -960,7 +989,7 @@ async function init() {
     await createHeliAttack();
     await createMainMenu();
     await createGameOverMenu();
-    
+
     heliattack.showMainMenu();
     setVisible(mainMenu, true);
 }
@@ -976,7 +1005,7 @@ async function createNaamba() {
 
     naamba = new Naamba(window, renderer.domElement, scene, camera);
     await naamba.preload();
-    
+
     setMessage('');
     await naamba.begin();
     await timeout(getDurationMiliseconds(BPM) * 6);
@@ -1053,7 +1082,7 @@ async function createHeliAttack() {
 
     heliattack = new HeliAttack(window, mouse, joystick, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, settings);
     await heliattack.preload();
-    
+
     setMessageColor('white');
     setMessage('');
     squarecircleco?.destroy();
@@ -1065,7 +1094,7 @@ async function createHeliAttack() {
         heliattack.initVideoGestures(videoGestures);
     }
 
-    
+
 }
 
 setMessage('Tap to continue');
