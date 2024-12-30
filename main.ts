@@ -403,6 +403,10 @@ function onMouseDown(event) {
         return;
     }
 
+    if (ignoreDocumentMouseMove) {
+        return;
+    }
+
     //manageRaycasterIntersections(scene, camera, mouse);
 
     if (event.button === 0) {
@@ -420,6 +424,11 @@ function onMouseUp(event) {
     if (!heliattack?.playing) {
         return;
     }
+
+    if (ignoreDocumentMouseMove) {
+        return;
+    }
+
     if (event.button === 0) {
         mouse.down = false;
         wasShooting = false;
@@ -435,6 +444,11 @@ function onMouseClick(event) {
     if (!heliattack?.playing) {
         return;
     }
+
+    if (ignoreDocumentMouseMove) {
+        return;
+    }
+
     if (event.button === 1) {
         mouse.wheel = 1;
     } else if (event.button === 2) {
@@ -478,48 +492,17 @@ touchInputHandler.onStart((event) => {
     ignoreDocumentMouseMove = true;
 
     init();
-
-    if (!heliattack?.playing) {
-        return;
-    }
-
-    if (event.touches.length < 2) {
-        return;
-    }
-
-    const touch = event.touches[1];
-
-    mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
-    mouse.down = true;
 });
 
 touchInputHandler.onEnd((event) => {
-    if (!heliattack?.playing) {
-        return;
-    }
 
-    if (event.touches.length < 2) {
-        mouse.down = false;
-    }
 })
 
 touchInputHandler.onMove((event) => {
-    if (!heliattack?.playing) {
-        return;
-    }
 
-    if (event.touches.length < 2) {
-        return
-    }
-
-    const touch = event.touches[1];
-
-    mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
 })
 
-touchInputHandler.onJoystickMove(0, (vector) => {
+touchInputHandler.onJoystickMove(TouchInputHandler.joystickRadius + 20, TouchInputHandler.joystickRadius + 20, (vector) => {
     if (!heliattack?.playing) {
         return;
     }
@@ -530,15 +513,17 @@ touchInputHandler.onJoystickMove(0, (vector) => {
     joystick.down = vector.y > 0.75;
 });
 
-touchInputHandler.onJoystickMove(1, (vector) => {
+touchInputHandler.onJoystickMove(-TouchInputHandler.joystickRadius - 20, TouchInputHandler.joystickRadius + 20, (vector) => {
     if (!heliattack?.playing) {
         return;
     }
 
-    mouse.down = vector.active;
-
-    mouse.x = vector.x * window.innerWidth;
-    mouse.y = vector.y * -1 * window.innerHeight;
+    mouse.down = vector.active && heliattack?.game?.player?.weapon == 0;
+    if (vector.active && vector.x * vector.x + vector.y * vector.y > 0.1) {
+        mouse.x = vector.x * window.innerWidth;
+        mouse.y = vector.y * -1 * window.innerHeight;
+        mouse.down = true;
+    }
 });
 
 touchInputHandler.onOnScreenButton('hyperJump', 30, 140, (active) => {
@@ -903,6 +888,7 @@ const settings = {
         if (heliattack) {
             heliattack.playing = !value;
         }
+        renderer.shadowMap.enabled = !value;
         touchInputHandler.drawJoysticks = !value;
         if (value) {
             document.getElementById('ui')?.removeAttribute('playing');

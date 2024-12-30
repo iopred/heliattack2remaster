@@ -3,11 +3,18 @@ export type TouchHandler = (event: TouchEvent, touches: Map<number, { x: number;
 
 export type JoystickMoveVector = { x: number; y: number, active: boolean };
 export type Joystick = {
-  moveHandlerId: number;
+  identifier?: number;
+
+  x: number;
+  bottom: number;
+  active: boolean;
+
   origin: { x: number; y: number };
   thumbPosition: { x: number; y: number };
   initialThumbPosition: { x: number, y: number },
   vector: JoystickMoveVector;
+
+  handler: JoystickMoveHandler;
 }
 export type JoystickMoveHandler = (vector: JoystickMoveVector) => void;
 
@@ -31,14 +38,14 @@ class TouchInputHandler {
   private onEndHandlers: TouchHandler[] = [];
   private joystickMoveHandlers: { [key: number]: JoystickMoveHandler[] } = {};
 
-  private joysticks: Map<number, Joystick> = new Map();
+  private joysticks: Joystick[] = [];///Map<number, Joystick> = new Map();
 
   private onScreenButtons: OnScreenButton[] = [];
 
   private readonly maxMagnitude = 50;
-  private readonly joystickRadius = 50;
+  static readonly joystickRadius = 50;
 
-  private readonly buttonRadius = 20;
+  static readonly buttonRadius = 20;
 
   private _drawJoysticks: boolean = false;
 
@@ -77,33 +84,27 @@ class TouchInputHandler {
 
 
       for (const button of this.onScreenButtons) {
-        if (this.isWithinOrigin(touch.clientX, touch.clientY, button.x > 0 ? button.x : window.innerWidth + button.x, window.innerHeight - button.bottom, this.buttonRadius)) {
+        if (!button.active && this.isWithinOrigin(touch.clientX, touch.clientY, button.x > 0 ? button.x : window.innerWidth + button.x, window.innerHeight - button.bottom, TouchInputHandler.buttonRadius)) {
           button.identifier = touch.identifier;
           button.active = true;
           button.handler(true);
         }
       }
 
+      for (const joystick of this.joysticks) {
+        if (!joystick.active && this.isWithinOrigin(touch.clientX, touch.clientY, joystick.x > 0 ? joystick.x : window.innerWidth + joystick.x, window.innerHeight - joystick.bottom, TouchInputHandler.joystickRadius)) {
+          joystick.identifier = touch.identifier;
+          joystick.active = true;
 
-      const isLeftJoystick = touch.clientX < window.innerWidth / 2;
-      const joystickOrigin = isLeftJoystick
-        ? { x: this.joystickRadius + 20, y: window.innerHeight - this.joystickRadius - 20 }
-        : { x: window.innerWidth - this.joystickRadius - 20, y: window.innerHeight - this.joystickRadius - 20 };
+          joystick.origin = { x: joystick.x > 0 ? joystick.x : window.innerWidth + joystick.x, y: window.innerHeight - joystick.bottom };
+          joystick.thumbPosition = { x: touch.clientX, y: touch.clientY };
+          joystick.initialThumbPosition = { x: touch.clientX, y: touch.clientY };
 
-      if (!this.isWithinOrigin(touch.clientX, touch.clientY, joystickOrigin.x, joystickOrigin.y, this.joystickRadius * 1.1)) return;
+          this.calculateJoystickVector(joystick);
 
-      if (this.joysticks.get(touch.identifier)) return;
-
-      const joystick = {
-        moveHandlerId: isLeftJoystick ? 0 : 1,
-        origin: joystickOrigin,
-        thumbPosition: { x: joystickOrigin.x, y: joystickOrigin.y },
-        initialThumbPosition: { x: touch.clientX, y: touch.clientY },
-        vector: { x: 0, y: 0, active: true },
+          joystick.handler(joystick.vector);
+        }
       }
-
-      this.joysticks.set(touch.identifier, joystick);
-      this.emitJoystickHandlers(joystick.moveHandlerId, joystick.vector);
     });
     this.emitHandlers(this.onStartHandlers, event);
     this.renderJoysticks();
@@ -112,12 +113,16 @@ class TouchInputHandler {
   private handleTouchMove(event: TouchEvent) {
 
     Array.from(event.changedTouches).forEach((touch) => {
-      const joystick = this.joysticks.get(touch.identifier);
-      if (!joystick) return;
+      for (const joystick of this.joysticks) {
+        if (joystick.active && joystick.identifier === touch.identifier) {
 
-      joystick.thumbPosition = { x: touch.clientX, y: touch.clientY };
-      this.calculateJoystickVector(joystick);
-      this.emitJoystickHandlers(joystick.moveHandlerId, joystick.vector);
+          joystick.thumbPosition = { x: touch.clientX, y: touch.clientY };
+
+          this.calculateJoystickVector(joystick);
+
+          joystick.handler(joystick.vector);
+        }
+      }
     });
     this.emitHandlers(this.onMoveHandlers, event);
     this.renderJoysticks();
@@ -129,17 +134,20 @@ class TouchInputHandler {
       this.activeTouches.delete(touch.identifier);
 
       for (const button of this.onScreenButtons) {
-        if (button.identifier === touch.identifier) {
+        if (button.active && button.identifier === touch.identifier) {
           button.active = false;
           button.handler(false);
         }
       }
 
-      const joystick = this.joysticks.get(touch.identifier);
-      if (!joystick) return;
-
-      this.emitJoystickHandlers(joystick.moveHandlerId, { x: 0, y: 0, active: false });
-      this.joysticks.delete(touch.identifier);
+      for (const joystick of this.joysticks) {
+        if (joystick.active && joystick.identifier === touch.identifier) {
+          joystick.vector = { x: 0, y: 0, active: false };
+          joystick.active = false;
+          joystick.identifier = -1;
+          joystick.handler(joystick.vector);
+        }
+      }
     });
     this.emitHandlers(this.onEndHandlers, event);
     this.renderJoysticks();
@@ -187,13 +195,18 @@ class TouchInputHandler {
     this.onEndHandlers.push(handler);
   }
 
-  public onJoystickMove(identifier: number, handler: JoystickMoveHandler) {
-    if (!this.joystickMoveHandlers[identifier]) {
-      this.joystickMoveHandlers[identifier] = [];
-    }
-
-    this.joystickMoveHandlers[identifier].push(handler);
-
+  public onJoystickMove(x: number, bottom: number, handler: JoystickMoveHandler) {
+    this.joysticks.push({
+      identifier: -1,
+      x: x,
+      bottom: bottom,
+      active: false,
+      vector: { x: 0, y: 0, active: false },
+      handler: handler,
+      origin: { x: x > 0 ? x : window.innerWidth + x, y: window.innerHeight - bottom },
+      thumbPosition: { x: 0, y: 0 },
+      initialThumbPosition: { x: 0, y: 0 },
+    });
   }
 
   public onOnScreenButton(id: string, x: number, bottom: number, handler: OnScreenButtonHandler) {
@@ -213,42 +226,21 @@ class TouchInputHandler {
       return;
     }
 
-    const leftJoystick = {
-      origin: { x: this.joystickRadius + 20, y: window.innerHeight - this.joystickRadius - 20 },
-      active: false
-    };
-    const rightJoystick = {
-      origin: { x: window.innerWidth - this.joystickRadius - 20, y: window.innerHeight - this.joystickRadius - 20 },
-      active: false
-    };
-
     // Check for active joysticks
-    this.joysticks.forEach((joystick) => {
-      if (!joystick.origin || !joystick.thumbPosition) return;
-      if (joystick.moveHandlerId === 0) leftJoystick.active = true;
-      else rightJoystick.active = true;
-
-      this.drawJoystick(joystick.origin, { x: joystick.origin.x + joystick.vector.x * this.joystickRadius, y: joystick.origin.y + joystick.vector.y * this.joystickRadius }, true);
-    });
-
-    // Render inactive joysticks
-    if (!leftJoystick.active) {
-      this.drawJoystick(leftJoystick.origin, leftJoystick.origin, false);
-    }
-    if (!rightJoystick.active) {
-      this.drawJoystick(rightJoystick.origin, rightJoystick.origin, false);
+    for (const joystick of this.joysticks) {
+      this.drawJoystick(joystick.origin, { x: joystick.origin.x + joystick.vector.x * TouchInputHandler.joystickRadius, y: joystick.origin.y + joystick.vector.y * TouchInputHandler.joystickRadius }, joystick.active);
     }
 
-    this.onScreenButtons.forEach((button) => {
+    for (const button of this.onScreenButtons) {
       this.drawButton(button);
-    });
+    }
   }
 
   private drawJoystick(origin: { x: number; y: number }, thumb: { x: number; y: number }, active: boolean) {
     // Draw joystick origin
     this.context.beginPath();
-    this.context.arc(origin.x, origin.y, this.joystickRadius, 0, Math.PI * 2);
-    this.context.fillStyle = active ? 'rgba(0, 0, 255, 0.3)' : 'rgba(0, 0, 255, 0.1)';
+    this.context.arc(origin.x, origin.y, TouchInputHandler.joystickRadius, 0, Math.PI * 2);
+    this.context.fillStyle = active ? 'rgba(0, 0, 255, 0.4)' : 'rgba(0, 0, 255, 0.2)';
     this.context.fill();
     this.context.closePath();
 
@@ -273,8 +265,8 @@ class TouchInputHandler {
 
   private drawButton(button: OnScreenButton) {
     this.context.beginPath();
-    this.context.arc(button.x > 0 ? button.x : window.innerWidth + button.x, window.innerHeight - button.bottom, this.buttonRadius, 0, Math.PI * 2);
-    this.context.fillStyle = button.active ? 'rgba(0, 0, 255, 0.3)' : 'rgba(0, 0, 255, 0.1)';
+    this.context.arc(button.x > 0 ? button.x : window.innerWidth + button.x, window.innerHeight - button.bottom, TouchInputHandler.buttonRadius, 0, Math.PI * 2);
+    this.context.fillStyle = button.active ? 'rgba(0, 0, 255, 0.4)' : 'rgba(0, 0, 255, 0.2)';
     this.context.fill();
     this.context.closePath();
   }
@@ -286,7 +278,7 @@ class TouchInputHandler {
   }
 
   update() {
-
+    
   }
 
   public destroy() {
