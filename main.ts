@@ -13,6 +13,7 @@ import SquareCircleCo from './scc/squarecircleco';
 import Naamba from './naamba'
 import SmoothScrollHandler from './smoothscrollhandler';
 import { LocalStorageWrapper } from './localstoragewrapper';
+import Basement from './basement';
 
 const gestureCanvas = document.getElementById('gesture-canvas')! as HTMLCanvasElement;
 gestureCanvas.width = window.innerWidth;
@@ -552,28 +553,6 @@ let videoGestures = ENABLE_VIDEO_GESTURES ? new VideoGestures(window, document) 
 if (videoGestures) {
     videoGestures.setSize(window.innerWidth, window.innerHeight);
 }
-function getAvatar() {
-    // TODO: Write Avatar Creator.
-
-    const kit = new Kit();
-    kit.pulse()
-    // WARNING: For POST requests, body is set to null by browsers.
-    var data = '{\r\n    \'launcherJwt\': {{JWT}}\r\n}';
-
-    var xhr = new XMLHttpRequest();
-    xhr.withCredentials = true;
-
-    xhr.addEventListener('readystatechange', function () {
-        if (this.readyState === 4) {
-            console.log(this.responseText);
-        }
-    });
-
-    xhr.open('POST', 'https://api.basement.fun/launcher/');
-    xhr.setRequestHeader('X-Service-Method', 'channelStatus');
-
-    xhr.send(data);
-}
 
 const k = new WordListener('k');
 k.onWordDetected((word) => {
@@ -889,7 +868,9 @@ const settings = {
             heliattack.playing = !value;
         }
         renderer.shadowMap.enabled = !value;
-        touchInputHandler.drawJoysticks = !value;
+        if (ignoreDocumentMouseMove) {
+            touchInputHandler.drawJoysticks = !value;
+        }
         if (value) {
             document.getElementById('ui')?.removeAttribute('playing');
             document.getElementById('ui')?.removeAttribute('ingame');
@@ -1082,5 +1063,12 @@ async function createHeliAttack() {
 
 
 }
+
+const basement = new Basement(window);
+
+basement.getChannelStatus()
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 
 setMessage('Tap to continue');
