@@ -339,6 +339,8 @@ function onWindowResize() {
 
     heliattack?.setSize(width, height)
 
+    touchInputHandler?.setSize(width, height);
+
     gestureCanvas.width = width;
     gestureCanvas.height = height;
 

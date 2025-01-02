@@ -249,6 +249,7 @@ function isPlayerCollisionRect(x, y, width, height, player) {
     return x + width >= pos.x + player.bounds.min.x && x <= pos.x + player.bounds.max.x && y + height >= pos.y + player.bounds.min.y && y <= pos.y + player.bounds.max.y;
 }
 
+var courseHeliBox = new Box3(new Vector3(-88, -37, -5), new Vector3(100, 35, 5));
 var heliBoxes = [
     new Box3(new Vector3(-88, 13, -5), new Vector3(-72, 28, 5)),
     new Box3(new Vector3(-88, -29, -5), new Vector3(-31, 13, 5)),
@@ -265,6 +266,10 @@ function checkPointCollisionWithBoxes(point, enemy, boxes) {
     // Convert the world-space point to the object's local space
     const localPoint = point.clone();
     enemy.heliGroup.worldToLocal(localPoint);
+
+    if (!courseHeliBox.containsPoint(localPoint)) {
+       return false;
+    }
 
     for (const box of boxes) {
         if (box.containsPoint(localPoint)) {

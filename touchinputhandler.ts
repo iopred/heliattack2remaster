@@ -55,7 +55,7 @@ class TouchInputHandler {
 
   public set drawJoysticks(value: boolean) {
     this._drawJoysticks = value;
-    this.renderJoysticks();
+    this.render();
   }
 
   constructor(private element: HTMLElement, private canvas: HTMLCanvasElement) {
@@ -107,7 +107,7 @@ class TouchInputHandler {
       }
     });
     this.emitHandlers(this.onStartHandlers, event);
-    this.renderJoysticks();
+    this.render();
   }
 
   private handleTouchMove(event: TouchEvent) {
@@ -125,7 +125,7 @@ class TouchInputHandler {
       }
     });
     this.emitHandlers(this.onMoveHandlers, event);
-    this.renderJoysticks();
+    this.render();
   }
 
   private handleTouchEnd(event: TouchEvent) {
@@ -150,7 +150,7 @@ class TouchInputHandler {
       }
     });
     this.emitHandlers(this.onEndHandlers, event);
-    this.renderJoysticks();
+    this.render();
   }
 
   private calculateJoystickVector(joystick: Joystick) {
@@ -219,7 +219,7 @@ class TouchInputHandler {
     });
   }
 
-  private renderJoysticks() {
+  private render() {
     this.clearCanvas();
 
     if (!this.drawJoysticks) {
@@ -279,6 +279,10 @@ class TouchInputHandler {
 
   update() {
     
+  }
+
+  public setSize(width: number, height: number) {
+    this.render();
   }
 
   public destroy() {
