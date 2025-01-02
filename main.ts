@@ -13,7 +13,7 @@ import SquareCircleCo from './scc/squarecircleco';
 import Naamba from './naamba'
 import SmoothScrollHandler from './smoothscrollhandler';
 import { LocalStorageWrapper } from './localstoragewrapper';
-import Basement from './basement';
+import { Basement, NotificationType } from './basement';
 
 const gestureCanvas = document.getElementById('gesture-canvas')! as HTMLCanvasElement;
 gestureCanvas.width = window.innerWidth;
@@ -1060,11 +1060,26 @@ async function createHeliAttack() {
 
 }
 
-const basement = new Basement(window);
+const basement = new Basement(window, '67760bb7528b43ef7f63da68');
+
+basement.heartbeat()
+    .then(response => response.text())
+    .then(result => console.log('heartbeat: ', result))
+    .catch(error => console.error('heartbeat error:', error));
 
 basement.getChannelStatus()
     .then(response => response.text())
-    .then(result => console.log(result))
-    .catch(error => console.log('error', error));
+    .then(result => console.log('channelStatus: ', result))
+    .catch(error => console.error('channelStatus error:', error));
+
+basement.getLeaderboard()
+    .then(response => response.text())
+    .then(result => console.log('leaderboard: ', result))
+    .catch(error => console.error('leaderboard error:', error));
+
+basement.sendNotification('hello world', NotificationType.Success)
+    .then(response => response.text())
+    .then(result => console.log('notification: ', result))
+    .catch(error => console.error('notification error:', error));
 
 setMessage('Tap to continue');
