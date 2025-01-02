@@ -261,10 +261,6 @@ function grenadeUpdate(game, delta) {
 const FIRE_TIME = 80;
 
 function fireMinesUpdate(game, delta) {
-    if (this.time == 0) {
-        this.object.rotation.z = 0;
-    }
-
     this.tick += game.timeScale;
     if (this.tick >= 1) {
         this.tick %= 1;
@@ -389,9 +385,14 @@ function constructFirePillar(game) {
 }
 
 function railUpdate(game, delta) {
-    if (this.time == 0) {
+    if (this.time == 0) {        
         this.object.geometry.translate(this.material.map.image.width / 2, 0, 0);
+
         let pos = this.object.position.clone();
+
+        this.object.position.x += this.velocity.x;
+        this.object.position.y += this.velocity.y;
+
         while (game.enemy) {
             if (checkPointCollisionWithBoxes(pos, game.enemy, heliBoxes)) {
                 game.enemy.damage(this.damage, game);

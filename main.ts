@@ -750,40 +750,34 @@ window.addEventListener('wheel', onMouseWheel, { passive: false });
 
 
 window.addEventListener('keydown', (e) => {
-    history.push(e.key);
-    if (e.key.length == 1) {
-        let key = e.key.toLowerCase();
+    keyIsPressed[e.code] = true;
+    
+    let key = e.key.toLowerCase();
+    if (key.length === 1) {
+        history.push(key);
         k.listen(key);
         i.listen(key);
         o.listen(key);
         m.listen(key);
         n.listen(key);
         l.listen(key);
-
-        keyIsPressed[key] = true;
-    } else {
-        keyIsPressed[e.key] = true;
+        xylander.listen(history.join(''));
+        pred.listen(history.join(''));
+        retro.listen(history.join(''));
+        io.listen(history.join(''));
+        kit.listen(history.join(''));
     }
-    xylander.listen(history.join(''));
-    pred.listen(history.join(''));
-    retro.listen(history.join(''));
-    io.listen(history.join(''));
-    kit.listen(history.join(''));
-    if (e.key >= '0' && e.key <= '9') {
+    if (key >= '0' && key <= '9') {
         if (heliattack) {
-            heliattack.currentTime = (e.key.charCodeAt(0) - '0'.charCodeAt(0)) / 10;
+            heliattack.currentTime = (key.charCodeAt(0) - '0'.charCodeAt(0)) / 10;
         }
     }
-    if (e.key == 'Escape') {
+    if (key == 'escape') {
         togglePause();
     }
 });
 window.addEventListener('keyup', (e) => {
-    if (e.key.length == 1) {
-        keyIsPressed[e.key.toLowerCase()] = false;
-    } else {
-        keyIsPressed[e.key] = false;
-    }
+    keyIsPressed[e.code] = false;
 });
 
 let wasPlaying = false;

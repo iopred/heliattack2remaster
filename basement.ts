@@ -33,7 +33,7 @@ export default class Basement {
 
     private async makeRequest(endpoint:string): Promise<Response> {
         if (!this.jwt) {
-            console.error('Basement: Cannot make request to ${endpoint}: No login found, please request this page through the Basement Launcher.')
+            console.error(`Basement: Cannot make request to ${endpoint}: No login found, please request this page through the Basement Launcher.`);
         }
         var headers = new Headers();
         headers.append('X-Service-Method', endpoint);

@@ -1,6 +1,6 @@
 
 import { Blood, Box, DestroyedEnemy, DestroyedHeli, Explosion, Parachute, Shard, Smoke } from './entities';
-import { Box3, Clock, Color, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, ShaderMaterial, Texture, Vector2, Vector3, Camera } from 'three';
+import { Box3, Camera, Clock, Color, Frustum, Geometry, Group, MathUtils, Matrix4, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Scene, ShaderMaterial, Texture, Vector2, Vector3 } from 'three';
 import { calculateAngleToMouse, checkTileCollisions, createTintShader, getDurationMiliseconds, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth, isPlayerCollision, isTileCollision, sayMessage } from './utils';
 import { defaultBulletUpdate } from './weapons';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
@@ -83,6 +83,12 @@ class Enemy {
         this.aim = Math.PI / 2;
     }
 
+    static geometry:PlaneGeometry;
+    static tintMaterial:ShaderMaterial;
+
+    static enemyGeometry:PlaneGeometry;
+    static enemyTintMaterial:ShaderMaterial;
+
 
 
     init(game) {
@@ -96,26 +102,29 @@ class Enemy {
         this.heliGroup = new Group();
         this.group.add(this.heliGroup);
 
-        const geometry = new PlaneGeometry(heliTexture.image.width, heliTexture.image.height);
-        const material = new MeshBasicMaterial({
-            map: heliTexture,
-            transparent: true,
-        });
+        if (!Enemy.geometry) {
+            Enemy.geometry = new PlaneGeometry(heliTexture.image.width, heliTexture.image.height);;
+        }
+        if (!Enemy.tintMaterial) {
+            Enemy.tintMaterial = createTintShader(heliTexture)
+        }
 
-        const tintMaterial = createTintShader(heliTexture)
+        const geometry = Enemy.geometry;
+        const tintMaterial = Enemy.tintMaterial;
         this.tints.push(tintMaterial);
 
         const mesh = this.mesh = new Mesh(geometry, tintMaterial);
         this.heliGroup.add(mesh);
 
+        if (!Enemy.enemyGeometry) {
+            Enemy.enemyGeometry = new PlaneGeometry(enemyTexture.image.width, enemyTexture.image.height);
+        }
+        if (!Enemy.enemyTintMaterial) {
+            Enemy.enemyTintMaterial = createTintShader(enemyTexture);
+        }
 
-        const enemyGeometry = new PlaneGeometry(enemyTexture.image.width, enemyTexture.image.height);
-        const enemyMaterial = new MeshBasicMaterial({
-            map: enemyTexture,
-            transparent: true,
-        });
-
-        const enemyTintMaterial = createTintShader(enemyTexture);
+        const enemyGeometry = Enemy.enemyGeometry;
+        const enemyTintMaterial = Enemy.enemyTintMaterial;
         this.tints.push(enemyTintMaterial);
 
         const enemyMesh = this.enemyMesh = new Mesh(enemyGeometry, enemyTintMaterial);
@@ -130,7 +139,21 @@ class Enemy {
 
         this.group.add(enemyWeapon);
 
-        game.world.add(this.group)
+        game.world.add(this.group);
+
+        
+        const texture = this.bulletTexture;
+
+        if (!Enemy.bulletGeometry) {
+            Enemy.bulletGeometry = new PlaneGeometry(texture.image.width, texture.image.height);
+        }
+
+        if (!Enemy.bulletMaterial) {
+            Enemy.bulletMaterial = new MeshBasicMaterial({
+                map: texture,
+                transparent: true,
+            });
+        }
 
         this.randomizePosition(game)
 
@@ -369,23 +392,18 @@ class Enemy {
         return isMeshOnScreen;
     }
 
+    static bulletGeometry:PlaneGeometry;
+    static bulletMaterial:MeshBasicMaterial;
+
     createBullet(game) {
         const pivot = new Vector3();
         this.enemyWeapon.getWorldPosition(pivot);
 
-        const texture = this.bulletTexture;
-
-        const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
-        const material = new MeshBasicMaterial({
-            map: texture,
-            transparent: true
-        });
-
         const innacuracy = Math.max(2, 6 - game.level);
         const direction = this.aim + (-innacuracy + Math.random() * 2 * innacuracy) * Math.PI / 180
 
-        const mesh = new Mesh(geometry, material);
-        mesh.rotation.z = direction;
+        const mesh = new Mesh(Enemy.bulletGeometry, Enemy.bulletMaterial);
+        // mesh.rotation.z = direction;
 
         mesh.position.copy(pivot.add(rotateAroundPivot(game.weapons[0].barrel, zero, this.aim, !(this.aim > Math.PI / 2 || this.aim < -Math.PI / 2))));
         mesh.position.z = 0.5;
@@ -400,8 +418,6 @@ class Enemy {
             object: mesh,
             destroy: (game) => {
                 game.world.remove(mesh);
-                mesh.geometry.dispose();
-                mesh.material.dispose();
             }
         };
         game.enemyBullets.push(bullet);
@@ -645,7 +661,7 @@ class Player {
             const freeBulletTime = this.infiniteTimeDistort || this.hyperJumping;
             let newTimeScale = game.timeScale;
 
-            if (((this.bulletTime > 0 || freeBulletTime) && (game.keyIsPressed['Shift'] || game.joystick.timeDistort)) || this.powerup == TIME_RIFT) {
+            if (((this.bulletTime > 0 || freeBulletTime) && (game.keyIsPressed['ShiftLeft'] || game.keyIsPressed['ShiftRight'] || game.joystick.timeDistort)) || this.powerup == TIME_RIFT) {
                 newTimeScale = Math.max(0.2, game.timeScale - 0.1);
 
                 if (!(this.powerup == TIME_RIFT || this.powerup == PREDATOR_MODE || freeBulletTime)) {
@@ -705,7 +721,7 @@ class Player {
 
                 if (this.hyperJump < HYPERJUMP_RECHARGE) {
                     this.hyperJump++;
-                } else if ((game.keyIsPressed[' '] || game.joystick.hyperJump) && this.canJump) {
+                } else if ((game.keyIsPressed['Space'] || game.joystick.hyperJump) && this.canJump) {
                     this.velocity.y = Math.min(this.velocity.y, -25);
                     this.inAir = true;
                     this.canJump = false;
@@ -1076,7 +1092,7 @@ const bg1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0
 
 const zero = new Vector3();
 
-class Game {
+export class Game {
     public window: Window;
     public mouse: any;
     public joystick: any;
@@ -1598,26 +1614,43 @@ Nothing left at all
         return group;
     };
 
-    createBullet(weapon, rotation, offset) {
+    static bulletGeometries: { [key: string]: Geometry } = {};
+    static bulletMaterials: { [key: string]: MeshBasicMaterial } = {};
+
+    createBullet(weapon: Weapon, rotation, offset) {
         const player = this.player!;
 
         const pivot = new Vector3();
         player.weaponObject.getWorldPosition(pivot);
 
-        const texture = weapon.bulletTexture || this.bulletTexture;
+        const bulletKey = weapon.bulletTextureUrl || 'bullet';
 
-        const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
-        const material = new MeshBasicMaterial({
-            map: texture,
-            transparent: true
-        });
+        if (!Game.bulletGeometries[bulletKey]) {
+            const texture = weapon.bulletTexture || this.bulletTexture;
 
+            const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
+            Game.bulletGeometries[bulletKey] = geometry;
+        }
+        
+        if (!Game.bulletMaterials[bulletKey]) {
+            const texture = weapon.bulletTexture || this.bulletTexture;
 
+            const material = new MeshBasicMaterial({
+                map: texture,
+                transparent: true
+            });
+            Game.bulletMaterials[bulletKey] = material;
+        }
+
+        const geometry = weapon.cloneBulletGeometry ? Game.bulletGeometries[bulletKey].clone() : Game.bulletGeometries[bulletKey];
+        const material = weapon.cloneBulletMaterial ? Game.bulletMaterials[bulletKey].clone() : Game.bulletMaterials[bulletKey];
 
         const direction = player.aim + rotation * Math.PI / 180
 
         const mesh = new Mesh(geometry, material);
-        mesh.rotation.z = direction;
+        if (weapon.rotateBullet) {
+            mesh.rotation.z = direction;
+        }
 
         const pos = pivot.add(rotateAroundPivot(weapon.barrel, zero, player.aim, !(player.aim > Math.PI / 2 || player.aim < -Math.PI / 2)));
         if (offset) {
@@ -1629,7 +1662,7 @@ Nothing left at all
 
         this.world.add(mesh);
 
-        const bullet: { velocity: Vector3, damage: number, object: Mesh, material: MeshBasicMaterial, update: Function, destroy: Function, tick: number, time: number } = {
+        const bullet: { velocity: Vector3, damage: number, object: Mesh, material: MeshBasicMaterial, update: Function | null, destroy: Function, tick: number, time: number } = {
             velocity: new Vector3(
                 weapon.bulletSpeed * Math.cos(direction),
                 weapon.bulletSpeed * Math.sin(direction),
@@ -1666,7 +1699,6 @@ Nothing left at all
     updateBullets(delta) {
         for (let i = this.playerBullets.length - 1; i >= 0; i--) {
             const bullet = this.playerBullets[i];
-            //bullet.object.rotation.z += 5 * Math.PI/180;
 
             let remove = false;
 
@@ -1745,10 +1777,10 @@ Nothing left at all
     }
 
     updateKeys() {
-        this.keyIsPressed[UP_KEY] = this.keyIsPressed['w'] || this.keyIsPressed['ArrowUp'] || this.joystick.up;
-        this.keyIsPressed[DOWN_KEY] = this.keyIsPressed['s'] || this.keyIsPressed['1ArrowDown'] || this.joystick.down;
-        this.keyIsPressed[LEFT_KEY] = this.keyIsPressed['a'] || this.keyIsPressed['ArrowLeft'] || this.joystick.left;
-        this.keyIsPressed[RIGHT_KEY] = this.keyIsPressed['d'] || this.keyIsPressed['ArrowRight'] || this.joystick.right;
+        this.keyIsPressed[UP_KEY] = this.keyIsPressed['KeyW'] || this.keyIsPressed['ArrowUp'] || this.joystick.up;
+        this.keyIsPressed[DOWN_KEY] = this.keyIsPressed['KeyS'] || this.keyIsPressed['ArrowDown'] || this.joystick.down;
+        this.keyIsPressed[LEFT_KEY] = this.keyIsPressed['KeyA'] || this.keyIsPressed['ArrowLeft'] || this.joystick.left;
+        this.keyIsPressed[RIGHT_KEY] = this.keyIsPressed['KeyD'] || this.keyIsPressed['ArrowRight'] || this.joystick.right;
     }
 
     timeStep(delta) {

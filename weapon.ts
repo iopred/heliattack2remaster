@@ -18,7 +18,11 @@ class Weapon {
     public texture: Texture;
     public bulletTexture: Texture;
 
-    private destroy: Function | null;
+    public destroy: Function | null;
+    
+    public cloneBulletGeometry: boolean = false;
+    public cloneBulletMaterial: boolean = false;
+    public rotateBullet: boolean = true;
 
     constructor(
         public name: string,
@@ -56,27 +60,42 @@ class Weapon {
         this.ammo = 0;
     }
 
-    setSpread(spread: number) {
+    setSpread(spread: number): Weapon {
         this.spread = spread;
         return this;
     }
 
-    setBullets(bullets: number, bulletsSpread: number, bulletsOffset: number) {
+    setBullets(bullets: number, bulletsSpread: number, bulletsOffset: number): Weapon {
         this.bullets = bullets;
         this.bulletsSpread = bulletsSpread || 0;
         this.bulletsOffset = bulletsOffset || 0;
         return this;
     }
 
-    setUpdate(update: Function) {
+    setUpdate(update: Function): Weapon {
         this.update = update;
         return this;
     }
 
-    setDestroy(destroy: Function) {
+    setDestroy(destroy: Function): Weapon {
         this.destroy = destroy;
         return this;
     }
+
+    setCloneBulletGeometry(cloneBulletGeometry: boolean): Weapon {
+        this.cloneBulletGeometry = cloneBulletGeometry;
+        return this;
+    }
+
+    setCloneBulletMaterial(cloneBulletMaterial: boolean): Weapon {
+        this.cloneBulletMaterial = cloneBulletMaterial;
+        return this;
+    }
+
+    setRotateBullet(rotateBullet: boolean): Weapon {
+        this.rotateBullet = rotateBullet;
+        return this;
+    } 
 
     init(textures) {
         this.texture = textures[this.textureUrl!];
