@@ -1,3 +1,4 @@
+import { jwtDecode } from "jwt-decode";
 import { LocalStorageWrapper } from './localstoragewrapper';
 
 const API_BASE_URL = 'https://api.basement.fun/launcher/';
@@ -9,12 +10,12 @@ export enum NotificationType {
 }
 
 export class Basement {
-    private gameId:string;
+    public readonly gameId:string;
+    public readonly userId:string;
     private jwt:string;
+    private decodedJwt:any;
 
-    constructor(window:Window, gameId:string) {
-        this.gameId = gameId;
-        
+    constructor(window:Window) {
         // Check if the token is in the query string
         const queryString = window.location.search;
         const parameters = new URLSearchParams(queryString);
@@ -27,6 +28,17 @@ export class Basement {
         LocalStorageWrapper.setItem(LOCAL_STORAGE_B3_LAUNCHER_JWT_KEY, jwt);
 
         this.jwt = jwt;
+        this.decodedJwt = jwtDecode(jwt);
+
+        this.userId = this.decodedJwt.userId;
+        this.gameId = this.decodedJwt.gameId;
+
+        if (!this.userId || !this.gameId) {
+            console.error('Basement: Unable to find userId or gameId in token.');
+            return
+        }
+
+        console.log(this.decodedJwt)
 
         setInterval(() => this.heartbeat(), 2*60*1000);
     }
@@ -40,7 +52,7 @@ export class Basement {
     }
 
     public async getLeaderboard(limit:number = 50, skip:number = 0): Promise<Response> {
-        return this.makeRequest('getGameScoresLeaderboard', { limit, skip });
+        return this.makeRequest('getGameScoresLeaderboard', { gameId: this.gameId, limit, skip });
     }
 
     public async sendNotification(message:string, type:NotificationType): Promise<Response> {

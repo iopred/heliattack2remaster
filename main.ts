@@ -599,10 +599,10 @@ l.onWordDetected(async (word) => {
     if (heliattack?.game?.lastTimelineEvent) {
         const thisMessage = ++lastMessage;
 
-        if (heliattack.game.lastTimelineEvent.text.indexOf('[') === 0) {
-            setMessage(heliattack.game.lastTimelineEvent.text.split(']')[1]);
+        if (heliattack?.game.lastTimelineEvent.text.indexOf('[') === 0) {
+            setMessage(heliattack?.game.lastTimelineEvent.text.split(']')[1]);
         } else {
-            setMessage(heliattack.game.lastTimelineEvent.text);
+            setMessage(heliattack?.game.lastTimelineEvent.text);
         }
         await timeout(getDurationMiliseconds(BPM) * 4);
         if (thisMessage === lastMessage) {
@@ -698,7 +698,7 @@ const pred = new WordListener('pred');
 pred.onWordDetected((word) => {
     history.splice(0, history.length);
 
-    heliattack.pred();
+    heliattack?.pred();
 
     showCheat('gl hf dd')
 });
@@ -733,16 +733,12 @@ document.body.addEventListener('click', onMouseClick);
 function setPlaying(value) {
     if (!value) {
         audioManager.pause();
-        if (heliattack) {
-            heliattack.pause();
-        }
+        heliattack?.pause();
         playing = false;
         document.getElementById('ui')?.removeAttribute('playing');
     } else {
         playing = true
-        if (heliattack) {
-            heliattack.play();
-        }
+        heliattack?.play();
         audioManager.play();
         document.getElementById('ui')?.setAttribute('playing', '');
     }
@@ -936,7 +932,7 @@ const mainMenu = document.getElementById('main-menu')!;
 const gameOverMenu = document.getElementById('game-over-menu')!;
 const highScoresMenu = document.getElementById('high-scores-menu')!;
 
-const SKIP_INTRO = true;
+const SKIP_INTRO = false;
 
 async function init() {
     if (initialized) {
@@ -1084,6 +1080,7 @@ function resetMainMenu() {
 
     showMainMenu();
 
+    heliattack?.init();
     audioManager.playMusic('menu', 0.4);
 }
 
@@ -1117,7 +1114,7 @@ async function createHeliAttack() {
 }
 
 
-const basement = new Basement(window, '67760bb7528b43ef7f63da68');
+const basement = new Basement(window);
 
 let highScoresLoading = false;
 let highScoresLoaded = false;
