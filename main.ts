@@ -1204,22 +1204,18 @@ function showHighScores() {
 
 
 basement.heartbeat()
-    .then(response => response.text())
     .then(result => console.log('heartbeat: ', result))
     .catch(error => console.error('heartbeat error:', error));
 
 basement.getChannelStatus()
-    .then(response => response.text())
     .then(result => console.log('channelStatus: ', result))
     .catch(error => console.error('channelStatus error:', error));
 
 basement.getLeaderboard()
-    .then(response => response.text())
     .then(result => console.log('leaderboard: ', result))
     .catch(error => console.error('leaderboard error:', error));
 
 basement.sendNotification('hello world', NotificationType.Success)
-    .then(response => response.text())
     .then(result => console.log('notification: ', result))
     .catch(error => console.error('notification error:', error));
 

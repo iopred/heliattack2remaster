@@ -14,6 +14,7 @@ export class Basement {
     public readonly userId:string;
     private jwt:string;
     private decodedJwt:any;
+    private heartbeatInterval:number;
 
     constructor(window:Window) {
         // Check if the token is in the query string
@@ -38,13 +39,18 @@ export class Basement {
             return
         }
 
-        console.log(this.decodedJwt)
-
-        setInterval(() => this.heartbeat(), 2*60*1000);
+        this.heartbeatInterval = setInterval(() => this.heartbeat(), 2*60*1000);
     }
 
     public async heartbeat(): Promise<Response> {        
-        return this.makeRequest('channelHeartbeat');
+        const heartbeatRequest = this.makeRequest('channelHeartbeat');
+
+        heartbeatRequest.catch((error) => {
+            console.error('Basement: Heartbeat failed, clearing interval.');
+            clearInterval(this.heartbeatInterval);
+        });
+
+        return heartbeatRequest;
     }
 
     public async getChannelStatus(): Promise<Response> {
@@ -72,6 +78,11 @@ export class Basement {
             body: JSON.stringify({ ...parameters, launcherJwt: this.jwt }),
         };
 
-        return fetch(API_BASE_URL, requestOptions);
+        return fetch(API_BASE_URL, requestOptions).then(async response => {
+            if (!response.ok) {
+                throw new Error(`Basement: Request to ${endpoint} failed: ${await response.text()}`);
+            }
+            return  response.json();
+        });
     }
 }
