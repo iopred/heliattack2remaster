@@ -247,8 +247,12 @@ class HeliAttack {
                 ha.rotation.x = cube.rotation.x;
                 ha.rotation.y = cube.rotation.y;
 
-                const plane = this.get('Plane');
-                plane.position.y = -0.8 + Math.sin(this.game.clock.elapsedTime * 0.25) * 0.1;
+                const heli1 = this.get('Heli1');
+                heli1.position.y = -0.6 + Math.sin(this.game.clock.elapsedTime * 0.25) * 0.075;
+
+                const heli2 = this.get('Heli2');
+                heli2.position.y = -0.5 + Math.sin(this.game.clock.elapsedTime * 0.35) * 0.1;
+
 
                 this.gltf.scene.rotation.y = Math.sin(this.game.clock.elapsedTime) * 0.05;
 
@@ -327,6 +331,10 @@ class HeliAttack {
     private addedLight: boolean = false;
     private lightHelper;
     showMainMenu() {
+        if (this.showMenu) {
+            return;
+        }
+
         const scene = this.gltf.scene
 
         this.scene.add(scene);
@@ -378,26 +386,26 @@ class HeliAttack {
             // this.lightHelper = new SpotLightHelper( spotLight );
             // this.scene.add(this.lightHelper);
 
-            const plane = this.get('Plane');
+            for (const id of ['Heli1', 'Heli2']) {
+                const heli = this.get(id);
 
-            const oldMaterial = plane.material;
+                const oldMaterial = heli.material;
 
-            plane.material = new MeshBasicMaterial({
-                color: oldMaterial.color, // Preserve the base color
-                map: oldMaterial.map, // Copy the texture map
-                alphaMap: oldMaterial.alphaMap, // Copy alpha map, if any
-                envMap: oldMaterial.envMap, // Copy environment map, if any
-                transparent: oldMaterial.transparent, // Preserve transparency
-                side: oldMaterial.side,
-                alphaTest: 0.5,
-            });
+                heli.material = new MeshBasicMaterial({
+                    color: oldMaterial.color, // Preserve the base color
+                    map: oldMaterial.map, // Copy the texture map
+                    alphaMap: oldMaterial.alphaMap, // Copy alpha map, if any
+                    envMap: oldMaterial.envMap, // Copy environment map, if any
+                    transparent: oldMaterial.transparent, // Preserve transparency
+                    side: oldMaterial.side,
+                    alphaTest: 0.5,
+                });
+            }
         }
 
         this.showMenu = true;
 
         this.scene.position.x = -0.2
-
-        this.audioManager.playMusic('menu', 0.4);
 
         this.resizeMenu();
     }
@@ -418,6 +426,10 @@ class HeliAttack {
     }
 
     hideMainMenu() {
+        if (!this.showMenu) {
+            return;
+        }
+
         this.scene.remove(this.gltf.scene);
 
         this.showMenu = false;

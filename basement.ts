@@ -28,7 +28,7 @@ export class Basement {
 
         this.jwt = jwt;
 
-        setInterval(() => this.heartbeat, 2*60*1000);
+        setInterval(() => this.heartbeat(), 2*60*1000);
     }
 
     public async heartbeat(): Promise<Response> {        

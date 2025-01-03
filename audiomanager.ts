@@ -411,6 +411,17 @@ class AudioManager {
         }
     }
     
+    stopAll(): void {
+        if (!this.context) {
+            return;
+        }
+
+        this.playingEffects.forEach(({ source }) => {
+            source.stop();
+        });
+
+        this.playingEffects = [];
+    }
 }
 
 export default AudioManager;

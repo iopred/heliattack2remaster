@@ -286,7 +286,7 @@ function resetScene(scene) {
     scene.environment = null;
 }
 
-
+let wasRendering = false;
 let heliattack: HeliAttack;
 function render() {
     let rendered = false;
@@ -295,7 +295,12 @@ function render() {
     rendered = rendered || (squarecircleco?.render() || false);
     rendered = rendered || (heliattack?.render() || false);
 
-    if (rendered) {
+    if (rendered || wasRendering) {
+        if (!rendered && wasRendering) {
+            wasRendering = false;
+        } else {
+            wasRendering = true;
+        }
         composer.render();
     }
 }
@@ -558,10 +563,7 @@ if (videoGestures) {
 
 const k = new WordListener('k');
 k.onWordDetected((word) => {
-    if (heliattack?.playing) {
-        setPlaying(true);
-    }
-    heliattack?.suicide();
+    abandonGame();
 });
 
 let showErrors = false;
@@ -863,7 +865,7 @@ const settings = {
         if (heliattack) {
             heliattack.playing = !value;
         }
-        renderer.shadowMap.enabled = !value;
+        renderer.shadowMap.enabled = value;
         if (ignoreDocumentMouseMove) {
             touchInputHandler.drawJoysticks = !value;
         }
@@ -930,10 +932,11 @@ updateEffectsIcon();
 
 let initialized = false;
 
-const mainMenu = document.getElementById('main-menu');
-const gameOverMenu = document.getElementById('game-over-menu');
+const mainMenu = document.getElementById('main-menu')!;
+const gameOverMenu = document.getElementById('game-over-menu')!;
+const highScoresMenu = document.getElementById('high-scores-menu')!;
 
-const SKIP_INTRO = false;
+const SKIP_INTRO = true;
 
 async function init() {
     if (initialized) {
@@ -952,9 +955,12 @@ async function init() {
     await createHeliAttack();
     await createMainMenu();
     await createGameOverMenu();
+    await createHighScoresMenu();
+    await createPausedMenu();
+    
+    audioManager.playMusic('menu', 0.4);
 
-    heliattack.showMainMenu();
-    setVisible(mainMenu, true);
+    showMainMenu();
 }
 
 function setMessageColor(color) {
@@ -1002,6 +1008,16 @@ function createMainMenu() {
     startButton.addEventListener('touch', () => {
         heliattack?.start();
     });
+
+    const highScoresButton = document.getElementById('high-scores-button')!;
+
+    highScoresButton.addEventListener('click', () => {
+        showHighScores();
+    });
+
+    highScoresButton.addEventListener('touch', () => {
+        showHighScores();
+    });
 }
 
 function createGameOverMenu() {
@@ -1026,16 +1042,56 @@ function createGameOverMenu() {
     });
 }
 
-function resetMainMenu() {
-    setVisible(gameOverMenu, false);
-    setVisible(mainMenu, true);
+function createHighScoresMenu() {
+    const back = document.getElementById('high-scores-back-button')!;
 
+    back.addEventListener('click', () => {
+        showMainMenu();
+    });
+
+    back.addEventListener('touch', () => {
+        showMainMenu();
+    });
+}
+
+function abandonGame() {
+    if (heliattack?.playing) {
+        setPlaying(true);
+    }
+    heliattack?.suicide();
+}
+
+function createPausedMenu() {
+    const abandon = document.getElementById('abandon-game-button')!;
+
+    abandon.addEventListener('click', () => {
+        abandonGame();
+    });
+
+    abandon.addEventListener('touch', () => {
+        abandonGame();
+    });
+}
+
+function resetMainMenu() {
     shaderPass.uniforms.invertEnabled.value = 0.0;
     shaderPass.uniforms.tintEnabled.value = 0.0;
     heliattack?.destroy();
     heliattack?.showMainMenu();
 
     audioManager.timeScale = 1.0;
+    audioManager.stopAll();
+
+    showMainMenu();
+
+    audioManager.playMusic('menu', 0.4);
+}
+
+function showMainMenu() {
+    setVisible(highScoresMenu, false);
+    setVisible(gameOverMenu, false);
+    setVisible(mainMenu, true);
+    heliattack.showMainMenu();
 }
 
 async function createHeliAttack() {
@@ -1060,7 +1116,95 @@ async function createHeliAttack() {
 
 }
 
+
 const basement = new Basement(window, '67760bb7528b43ef7f63da68');
+
+let highScoresLoading = false;
+let highScoresLoaded = false;
+
+function setHighScoresMessage(text:string) {
+    const message = document.getElementById('high-scores-message')!;
+    message.textContent = text;
+    setVisible(message, text)
+}
+
+function showHighScoresList(scores) {
+    const highScoresList = document.getElementById('high-scores-list')!;
+
+    highScoresList.innerHTML = '';
+
+    const table = document.createElement('table');
+
+    table.innerHTML = '<thead><tr><th></th><th>Username</th><th>Score</th></tr></thead>';
+
+    const tbody = document.createElement('tbody');
+
+    scores.forEach((score, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><img src="${score.avatar}" /></td>
+            <td>${score.username}</td>
+            <td>${score.score}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
+    highScoresList.appendChild(table);
+
+    highScoresLoaded = true;
+    highScoresLoading = false;
+    setHighScoresMessage('');
+}
+
+function showHighScores() {
+    setVisible(mainMenu, false);
+    setVisible(gameOverMenu, false);
+    setVisible(highScoresMenu, true);
+
+    if (!highScoresLoaded) {
+        if (!highScoresLoading) {
+            basement.getLeaderboard()
+            .then(response => response.json())
+            .then(result => {
+                console.log('leaderboard: ', result)
+                showHighScoresList(result.leaderboard);
+            })
+            .catch(error => {
+                console.error('leaderboard error:', error)
+                setHighScoresMessage('Could not load high scores. Please try again later.');
+
+                showHighScoresList({
+                    "success": true,
+                    "leaderboard": [
+                      {
+                        "_id": "66be1728e812b615ee04603e",
+                        "nonce": "6ogj0c",
+                        "gameId": "eac4c757-3e6e-4e26-b3d5-e444d0a015d1",
+                        "normalizedAddress": "0xe2b85af88f01ca1445ef44990e3e9fe5bd62d93f",
+                        "score": 225,
+                        "updatedAt": 1723733800205,
+                        "username": "nikita.b3.fun",
+                        "avatar": "https://models.readyplayer.me/66bd31a6355de9cd99c4711c.png"
+                      },
+                      {
+                        "_id": "66bdfb727130bef94a2800e1",
+                        "nonce": "pqbcof",
+                        "gameId": "eac4c757-3e6e-4e26-b3d5-e444d0a015d1",
+                        "normalizedAddress": "0xb4590641ba39b2f2d38354e2a1af8e62a6744174",
+                        "score": 150,
+                        "updatedAt": 1723726706351,
+                        "username": "sneakz.b3.fun"
+                      }
+                    ]
+                  }.leaderboard)
+            });
+        }
+    }
+
+    heliattack.hideMainMenu();
+}
+
 
 basement.heartbeat()
     .then(response => response.text())

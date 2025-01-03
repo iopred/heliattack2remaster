@@ -193,6 +193,7 @@ class Enemy {
     }
 
     destroy(game, showExplosion: boolean = true) {
+        this.setTint(false);
         game.world.remove(this.group);
 
         if (showExplosion) {
@@ -423,8 +424,8 @@ class Enemy {
         game.enemyBullets.push(bullet);
     }
 
-    damage(damage, game) {
-        if (game.player.powerup == TRI_DAMAGE) {
+    damage(damage: number, game: Game) {
+        if (game.player?.powerup == TRI_DAMAGE) {
             this.health -= damage * 3;
         } else {
             this.health -= damage;
