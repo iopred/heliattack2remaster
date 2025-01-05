@@ -1,5 +1,5 @@
 import { jwtDecode } from "jwt-decode";
-import {v4 as uuidv4} from 'uuid';
+import { v7 as uuidv7} from 'uuid';
 import { LocalStorageWrapper } from './localstoragewrapper';
 
 const API_BASE_URL = 'https://api.basement.fun';
@@ -69,7 +69,7 @@ export class Basement {
     }
 
     public async setUserScore(score:number): Promise<Response> {
-        let nonce = `nonce=${uuidv4()}`;
+        let nonce = `nonce=${uuidv7()}`;
         return this.makeRequest(LAUNCHER_ENDPOINT, 'setUserScore', { nonce, score });
     }
 
