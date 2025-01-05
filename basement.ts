@@ -1,7 +1,10 @@
 import { jwtDecode } from "jwt-decode";
+import {v4 as uuidv4} from 'uuid';
 import { LocalStorageWrapper } from './localstoragewrapper';
 
-const API_BASE_URL = 'https://api.basement.fun/launcher/';
+const API_BASE_URL = 'https://api.basement.fun';
+const LAUNCHER_ENDPOINT = 'launcher';
+const SCORES_ENDPOINT = 'scores';
 const LOCAL_STORAGE_B3_LAUNCHER_JWT_KEY:string = 'b3-launcher-jwt';
 
 export enum NotificationType {
@@ -43,7 +46,7 @@ export class Basement {
     }
 
     public async heartbeat(): Promise<Response> {        
-        const heartbeatRequest = this.makeRequest('channelHeartbeat');
+        const heartbeatRequest = this.makeRequest(LAUNCHER_ENDPOINT, 'channelHeartbeat');
 
         heartbeatRequest.catch((error) => {
             console.error('Basement: Heartbeat failed, clearing interval.');
@@ -54,35 +57,48 @@ export class Basement {
     }
 
     public async getChannelStatus(): Promise<Response> {
-        return this.makeRequest('channelStatus');
+        return this.makeRequest(LAUNCHER_ENDPOINT, 'channelStatus');
     }
 
     public async getLeaderboard(limit:number = 50, skip:number = 0): Promise<Response> {
-        return this.makeRequest('getGameScoresLeaderboard', { gameId: this.gameId, limit, skip });
+        return this.makeRequest(SCORES_ENDPOINT, 'getGameScoresLeaderboard', { gameId: this.gameId, limit, skip }, /** appendJwt */ false);
     }
 
     public async sendNotification(message:string, type:NotificationType): Promise<Response> {
-        return this.makeRequest('sendNotification', { message, type });
+        return this.makeRequest(LAUNCHER_ENDPOINT, 'sendNotification', { message, type });
     }
 
-    private async makeRequest(endpoint:string, parameters:Object | null = null): Promise<Response> {
+    public async setUserScore(score:number): Promise<Response> {
+        let nonce = `nonce=${uuidv4()}`;
+        return this.makeRequest(LAUNCHER_ENDPOINT, 'setUserScore', { nonce, score });
+    }
+
+    private async makeRequest(endpoint:string, method:string, parameters:Object | null = null, appendJwt:boolean = true): Promise<Response> {
         if (!this.jwt) {
-            throw new Error(`Basement: Cannot make request to ${endpoint}: No login found, please request this page through the Basement Launcher.`);
+            throw new Error(`Basement: Cannot make request to ${endpoint}/${method}: No login found, please request this page through the Basement Launcher.`);
         }
         const headers = new Headers();
-        headers.append('X-Service-Method', endpoint);
+        headers.append('X-Service-Method', method);
+        headers.append('Content-Type', 'application/json');
+
+        const body = { ...parameters };
+
+        if (appendJwt) {
+            body['launcherJwt'] = this.jwt; 
+        }
 
         const requestOptions:RequestInit = {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify({ ...parameters, launcherJwt: this.jwt }),
+            body: JSON.stringify(body),
+            redirect: 'follow',
         };
 
-        return fetch(API_BASE_URL, requestOptions).then(async response => {
+        return fetch(`${API_BASE_URL}/${endpoint}`, requestOptions).then(async response => {
             if (!response.ok) {
-                throw new Error(`Basement: Request to ${endpoint} failed: ${await response.text()}`);
+                throw new Error(`Basement: Request to ${endpoint}/${method} failed: ${await response.text()}`);
             }
-            return  response.json();
+            return response.json();
         });
     }
 }

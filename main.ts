@@ -856,6 +856,27 @@ window.audioManager = audioManager;
 
 const settings = {
     set over(value: boolean) {
+        if (value && heliattack?.game?.score) {
+            const score = heliattack?.game?.score;
+            const gameOverMessage = document.getElementById('game-over-message')!;
+            gameOverMessage.textContent = '';
+            setVisible(gameOverMessage, false);
+
+            if (basementAvailable) {
+                gameOverMessage.textContent = 'Submitting score...';
+                setVisible(gameOverMessage, true);
+    
+                basement.setUserScore(score).then(() => {
+                    gameOverMessage.textContent = `Score submitted!`;
+                    setVisible(gameOverMessage, true);
+                    basement.sendNotification(`Game over. Final score: ${score}!`, NotificationType.Success);
+                });
+            }
+            
+            document.getElementById('final-score')!.textContent = score.toString();
+            document.getElementById('helis-destroyed')!.textContent = heliattack?.game?.helisDestroyed.toString();
+        }
+
         setVisible(gameOverMenu, value);
         setVisible(mainMenu, false);
         if (heliattack) {
@@ -1155,68 +1176,34 @@ function showHighScoresList(scores) {
 }
 
 function showHighScores() {
+    heliattack.hideMainMenu();
     setVisible(mainMenu, false);
     setVisible(gameOverMenu, false);
     setVisible(highScoresMenu, true);
 
-    if (!highScoresLoaded) {
-        if (!highScoresLoading) {
-            basement.getLeaderboard()
-            .then(response => response.json())
+    if (!highScoresLoading) {
+        highScoresLoading = true;
+        basement.getLeaderboard()
             .then(result => {
-                console.log('leaderboard: ', result)
+                highScoresLoading = false;
                 showHighScoresList(result.leaderboard);
             })
             .catch(error => {
-                console.error('leaderboard error:', error)
+                highScoresLoading = false;
                 setHighScoresMessage('Could not load high scores. Please try again later.');
-
-                showHighScoresList({
-                    "success": true,
-                    "leaderboard": [
-                      {
-                        "_id": "66be1728e812b615ee04603e",
-                        "nonce": "6ogj0c",
-                        "gameId": "eac4c757-3e6e-4e26-b3d5-e444d0a015d1",
-                        "normalizedAddress": "0xe2b85af88f01ca1445ef44990e3e9fe5bd62d93f",
-                        "score": 225,
-                        "updatedAt": 1723733800205,
-                        "username": "nikita.b3.fun",
-                        "avatar": "https://models.readyplayer.me/66bd31a6355de9cd99c4711c.png"
-                      },
-                      {
-                        "_id": "66bdfb727130bef94a2800e1",
-                        "nonce": "pqbcof",
-                        "gameId": "eac4c757-3e6e-4e26-b3d5-e444d0a015d1",
-                        "normalizedAddress": "0xb4590641ba39b2f2d38354e2a1af8e62a6744174",
-                        "score": 150,
-                        "updatedAt": 1723726706351,
-                        "username": "sneakz.b3.fun"
-                      }
-                    ]
-                  }.leaderboard)
             });
-        }
+    } else {
+        setHighScoresMessage('Loading high scores...');
     }
-
-    heliattack.hideMainMenu();
 }
 
+let basementAvailable = true;
 
-basement.heartbeat()
-    .then(result => console.log('heartbeat: ', result))
-    .catch(error => console.error('heartbeat error:', error));
-
-basement.getChannelStatus()
-    .then(result => console.log('channelStatus: ', result))
-    .catch(error => console.error('channelStatus error:', error));
-
-basement.getLeaderboard()
-    .then(result => console.log('leaderboard: ', result))
-    .catch(error => console.error('leaderboard error:', error));
-
-basement.sendNotification('hello world', NotificationType.Success)
-    .then(result => console.log('notification: ', result))
-    .catch(error => console.error('notification error:', error));
+basement.sendNotification('Connected to Basement', NotificationType.Success)
+    .catch(error => {
+        console.error("Error connecting to Basement.");
+        basementAvailable = false;
+        setVisible(document.getElementById('high-scores-button')!, false);
+    });
 
 setMessage('Tap to continue');

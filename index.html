@@ -320,6 +320,10 @@
 				display: none;
 			}
 
+			#ui:not([ingame]) #info {
+				display: none;
+			}
+
 			#ui:not([ingame]) #health {
 				display: none;
 			}
@@ -384,6 +388,10 @@
 				cursor:pointer;
 				font-size: 19px;
 				color: #eee;
+			}
+
+			button[hidden] {
+				display: none;
 			}
 
 			button:hover {
@@ -515,6 +523,12 @@
 			</div>
 			<div id="game-over-menu" hidden>
 				<div class="menu-background">
+					Game Over
+					<br/>
+					<div>Final score: <span id="final-score"></span></div>
+					<div>Helis destroyed: <span id="helis-destroyed"></span></div>
+					<div id="game-over-message"></div>
+					<br/>
 					<button id="restart-game-button">Restart Game</button>
 					<button id="main-menu-button">Main Menu</button>
 				</div>
@@ -523,6 +537,11 @@
 				<button id="pause-game">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M520-200v-560h240v560H520Zm-320 0v-560h240v560H200Zm400-80h80v-400h-80v400Zm-320 0h80v-400h-80v400Zm0-400v400-400Zm320 0v400-400Z"/></svg>
 				</button>
+			</div>
+			<div id="paused-menu-menu">
+				<div class="menu-background">
+					<button id="abandon-game-button">Abandon Game</button>
+				</div>
 			</div>
 			<div id="paused-menu">
 				<button id="music-enable">
@@ -536,11 +555,6 @@
 				<button id="resume-game">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M320-200v-560l440 280-440 280Zm80-280Zm0 134 210-134-210-134v268Z"/></svg>
 				</button>
-			</div>
-			<div id="paused-menu-menu">
-				<div class="menu-background">
-					<button id="abandon-game-button">Abandon Game</button>
-				</div>
 			</div>
 			<div id="error-container" hidden>
 				<div id="webcam-ui" hidden>
