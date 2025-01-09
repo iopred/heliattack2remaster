@@ -8,18 +8,25 @@ import VideoGestures from './videogestures';
 import WordListener from './wordlistener';
 import HeliAttack from './heliattack';
 import TouchInputHandler from './touchinputhandler';
-import { getDurationMiliseconds, getDurationSeconds, sayMessage, setMessage, setVisible, timeout } from './utils';
+import { getDurationMiliseconds, sayMessage, setMessage, setVisible, timeout } from './utils';
 import SquareCircleCo from './scc/squarecircleco';
 import Naamba from './naamba'
 import SmoothScrollHandler from './smoothscrollhandler';
 import { LocalStorageWrapper } from './localstoragewrapper';
+import { Basement, NotificationType } from './basement';
+
+const gestureCanvas = document.getElementById('gesture-canvas')! as HTMLCanvasElement;
+gestureCanvas.width = window.innerWidth;
+gestureCanvas.height = window.innerHeight;
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
 
 ColorManagement.enabled = true;
 
-const renderer = new WebGLRenderer({antialias: true});
+const renderer = new WebGLRenderer({
+    powerPreference: "high-performance",
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.gammaOutput = true;
 renderer.gammaFactor = 2.2;
@@ -27,22 +34,18 @@ renderer.outputColorSpace = SRGBColorSpace;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = PCFSoftShadowMap;
 
-
-// Set up EffectComposer
 const composer = new EffectComposer(renderer);
 composer.setSize(window.innerWidth, window.innerHeight);
 
-// Add a render pass (renders the scene as usual)
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
 
-// Add the inversion shader pass
 const shaderPass = new ShaderPass(new ShaderMaterial({
     uniforms: {
-        tDiffuse: { value: null },              // Rendered texture
+        tDiffuse: { value: null },
         invertEnabled: { value: 0.0 },         // Toggle inversion (0 = off, 1 = on)
         tintEnabled: { value: 0.0 },           // Toggle tinting (0 = off, 1 = on)
-        tintColor: { value: new Color(1, 0.5, 0.5) }, // Red tint
+        tintColor: { value: new Color(1, 0.5, 0.5) },
     },
     vertexShader: `
         varying vec2 vUv;
@@ -84,8 +87,6 @@ const shaderPass = new ShaderPass(new ShaderMaterial({
 }));
 composer.addPass(shaderPass);
 
-
-// VHS Shader
 const VHSEffectShader = {
     uniforms: {
         tDiffuse: { value: null }, // The texture from the previous render
@@ -230,7 +231,6 @@ const VHSEffectShader = {
     `,
 };
 
-// Create a ShaderPass for the VHS effect
 function createVHSEffectPass(): ShaderPass {
     const shaderPass = new ShaderPass(new ShaderMaterial({
         uniforms: UniformsUtils.clone(VHSEffectShader.uniforms),
@@ -250,28 +250,24 @@ dirLight.position.set(0, 0, 1).normalize();
 scene.add(dirLight);
 
 function createBlueLine(x, y, object) {
-    //create a blue LineBasicMaterial
-    const material2 = new LineBasicMaterial({ color: 0x0000ff });
+    const material = new LineBasicMaterial({ color: 0x0000ff });
 
-    const points:Vector3[] = [];
+    const points: Vector3[] = [];
     points.push(new Vector3(x - 10, y - 10, -0));
     points.push(new Vector3(x, y, -0));
     points.push(new Vector3(x + 10, y - 10, -0));
 
-    const geometry2 = new BufferGeometry().setFromPoints(points);
-    const line = new Line(geometry2, material2);
+    const geometry = new BufferGeometry().setFromPoints(points);
+    const line = new Line(geometry, material);
     object.add(line);
 }
 
 function resetScene(scene) {
-    // Loop through all child objects in the scene
     while (scene.children.length > 0) {
         const object = scene.children[0];
 
-        // If the object has a geometry, dispose of it
         if (object.geometry) object.geometry.dispose();
 
-        // If the object has a material, dispose of it
         if (object.material) {
             if (Array.isArray(object.material)) {
                 object.material.forEach(mat => mat.dispose());
@@ -280,7 +276,6 @@ function resetScene(scene) {
             }
         }
 
-        // Remove the object from the scene
         scene.remove(object);
     }
 
@@ -291,19 +286,49 @@ function resetScene(scene) {
     scene.environment = null;
 }
 
-
+let wasRendering = false;
 let heliattack: HeliAttack;
 function render() {
     let rendered = false;
-    
+
     rendered = rendered || (naamba?.render() || false);
     rendered = rendered || (squarecircleco?.render() || false);
     rendered = rendered || (heliattack?.render() || false);
 
-    if (rendered) {
+    if (rendered || wasRendering) {
+        if (!rendered && wasRendering) {
+            wasRendering = false;
+        } else {
+            wasRendering = true;
+        }
         composer.render();
     }
 }
+
+document.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+});
+
+function createDoubleTapPreventer(timeout_ms: number) {
+    let dblTapTimer = 0;
+    let dblTapPressed = false;
+
+    return function (e: TouchEvent) {
+        clearTimeout(dblTapTimer);
+        if (dblTapPressed) {
+            e.preventDefault();
+            dblTapPressed = false;
+        } else {
+            dblTapPressed = true;
+            dblTapTimer = setTimeout(() => {
+                dblTapPressed = false;
+            }, timeout_ms);
+        }
+    };
+}
+
+document.body.addEventListener('touchstart', createDoubleTapPreventer(500), { passive: false });
+
 
 function onWindowResize() {
     const width = window.innerWidth;
@@ -318,6 +343,16 @@ function onWindowResize() {
     videoGestures?.setSize(width, height);
 
     heliattack?.setSize(width, height)
+
+    touchInputHandler?.setSize(width, height);
+
+    gestureCanvas.width = width;
+    gestureCanvas.height = height;
+
+    gestureCanvas.style.width = `${width}px`;
+    gestureCanvas.style.height = `${height}px`;
+
+    composer.render();
 }
 
 const BPM = 200;
@@ -337,17 +372,32 @@ const mouse = {
     wheel: 0,
 }
 
+const joystick = {
+    left: false,
+    right: false,
+    up: false,
+    down: false,
+    hyperJump: false,
+    changeWeapon: false,
+    timeDistort: false
+}
+
 
 const smoothScrollHandler = new SmoothScrollHandler(document.body, BPM * 4)
 
 smoothScrollHandler.onScroll((direction: 'up' | 'down') => {
-    mouse.wheel = 1 * (direction === "up" ? 1 : -1);
+    mouse.wheel = 1 * (direction === 'up' ? 1 : -1);
 })
 
 
 
 function onDocumentMouseMove(event) {
     event.preventDefault();
+
+    if (ignoreDocumentMouseMove) {
+        return;
+    }
+
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 }
@@ -358,6 +408,10 @@ function onMouseDown(event) {
     init();
 
     if (!heliattack?.playing) {
+        return;
+    }
+
+    if (ignoreDocumentMouseMove) {
         return;
     }
 
@@ -378,11 +432,16 @@ function onMouseUp(event) {
     if (!heliattack?.playing) {
         return;
     }
+
+    if (ignoreDocumentMouseMove) {
+        return;
+    }
+
     if (event.button === 0) {
         mouse.down = false;
         wasShooting = false;
     } else if (event.button === 1) {
-        
+
     } else if (event.button === 2) {
         heliattack?.lastWeapon();
         mouse.down = wasShooting;
@@ -393,6 +452,11 @@ function onMouseClick(event) {
     if (!heliattack?.playing) {
         return;
     }
+
+    if (ignoreDocumentMouseMove) {
+        return;
+    }
+
     if (event.button === 1) {
         mouse.wheel = 1;
     } else if (event.button === 2) {
@@ -403,6 +467,10 @@ let lastWheelMove = 0;
 let lastWheelTime = 0
 function onMouseWheel(event) {
     event.preventDefault();
+
+    if (ignoreDocumentMouseMove) {
+        return;
+    }
 
     if (!heliattack?.playing) {
         return;
@@ -426,50 +494,57 @@ function onMouseWheel(event) {
     lastWheelTime = now;
 };
 
-const touchInputHandler = new TouchInputHandler(document.body);
-
+const touchInputHandler = new TouchInputHandler(document.body, gestureCanvas);
+let ignoreDocumentMouseMove = false;
 touchInputHandler.onStart((event) => {
+    ignoreDocumentMouseMove = true;
+
     init();
-
-    if (!heliattack?.playing) {
-        return;
-    }
-
-    const touch = event.touches[0];
-    if (!touch) {
-        console.error("no touches while in on start.");
-        return;
-    }
-
-    mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
-    mouse.down = true;
 });
 
 touchInputHandler.onEnd((event) => {
-    if (!heliattack?.playing) {
-        return;
-    }
 
-    if (!event.touches.length) {
-        mouse.down = false;
-    }
 })
 
 touchInputHandler.onMove((event) => {
+
+})
+
+touchInputHandler.onJoystickMove(TouchInputHandler.joystickRadius + 20, TouchInputHandler.joystickRadius + 20, (vector) => {
     if (!heliattack?.playing) {
         return;
     }
 
-    const touch = event.touches[0];
-    if (!touch) {
-        console.error("no touches while in on start.");
+    joystick.left = vector.x < -0.1;
+    joystick.right = vector.x > 0.1;
+    joystick.up = vector.y < -0.5;
+    joystick.down = vector.y > 0.75;
+});
+
+touchInputHandler.onJoystickMove(-TouchInputHandler.joystickRadius - 20, TouchInputHandler.joystickRadius + 20, (vector) => {
+    if (!heliattack?.playing) {
         return;
     }
 
-    mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
-})
+    mouse.down = vector.active && heliattack?.game?.player?.weapon == 0;
+    if (vector.active && vector.x * vector.x + vector.y * vector.y > 0.1) {
+        mouse.x = vector.x * window.innerWidth;
+        mouse.y = vector.y * -1 * window.innerHeight;
+        mouse.down = true;
+    }
+});
+
+touchInputHandler.onOnScreenButton('hyperJump', 30, 140, (active) => {
+    joystick.hyperJump = active;
+});
+
+touchInputHandler.onOnScreenButton('changeWeapon', -30, 140, (active) => {
+    joystick.changeWeapon = active;
+});
+
+touchInputHandler.onOnScreenButton('timeDistort', -90, 145, (active) => {
+    joystick.timeDistort = active;
+});
 
 const ENABLE_DEBUGGER = false;
 function debug(text) {
@@ -485,35 +560,10 @@ let videoGestures = ENABLE_VIDEO_GESTURES ? new VideoGestures(window, document) 
 if (videoGestures) {
     videoGestures.setSize(window.innerWidth, window.innerHeight);
 }
-function getAvatar() {
-    // TODO: Write Avatar Creator.
-
-    const kit = new Kit();
-    kit.pulse()
-    // WARNING: For POST requests, body is set to null by browsers.
-    var data = '{\r\n    \"launcherJwt\": {{JWT}}\r\n}';
-
-    var xhr = new XMLHttpRequest();
-    xhr.withCredentials = true;
-
-    xhr.addEventListener('readystatechange', function () {
-        if (this.readyState === 4) {
-            console.log(this.responseText);
-        }
-    });
-
-    xhr.open('POST', 'https://api.basement.fun/launcher/');
-    xhr.setRequestHeader('X-Service-Method', 'channelStatus');
-
-    xhr.send(data);
-}
 
 const k = new WordListener('k');
 k.onWordDetected((word) => {
-    if (heliattack?.playing) {
-        setPlaying(true);
-    }
-    heliattack?.suicide();
+    abandonGame();
 });
 
 let showErrors = false;
@@ -524,7 +574,7 @@ i.onWordDetected((word) => {
 
     setVisible(document.getElementById('error-container'), showErrors);
 
-    showCheat("errors");
+    showCheat('errors');
 });
 
 const t = new WordListener('t');
@@ -549,10 +599,10 @@ l.onWordDetected(async (word) => {
     if (heliattack?.game?.lastTimelineEvent) {
         const thisMessage = ++lastMessage;
 
-        if (heliattack.game.lastTimelineEvent.text.indexOf('[') === 0) {
-            setMessage(heliattack.game.lastTimelineEvent.text.split(']')[1]);
+        if (heliattack?.game.lastTimelineEvent.text.indexOf('[') === 0) {
+            setMessage(heliattack?.game.lastTimelineEvent.text.split(']')[1]);
         } else {
-            setMessage(heliattack.game.lastTimelineEvent.text);
+            setMessage(heliattack?.game.lastTimelineEvent.text);
         }
         await timeout(getDurationMiliseconds(BPM) * 4);
         if (thisMessage === lastMessage) {
@@ -589,14 +639,14 @@ const m = new WordListener('m');
 m.onWordDetected((word) => {
     toggleMusic();
 
-    showCheat(audioManager.musicVolume === 0.0 ? "music off" : "music on");
+    showCheat(audioManager.musicVolume === 0.0 ? 'music off' : 'music on');
 });
 
 const n = new WordListener('n');
 n.onWordDetected((word) => {
     toggleEffects();
 
-    showCheat(audioManager.effectVolume === 0.0 ? "sound off" : "sound on");
+    showCheat(audioManager.effectVolume === 0.0 ? 'sound off' : 'sound on');
 });
 
 
@@ -607,12 +657,9 @@ io.onWordDetected((word) => {
     if (!videoGestures) {
         videoGestures = new VideoGestures(window, document);
         videoGestures.setSize(window.innerWidth, window.innerHeight);
-        
-        if (heliattack?.isLoaded()) {
-            heliattack.initVideoGestures(videoGestures);
-        }
-    
-        showCheat("input/output");
+        heliattack?.initVideoGestures(videoGestures);
+
+        showCheat('input/output');
     }
 
 });
@@ -622,10 +669,10 @@ retro.onWordDetected((word) => {
     history.splice(0, history.length);
 
     heliattack?.start();
-    console.error("could not load heli attack 1 assets.")
+    console.error('could not load heli attack 1 assets.')
     setVisible(document.getElementById('error-container'), showErrors);
 
-    showCheat("retro assets")
+    showCheat('retro assets')
 });
 
 const xylander = new WordListener('xylander');
@@ -635,7 +682,7 @@ xylander.onWordDetected((word) => {
 
     heliattack?.playSong('https://player-widget.mixcloud.com/widget/iframe/?hide_cover=1&feed=%2FAudioInterface%2Fforgotten-futures-8-december-2024%2F');
 
-    showCheat("go outside and breathe the fumes");
+    showCheat('go outside and breathe the fumes');
 });
 
 const kit = new WordListener('kit');
@@ -644,16 +691,16 @@ kit.onWordDetected((word) => {
 
     heliattack?.playSong('ror');
 
-    showCheat("remnants of rebellion");
+    showCheat('remnants of rebellion');
 });
 
 const pred = new WordListener('pred');
 pred.onWordDetected((word) => {
     history.splice(0, history.length);
 
-    heliattack.pred();
+    heliattack?.pred();
 
-    showCheat("gl hf dd")
+    showCheat('gl hf dd')
 });
 
 function showCheat(text) {
@@ -666,7 +713,7 @@ function showCheat(text) {
 let playing = true;
 
 // Key handling
-const keyIsPressed: {[key: string]: boolean} = {
+const keyIsPressed: { [key: string]: boolean } = {
     'ArrowLeft': false,
     'ArrowRight': false,
     'ArrowUp': false,
@@ -686,57 +733,52 @@ document.body.addEventListener('click', onMouseClick);
 function setPlaying(value) {
     if (!value) {
         audioManager.pause();
-        if (heliattack) {
-            heliattack.pause();
-        }
+        heliattack?.pause();
         playing = false;
         document.getElementById('ui')?.removeAttribute('playing');
     } else {
         playing = true
-        if (heliattack) {
-            heliattack.play();
-        }
+        heliattack?.play();
         audioManager.play();
         document.getElementById('ui')?.setAttribute('playing', '');
     }
 }
 
-const TOUCH_CONTROLS = false;
 let inGame = false;
 
-if (TOUCH_CONTROLS) {
-    window.addEventListener("wheel", e => e.preventDefault(), { passive: false })
-} else {
-    window.addEventListener('wheel', onMouseWheel, { passive: false });
-}
+window.addEventListener('wheel', onMouseWheel, { passive: false });
+
 
 window.addEventListener('keydown', (e) => {
-    keyIsPressed[e.key] = true;
-    history.push(e.key);
-    if (e.key.length == 1) {
-        let key = e.key.toLowerCase();
+    keyIsPressed[e.code] = true;
+    
+    let key = e.key.toLowerCase();
+    if (key.length === 1) {
+        history.push(key);
         k.listen(key);
         i.listen(key);
         o.listen(key);
         m.listen(key);
         n.listen(key);
         l.listen(key);
+        xylander.listen(history.join(''));
+        pred.listen(history.join(''));
+        retro.listen(history.join(''));
+        io.listen(history.join(''));
+        kit.listen(history.join(''));
     }
-    xylander.listen(history.join(''));
-    pred.listen(history.join(''));
-    retro.listen(history.join(''));
-    io.listen(history.join(''));
-    kit.listen(history.join(''));
-    if (e.key >= '0' && e.key <= '9') {
+    if (key >= '0' && key <= '9') {
         if (heliattack) {
-            heliattack.currentTime = (e.key.charCodeAt(0) - '0'.charCodeAt(0)) / 10;
+            heliattack.currentTime = (key.charCodeAt(0) - '0'.charCodeAt(0)) / 10;
         }
     }
-    if (e.key == 'Escape') {
+    if (key == 'escape') {
         togglePause();
     }
 });
-window.addEventListener('keyup', (e) => { keyIsPressed[e.key] = false; });
+window.addEventListener('keyup', (e) => {
+    keyIsPressed[e.code] = false;
+});
 
 let wasPlaying = false;
 let paused = false;
@@ -745,7 +787,7 @@ window.addEventListener('blur', () => {
         keyIsPressed[key] = false;
     }
     mouse.down = false;
-    
+
     wasPlaying = heliattack?.playing && playing;
     if (wasPlaying) {
         setPlaying(false);
@@ -754,7 +796,7 @@ window.addEventListener('blur', () => {
     }
 });
 window.addEventListener('focus', () => {
-    
+
 
     if (heliattack?.playing) {
         if (wasPlaying) {
@@ -797,7 +839,7 @@ document.getElementById('resume-game')?.addEventListener('touch', event => {
     togglePause();
 });
 
-document.addEventListener("contextmenu", (event) => {
+document.addEventListener('contextmenu', (event) => {
     event.preventDefault();
 });
 
@@ -813,7 +855,28 @@ const audioManager = new AudioManager();
 window.audioManager = audioManager;
 
 const settings = {
-    set over(value:boolean) {
+    set over(value: boolean) {
+        if (value && heliattack?.game?.score) {
+            const score = heliattack?.game?.score;
+            const gameOverMessage = document.getElementById('game-over-message')!;
+            gameOverMessage.textContent = '';
+            setVisible(gameOverMessage, false);
+
+            if (basementAvailable) {
+                gameOverMessage.textContent = 'Submitting score...';
+                setVisible(gameOverMessage, true);
+    
+                basement.setUserScore(score).then(() => {
+                    gameOverMessage.textContent = `Score submitted!`;
+                    setVisible(gameOverMessage, true);
+                    basement.sendNotification(`Game over. Final score: ${score}!`, NotificationType.Success);
+                });
+            }
+            
+            document.getElementById('final-score')!.textContent = score.toString();
+            document.getElementById('helis-destroyed')!.textContent = heliattack?.game?.helisDestroyed.toString();
+        }
+
         setVisible(gameOverMenu, value);
         setVisible(mainMenu, false);
         if (heliattack) {
@@ -822,8 +885,12 @@ const settings = {
                 vhsPass.uniforms.enabled.value = 0.0;
             }
         }
+        renderer.shadowMap.enabled = value;
+        if (ignoreDocumentMouseMove) {
+            touchInputHandler.drawJoysticks = !value;
+        }
         if (value) {
-            document.getElementById('ui')?.removeAttribute('playing'); 
+            document.getElementById('ui')?.removeAttribute('playing');
             document.getElementById('ui')?.removeAttribute('ingame');
         } else {
             document.getElementById('ui')?.setAttribute('playing', '');
@@ -832,50 +899,47 @@ const settings = {
 
     },
     update() {
-        if (videoGestures) {
-            videoGestures.update();
-        }
-        if (smoothScrollHandler) {
-            smoothScrollHandler.update()
-        }
+        videoGestures?.update();
+        smoothScrollHandler?.update();
+        touchInputHandler?.update();
     },
-    set musicMuted(value:boolean) {
+    set musicMuted(value: boolean) {
         audioManager.musicVolume = value ? 0.0 : settings.musicVolume;
         LocalStorageWrapper.setItem('musicMuted', value);
         updateMusicIcon();
     },
-    get musicMuted():boolean {
+    get musicMuted(): boolean {
         const muted = LocalStorageWrapper.getItem<boolean>('musicMuted');
         return (muted !== null && muted !== undefined) ? muted : false;
     },
-    set musicVolume(value:number) {
+    set musicVolume(value: number) {
         audioManager.musicVolume = value;
         LocalStorageWrapper.setItem('musicVolume', value);
         updateMusicIcon();
     },
-    get musicVolume():number {
+    get musicVolume(): number {
         const volume = LocalStorageWrapper.getItem<number>('musicVolume');
         return (volume !== null && volume !== undefined) ? volume : 0.8;
     },
-    set effectMuted(value:boolean) {
+    set effectMuted(value: boolean) {
         audioManager.effectVolume = value ? 0.0 : settings.effectVolume;
         LocalStorageWrapper.setItem('effectMuted', value);
         updateEffectsIcon();
     },
-    get effectMuted():boolean {
+    get effectMuted(): boolean {
         const muted = LocalStorageWrapper.getItem<boolean>('effectMuted');
         return (muted !== null && muted !== undefined) ? muted : false;
     },
-    set effectVolume(value:number) {
+    set effectVolume(value: number) {
         audioManager.effectVolume = value;
         LocalStorageWrapper.setItem('effectVolume', value);
         updateEffectsIcon();
     },
-    get effectVolume():number {
+    get effectVolume(): number {
         const volume = LocalStorageWrapper.getItem<number>('effectVolume');
         return (volume !== null && volume !== undefined) ? volume : 0.8;
     },
-    get bpm():number {
+    get bpm(): number {
         return 200;
     }
 }
@@ -888,8 +952,9 @@ updateEffectsIcon();
 
 let initialized = false;
 
-const mainMenu = document.getElementById('main-menu');
-const gameOverMenu = document.getElementById('game-over-menu');
+const mainMenu = document.getElementById('main-menu')!;
+const gameOverMenu = document.getElementById('game-over-menu')!;
+const highScoresMenu = document.getElementById('high-scores-menu')!;
 
 const SKIP_INTRO = false;
 
@@ -912,9 +977,12 @@ async function init() {
     await createHeliAttack();
     await createMainMenu();
     await createGameOverMenu();
+    await createHighScoresMenu();
+    await createPausedMenu();
     
-    heliattack.showMainMenu();
-    setVisible(mainMenu, true);
+    audioManager.playMusic('menu', 0.4);
+
+    showMainMenu();
 }
 
 function setMessageColor(color) {
@@ -928,7 +996,7 @@ async function createNaamba() {
 
     naamba = new Naamba(window, renderer.domElement, scene, camera);
     await naamba.preload();
-    
+
     setMessage('');
     await naamba.begin();
     await timeout(getDurationMiliseconds(BPM) * 6);
@@ -962,6 +1030,16 @@ function createMainMenu() {
     startButton.addEventListener('touch', () => {
         heliattack?.start();
     });
+
+    const highScoresButton = document.getElementById('high-scores-button')!;
+
+    highScoresButton.addEventListener('click', () => {
+        showHighScores();
+    });
+
+    highScoresButton.addEventListener('touch', () => {
+        showHighScores();
+    });
 }
 
 function createGameOverMenu() {
@@ -986,16 +1064,57 @@ function createGameOverMenu() {
     });
 }
 
-function resetMainMenu() {
-    setVisible(gameOverMenu, false);
-    setVisible(mainMenu, true);
+function createHighScoresMenu() {
+    const back = document.getElementById('high-scores-back-button')!;
 
+    back.addEventListener('click', () => {
+        showMainMenu();
+    });
+
+    back.addEventListener('touch', () => {
+        showMainMenu();
+    });
+}
+
+function abandonGame() {
+    if (heliattack?.playing) {
+        setPlaying(true);
+    }
+    heliattack?.suicide();
+}
+
+function createPausedMenu() {
+    const abandon = document.getElementById('abandon-game-button')!;
+
+    abandon.addEventListener('click', () => {
+        abandonGame();
+    });
+
+    abandon.addEventListener('touch', () => {
+        abandonGame();
+    });
+}
+
+function resetMainMenu() {
     shaderPass.uniforms.invertEnabled.value = 0.0;
     shaderPass.uniforms.tintEnabled.value = 0.0;
     heliattack?.destroy();
     heliattack?.showMainMenu();
 
     audioManager.timeScale = 1.0;
+    audioManager.stopAll();
+
+    showMainMenu();
+
+    heliattack?.init();
+    audioManager.playMusic('menu', 0.4);
+}
+
+function showMainMenu() {
+    setVisible(highScoresMenu, false);
+    setVisible(gameOverMenu, false);
+    setVisible(mainMenu, true);
+    heliattack.showMainMenu();
 
     vhsPass.uniforms.enabled.value = 1.0;
 }
@@ -1005,9 +1124,9 @@ async function createHeliAttack() {
 
     heliattack?.destroy();
 
-    heliattack = new HeliAttack(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, settings);
+    heliattack = new HeliAttack(window, mouse, joystick, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, settings);
     await heliattack.preload();
-    
+
     setMessageColor('white');
     setMessage('');
     squarecircleco?.destroy();
@@ -1018,6 +1137,80 @@ async function createHeliAttack() {
     if (videoGestures) {
         heliattack.initVideoGestures(videoGestures);
     }
+
+
 }
+
+
+const basement = new Basement(window);
+
+let highScoresLoading = false;
+let highScoresLoaded = false;
+
+function setHighScoresMessage(text:string) {
+    const message = document.getElementById('high-scores-message')!;
+    message.textContent = text;
+    setVisible(message, text)
+}
+
+function showHighScoresList(scores) {
+    const highScoresList = document.getElementById('high-scores-list')!;
+
+    highScoresList.innerHTML = '';
+
+    const table = document.createElement('table');
+
+    table.innerHTML = '<thead><tr><th></th><th>Username</th><th>Score</th></tr></thead>';
+
+    const tbody = document.createElement('tbody');
+
+    scores.forEach((score, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><img src="${score.avatar}" /></td>
+            <td>${score.username}</td>
+            <td>${score.score}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
+    highScoresList.appendChild(table);
+
+    highScoresLoaded = true;
+    highScoresLoading = false;
+    setHighScoresMessage('');
+}
+
+function showHighScores() {
+    heliattack.hideMainMenu();
+    setVisible(mainMenu, false);
+    setVisible(gameOverMenu, false);
+    setVisible(highScoresMenu, true);
+
+    if (!highScoresLoading) {
+        highScoresLoading = true;
+        basement.getLeaderboard()
+            .then(result => {
+                highScoresLoading = false;
+                showHighScoresList(result.leaderboard);
+            })
+            .catch(error => {
+                highScoresLoading = false;
+                setHighScoresMessage('Could not load high scores. Please try again later.');
+            });
+    } else {
+        setHighScoresMessage('Loading high scores...');
+    }
+}
+
+let basementAvailable = true;
+
+basement.sendNotification('Connected to Basement', NotificationType.Success)
+    .catch(error => {
+        console.error("Error connecting to Basement.");
+        basementAvailable = false;
+        setVisible(document.getElementById('high-scores-button')!, false);
+    });
 
 setMessage('Tap to continue');

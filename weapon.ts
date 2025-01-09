@@ -1,6 +1,7 @@
 import { MathUtils, Mesh, MeshBasicMaterial, PlaneGeometry, Texture, Vector2 } from 'three';
 import { TextOverlay } from './entities';
 import { createTintShader } from './utils';
+import { Game } from './game';
 
 class Weapon {
     public reloading: number;
@@ -10,13 +11,18 @@ class Weapon {
     public spread: number;
 
     public update: Function | null;
-    public destroy: Function | null;
     public mesh: Mesh;
 
     public ammo: number;
 
     public texture: Texture;
     public bulletTexture: Texture;
+
+    public destroy: Function | null;
+    
+    public cloneBulletGeometry: boolean = false;
+    public cloneBulletMaterial: boolean = false;
+    public rotateBullet: boolean = true;
 
     constructor(
         public name: string,
@@ -54,27 +60,42 @@ class Weapon {
         this.ammo = 0;
     }
 
-    setSpread(spread) {
+    setSpread(spread: number): Weapon {
         this.spread = spread;
         return this;
     }
 
-    setBullets(bullets, bulletsSpread, bulletsOffset) {
+    setBullets(bullets: number, bulletsSpread: number, bulletsOffset: number): Weapon {
         this.bullets = bullets;
         this.bulletsSpread = bulletsSpread || 0;
         this.bulletsOffset = bulletsOffset || 0;
         return this;
     }
 
-    setUpdate(update) {
+    setUpdate(update: Function): Weapon {
         this.update = update;
         return this;
     }
 
-    setDestroy(destroy) {
+    setDestroy(destroy: Function): Weapon {
         this.destroy = destroy;
         return this;
     }
+
+    setCloneBulletGeometry(cloneBulletGeometry: boolean): Weapon {
+        this.cloneBulletGeometry = cloneBulletGeometry;
+        return this;
+    }
+
+    setCloneBulletMaterial(cloneBulletMaterial: boolean): Weapon {
+        this.cloneBulletMaterial = cloneBulletMaterial;
+        return this;
+    }
+
+    setRotateBullet(rotateBullet: boolean): Weapon {
+        this.rotateBullet = rotateBullet;
+        return this;
+    } 
 
     init(textures) {
         this.texture = textures[this.textureUrl!];
@@ -95,14 +116,14 @@ class Weapon {
             map: texture,
             transparent: true,
         });
-        geometry.translate(texture.image.width / 2, -texture.image.height / 2, 0); 
+        geometry.translate(texture.image.width / 2, -texture.image.height / 2, 0);
         const mesh = new Mesh(geometry, material);
         mesh.position.x = -this.origin.x;
         mesh.position.y = this.origin.y;
         return mesh;
     }
 
-    createBullet(game) {
+    createBullet(game: Game) {
         if (this.soundKey) {
             game.audioManager.playEffect(this.soundKey);
         }
@@ -116,7 +137,7 @@ class Weapon {
         }
     }
 
-    collect(game) {
+    collect(game: Game) {
         this.ammo += this.boxAmmo;
         if (this.announcerSoundKey) {
             game.audioManager.playEffect(this.announcerSoundKey);

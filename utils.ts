@@ -1,4 +1,4 @@
-import { Box3, Color, NearestFilter, Object3D, PerspectiveCamera, Plane, Raycaster, ShaderMaterial, SRGBColorSpace, Texture, Vector3 } from 'three';
+import { Box3, Color, NearestFilter, PerspectiveCamera, Plane, Raycaster, ShaderMaterial, SRGBColorSpace, Texture, Vector3 } from 'three';
 
 const planeZ = new Plane(new Vector3(0, 0, 1), 0);
 const raycaster = new Raycaster();
@@ -127,7 +127,7 @@ function loadTexture(loader, textures, url) {
             resolve(texture);
         }, undefined, (error) => {
             console.log("Error loading texture: ", url)
-            reject({url, error});
+            reject({ url, error });
         });
     });
 }
@@ -249,6 +249,7 @@ function isPlayerCollisionRect(x, y, width, height, player) {
     return x + width >= pos.x + player.bounds.min.x && x <= pos.x + player.bounds.max.x && y + height >= pos.y + player.bounds.min.y && y <= pos.y + player.bounds.max.y;
 }
 
+var courseHeliBox = new Box3(new Vector3(-88, -37, -5), new Vector3(100, 35, 5));
 var heliBoxes = [
     new Box3(new Vector3(-88, 13, -5), new Vector3(-72, 28, 5)),
     new Box3(new Vector3(-88, -29, -5), new Vector3(-31, 13, 5)),
@@ -265,6 +266,10 @@ function checkPointCollisionWithBoxes(point, enemy, boxes) {
     // Convert the world-space point to the object's local space
     const localPoint = point.clone();
     enemy.heliGroup.worldToLocal(localPoint);
+
+    if (!courseHeliBox.containsPoint(localPoint)) {
+       return false;
+    }
 
     for (const box of boxes) {
         if (box.containsPoint(localPoint)) {
@@ -338,12 +343,12 @@ function sayMessage(text) {
     return text.replace('\n', '<br>');
 }
 
-function setOpacity( obj, opacity ) {
-    obj.children.forEach((child)=>{
-        setOpacity( child, opacity );
+function setOpacity(obj, opacity) {
+    obj.children.forEach((child) => {
+        setOpacity(child, opacity);
     });
-    if ( obj.material ) {
-        obj.material.opacity = opacity ;
+    if (obj.material) {
+        obj.material.opacity = opacity;
     };
 };
 
@@ -364,7 +369,7 @@ function getScaleDelta(totalFrames, currentFrame, minScale = 1, maxScale = 2) {
 }
 
 let speakErrors = false;
-function setMessage(text, mode: 'replace' | 'append'='replace') {
+function setMessage(text, mode: 'replace' | 'append' = 'replace') {
     const message = document.getElementById('message')!;
     setVisible(message, text);
     if (mode === 'replace') {
@@ -382,7 +387,7 @@ function setVisible(element, visible) {
     }
 }
 
-function timeout(ms:number) {
+function timeout(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
@@ -400,10 +405,10 @@ function getDurationMiliseconds(bpm) {
 function get2DPosition(camera: PerspectiveCamera, vector: Vector3): { x: number, y: number } {
     // Project the 3D position to 2D using the camera's projection matrix
     vector.project(camera);
-    
+
     // Convert NDC to pixel coordinates
     const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-    const y = ( -vector.y * 0.5 + 0.5) * window.innerHeight;
+    const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
 
     return { x, y };
 }

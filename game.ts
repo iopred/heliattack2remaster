@@ -1,6 +1,6 @@
 
 import { Blood, Box, DestroyedEnemy, DestroyedHeli, Explosion, Parachute, Shard, Smoke } from './entities';
-import { Box3, Clock, Color, MathUtils, Mesh, MeshBasicMaterial, Frustum, Group, Matrix4, Object3D, PlaneGeometry, Scene, ShaderMaterial, Texture, Vector2, Vector3, Camera } from 'three';
+import { Box3, Camera, Clock, Color, Frustum, Geometry, Group, MathUtils, Matrix4, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Scene, ShaderMaterial, Texture, Vector2, Vector3 } from 'three';
 import { calculateAngleToMouse, checkTileCollisions, createTintShader, getDurationMiliseconds, rotateAroundPivot, setUV, visibleHeightAtZDepth, visibleWidthAtZDepth, isPlayerCollision, isTileCollision, sayMessage } from './utils';
 import { defaultBulletUpdate } from './weapons';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
@@ -8,7 +8,7 @@ import AudioManager from './audiomanager';
 import { Timeline, TimelineEvent } from './timeline';
 import VideoGestures from './videogestures';
 import Weapon from './weapon';
-import { TextOverlay } from './entities';
+import { Entity, TextOverlay } from './entities';
 
 const UP_KEY = 'KeyboardKeyUp';
 const DOWN_KEY = 'KeyboardKeyDown';
@@ -83,6 +83,12 @@ class Enemy {
         this.aim = Math.PI / 2;
     }
 
+    static geometry:PlaneGeometry;
+    static tintMaterial:ShaderMaterial;
+
+    static enemyGeometry:PlaneGeometry;
+    static enemyTintMaterial:ShaderMaterial;
+
 
 
     init(game) {
@@ -96,26 +102,29 @@ class Enemy {
         this.heliGroup = new Group();
         this.group.add(this.heliGroup);
 
-        const geometry = new PlaneGeometry(heliTexture.image.width, heliTexture.image.height);
-        const material = new MeshBasicMaterial({
-            map: heliTexture,
-            transparent: true,
-        });
+        if (!Enemy.geometry) {
+            Enemy.geometry = new PlaneGeometry(heliTexture.image.width, heliTexture.image.height);;
+        }
+        if (!Enemy.tintMaterial) {
+            Enemy.tintMaterial = createTintShader(heliTexture)
+        }
 
-        const tintMaterial = createTintShader(heliTexture)
+        const geometry = Enemy.geometry;
+        const tintMaterial = Enemy.tintMaterial;
         this.tints.push(tintMaterial);
 
         const mesh = this.mesh = new Mesh(geometry, tintMaterial);
         this.heliGroup.add(mesh);
 
+        if (!Enemy.enemyGeometry) {
+            Enemy.enemyGeometry = new PlaneGeometry(enemyTexture.image.width, enemyTexture.image.height);
+        }
+        if (!Enemy.enemyTintMaterial) {
+            Enemy.enemyTintMaterial = createTintShader(enemyTexture);
+        }
 
-        const enemyGeometry = new PlaneGeometry(enemyTexture.image.width, enemyTexture.image.height);
-        const enemyMaterial = new MeshBasicMaterial({
-            map: enemyTexture,
-            transparent: true,
-        });
-
-        const enemyTintMaterial = createTintShader(enemyTexture);
+        const enemyGeometry = Enemy.enemyGeometry;
+        const enemyTintMaterial = Enemy.enemyTintMaterial;
         this.tints.push(enemyTintMaterial);
 
         const enemyMesh = this.enemyMesh = new Mesh(enemyGeometry, enemyTintMaterial);
@@ -130,7 +139,21 @@ class Enemy {
 
         this.group.add(enemyWeapon);
 
-        game.world.add(this.group)
+        game.world.add(this.group);
+
+        
+        const texture = this.bulletTexture;
+
+        if (!Enemy.bulletGeometry) {
+            Enemy.bulletGeometry = new PlaneGeometry(texture.image.width, texture.image.height);
+        }
+
+        if (!Enemy.bulletMaterial) {
+            Enemy.bulletMaterial = new MeshBasicMaterial({
+                map: texture,
+                transparent: true,
+            });
+        }
 
         this.randomizePosition(game)
 
@@ -170,6 +193,7 @@ class Enemy {
     }
 
     destroy(game, showExplosion: boolean = true) {
+        this.setTint(false);
         game.world.remove(this.group);
 
         if (showExplosion) {
@@ -369,23 +393,18 @@ class Enemy {
         return isMeshOnScreen;
     }
 
+    static bulletGeometry:PlaneGeometry;
+    static bulletMaterial:MeshBasicMaterial;
+
     createBullet(game) {
         const pivot = new Vector3();
         this.enemyWeapon.getWorldPosition(pivot);
 
-        const texture = this.bulletTexture;
-
-        const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
-        const material = new MeshBasicMaterial({
-            map: texture,
-            transparent: true
-        });
-
         const innacuracy = Math.max(2, 6 - game.level);
         const direction = this.aim + (-innacuracy + Math.random() * 2 * innacuracy) * Math.PI / 180
 
-        const mesh = new Mesh(geometry, material);
-        mesh.rotation.z = direction;
+        const mesh = new Mesh(Enemy.bulletGeometry, Enemy.bulletMaterial);
+        // mesh.rotation.z = direction;
 
         mesh.position.copy(pivot.add(rotateAroundPivot(game.weapons[0].barrel, zero, this.aim, !(this.aim > Math.PI / 2 || this.aim < -Math.PI / 2))));
         mesh.position.z = 0.5;
@@ -397,13 +416,16 @@ class Enemy {
                 3.5 * Math.cos(direction),
                 3.5 * Math.sin(direction),
                 0),
-            object: mesh
+            object: mesh,
+            destroy: (game) => {
+                game.world.remove(mesh);
+            }
         };
         game.enemyBullets.push(bullet);
     }
 
-    damage(damage, game) {
-        if (game.player.powerup == TRI_DAMAGE) {
+    damage(damage: number, game: Game) {
+        if (game.player?.powerup == TRI_DAMAGE) {
             this.health -= damage * 3;
         } else {
             this.health -= damage;
@@ -640,7 +662,7 @@ class Player {
             const freeBulletTime = this.infiniteTimeDistort || this.hyperJumping;
             let newTimeScale = game.timeScale;
 
-            if (((this.bulletTime > 0 || freeBulletTime) && game.keyIsPressed['Shift']) || this.powerup == TIME_RIFT) {
+            if (((this.bulletTime > 0 || freeBulletTime) && (game.keyIsPressed['ShiftLeft'] || game.keyIsPressed['ShiftRight'] || game.joystick.timeDistort)) || this.powerup == TIME_RIFT) {
                 newTimeScale = Math.max(0.2, game.timeScale - 0.1);
 
                 if (!(this.powerup == TIME_RIFT || this.powerup == PREDATOR_MODE || freeBulletTime)) {
@@ -700,7 +722,7 @@ class Player {
 
                 if (this.hyperJump < HYPERJUMP_RECHARGE) {
                     this.hyperJump++;
-                } else if (game.keyIsPressed[' '] && this.canJump) {
+                } else if ((game.keyIsPressed['Space'] || game.joystick.hyperJump) && this.canJump) {
                     this.velocity.y = Math.min(this.velocity.y, -25);
                     this.inAir = true;
                     this.canJump = false;
@@ -861,6 +883,9 @@ class Player {
                 this.selectWeaponDirection(game.mouse.wheel);
                 showWeaponName(game);
                 game.mouse.wheel = 0;
+            } else if (game.joystick.changeWeapon) {
+                this.selectWeaponDirection(1);
+                game.joystick.changeWeapon = false;
             } else if (game.videoGestures?.switching) {
                 this.selectWeaponDirection(1);
                 game.videoGestures.switching = false;
@@ -1068,9 +1093,10 @@ const bg1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0
 
 const zero = new Vector3();
 
-class Game {
+export class Game {
     public window: Window;
     public mouse: any;
+    public joystick: any;
     public keyIsPressed: { [key: string]: boolean };
     public scene: Scene;
     public camera: Camera;
@@ -1123,16 +1149,16 @@ class Game {
     public mapBox: Box3;
 
     public clock: Clock = new Clock();
-        
+
     public accumulator: number;
-    public playerBullets: any[];
-    public enemyBullets: any[];
-    public entities: any[];
+    public playerBullets: any[] = [];
+    public enemyBullets: any[] = [];
+    public entities: Entity[] = [];
 
     public hideWeaponName: number;
 
 
-    constructor(windowOrGame: Window | Game, mouse: Object, keyIsPressed: { [key: string]: boolean }, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
+    constructor(windowOrGame: Window | Game, mouse: Object, joystick: Object, keyIsPressed: { [key: string]: boolean }, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
         this.bpm = 200;
 
         this.paused = false;
@@ -1157,13 +1183,14 @@ class Game {
         this.spidersAttacked = false;
 
         if (windowOrGame instanceof Game) {
-            for (const key of ['window', 'mouse', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'audioManager', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack', 'bpm']) {
+            for (const key of ['window', 'mouse', 'joystick', 'keyIsPressed', 'scene', 'camera', 'shaderPass', 'vhsPass', 'audioManager', 'videoGestures', 'overSetter', 'timeline', 'updateFunction', 'musicTrack', 'bpm']) {
                 this[key] = windowOrGame[key];
             }
-            this.init(windowOrGame.textures, windowOrGame.weapons);    
+            this.init(windowOrGame.textures, windowOrGame.weapons);
         } else {
             this.window = window;
             this.mouse = mouse;
+            this.joystick = joystick;
             this.keyIsPressed = keyIsPressed;
             this.scene = scene;
             this.camera = camera;
@@ -1444,7 +1471,7 @@ Nothing left at all
         if (this.textures) {
             return;
         }
-        
+
         this.textures = textures;
         this.weapons = weapons;
 
@@ -1514,9 +1541,9 @@ Nothing left at all
 
         let timeScale = this.timeScale = 1;
 
-        const playerBullets = this.playerBullets = [];
-        const enemyBullets = this.enemyBullets = [];
-        this.entities = [];
+        this.destroy();
+
+        this.scene.add(this.world);
 
         this.camera.position.set(0, 0, 300);
         this.camera.lookAt(0, 0, 0);
@@ -1588,26 +1615,43 @@ Nothing left at all
         return group;
     };
 
-    createBullet(weapon, rotation, offset) {
+    static bulletGeometries: { [key: string]: Geometry } = {};
+    static bulletMaterials: { [key: string]: MeshBasicMaterial } = {};
+
+    createBullet(weapon: Weapon, rotation, offset) {
         const player = this.player!;
 
         const pivot = new Vector3();
         player.weaponObject.getWorldPosition(pivot);
 
-        const texture = weapon.bulletTexture || this.bulletTexture;
+        const bulletKey = weapon.bulletTextureUrl || 'bullet';
 
-        const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
-        const material = new MeshBasicMaterial({
-            map: texture,
-            transparent: true
-        });
+        if (!Game.bulletGeometries[bulletKey]) {
+            const texture = weapon.bulletTexture || this.bulletTexture;
 
+            const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
+            Game.bulletGeometries[bulletKey] = geometry;
+        }
+        
+        if (!Game.bulletMaterials[bulletKey]) {
+            const texture = weapon.bulletTexture || this.bulletTexture;
 
+            const material = new MeshBasicMaterial({
+                map: texture,
+                transparent: true
+            });
+            Game.bulletMaterials[bulletKey] = material;
+        }
+
+        const geometry = weapon.cloneBulletGeometry ? Game.bulletGeometries[bulletKey].clone() : Game.bulletGeometries[bulletKey];
+        const material = weapon.cloneBulletMaterial ? Game.bulletMaterials[bulletKey].clone() : Game.bulletMaterials[bulletKey];
 
         const direction = player.aim + rotation * Math.PI / 180
 
         const mesh = new Mesh(geometry, material);
-        mesh.rotation.z = direction;
+        if (weapon.rotateBullet) {
+            mesh.rotation.z = direction;
+        }
 
         const pos = pivot.add(rotateAroundPivot(weapon.barrel, zero, player.aim, !(player.aim > Math.PI / 2 || player.aim < -Math.PI / 2)));
         if (offset) {
@@ -1619,7 +1663,7 @@ Nothing left at all
 
         this.world.add(mesh);
 
-        const bullet: { velocity: Vector3, damage: number, object: Mesh, material: MeshBasicMaterial, update: Function, destroy: Function, tick: number, time: number } = {
+        const bullet: { velocity: Vector3, damage: number, object: Mesh, material: MeshBasicMaterial, update: Function | null, destroy: Function, tick: number, time: number } = {
             velocity: new Vector3(
                 weapon.bulletSpeed * Math.cos(direction),
                 weapon.bulletSpeed * Math.sin(direction),
@@ -1630,7 +1674,12 @@ Nothing left at all
             update: weapon.update,
             tick: 0,
             time: 0,
-            destroy: weapon.destroy,
+            destroy: (game) => {
+                weapon.destroy?.apply(bullet, [game]);
+                game.world.remove(mesh);
+                mesh.material.dispose();
+                mesh.geometry.dispose();
+            }
         };
 
         this.playerBullets.push(bullet);
@@ -1651,7 +1700,6 @@ Nothing left at all
     updateBullets(delta) {
         for (let i = this.playerBullets.length - 1; i >= 0; i--) {
             const bullet = this.playerBullets[i];
-            //bullet.object.rotation.z += 5 * Math.PI/180;
 
             let remove = false;
 
@@ -1667,7 +1715,6 @@ Nothing left at all
 
             if (remove) {
                 this.playerBullets.splice(i, 1);
-                this.world.remove(bullet.object);
             }
         }
         if (!this.player) {
@@ -1715,7 +1762,7 @@ Nothing left at all
 
             if (remove || !this.mapBox.containsPoint(bulletPos)) {
                 this.enemyBullets.splice(i, 1);
-                this.world.remove(bullet.object);
+                bullet.destroy(this);
             }
         }
     }
@@ -1731,10 +1778,10 @@ Nothing left at all
     }
 
     updateKeys() {
-        this.keyIsPressed[UP_KEY] = this.keyIsPressed['w'] || this.keyIsPressed['ArrowUp'];
-        this.keyIsPressed[DOWN_KEY] = this.keyIsPressed['s'] || this.keyIsPressed['ArrowDown'];
-        this.keyIsPressed[LEFT_KEY] = this.keyIsPressed['a'] || this.keyIsPressed['ArrowLeft'];
-        this.keyIsPressed[RIGHT_KEY] = this.keyIsPressed['d'] || this.keyIsPressed['ArrowRight'];
+        this.keyIsPressed[UP_KEY] = this.keyIsPressed['KeyW'] || this.keyIsPressed['ArrowUp'] || this.joystick.up;
+        this.keyIsPressed[DOWN_KEY] = this.keyIsPressed['KeyS'] || this.keyIsPressed['ArrowDown'] || this.joystick.down;
+        this.keyIsPressed[LEFT_KEY] = this.keyIsPressed['KeyA'] || this.keyIsPressed['ArrowLeft'] || this.joystick.left;
+        this.keyIsPressed[RIGHT_KEY] = this.keyIsPressed['KeyD'] || this.keyIsPressed['ArrowRight'] || this.joystick.right;
     }
 
     timeStep(delta) {
@@ -1769,7 +1816,7 @@ Nothing left at all
             this.timeline.update();
 
             this.vhsPass.material.uniforms.time.value += (this.timeScale + (this.player?.hyperJumping ? 0.2 : 0)) * 0.01;
-    
+
             this.updateFunction();
 
             this.accumulator %= UPDATE_FREQUENCY;
@@ -1893,7 +1940,25 @@ Nothing left at all
 
     destroy() {
         this.enemy?.destroy(this, false);
+        this.enemy = null;
         this.player?.destroy(this, false);
+        this.player = null;
+        for (const bullet of this.playerBullets) {
+            bullet.destroy(this);
+        }
+
+        for (const bullet of this.enemyBullets) {
+            bullet.destroy(this);
+        }
+
+        for (const entity of this.entities) {
+            entity.destroy(this);
+        }
+
+        this.playerBullets = [];
+        this.enemyBullets = [];
+        this.entities = [];
+
         this.scene.remove(this.world);
         this.shaderPass.uniforms.invertEnabled.value = 0.0;
         this.shaderPass.uniforms.tintEnabled.value = 0.0;
@@ -2088,7 +2153,7 @@ Nothing left at all
     levelUp(message = 'Level Up!') {
         new TextOverlay(this, message);
         this.level++;
-        this.nextLevel += 10*(this.level+1);
+        this.nextLevel += 10 * (this.level + 1);
         this.allWeapons();
     }
 

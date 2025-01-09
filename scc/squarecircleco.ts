@@ -262,7 +262,16 @@ class SquareCircleCo {
             this.camera.position.y = y.pos;
             this.cameraVelocity.y = y.vel;
 
-            const z = updateDampedSpringMotion(this.camera.position.z, this.cameraVelocity.z, this.targetCameraPosition.z, this.params);
+            let targetZ = this.targetCameraPosition.z;
+
+            const referenceAspect = 1; //16/9
+            if (this.camera.aspect < referenceAspect) {
+                const scale = referenceAspect / this.camera.aspect;
+                
+                targetZ = targetZ * scale;
+            }
+
+            const z = updateDampedSpringMotion(this.camera.position.z, this.cameraVelocity.z, targetZ, this.params);
             this.camera.position.z = z.pos;
             this.cameraVelocity.z = z.vel;
 

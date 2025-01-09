@@ -23,10 +23,10 @@ export class Timeline {
     private bpm: number;
     private timeSignature: number;
     private started = true;
-    public listener:Function | null = null;
+    public listener: Function | null = null;
     private lastTime;
 
-    constructor(audioManager: AudioManager, bpm: number, timeSignature:number, kitString: string) {
+    constructor(audioManager: AudioManager, bpm: number, timeSignature: number, kitString: string) {
         this.audioManager = audioManager;
         this.bpm = bpm;
         this.timeSignature = timeSignature;
@@ -34,7 +34,7 @@ export class Timeline {
         this.parseLyrics(kitString);
     }
 
-    public get currentTime():Number {
+    public get currentTime(): Number {
         return this.audioManager.currentTime;
     }
 
@@ -49,7 +49,7 @@ export class Timeline {
 
             // Calculate the time for this lyric using the BPM
             const timePerBeat = 60 / this.bpm; // Time for each beat in seconds
-            
+
             currentTime += timePerBeat * this.timeSignature * 4; // Increment the time based on the beats
 
             return {
@@ -76,7 +76,7 @@ export class Timeline {
         }
         // Get lyrics that are within the time window
         const lyricsToShow = this.lyrics.filter(lyric => lyric.time >= startTime && lyric.time <= endTime);
-        
+
         // Display each lyric
         lyricsToShow.forEach(lyric => this.displayLyric(lyric.time, lyric.text, lyric as TimelineEvent));
     }
@@ -87,7 +87,7 @@ export class Timeline {
     }
 
     // Displays the lyric (can be replaced with custom logic to render lyrics on screen)
-    private displayLyric(time:number, text:string, timelineEvent:TimelineEvent): void {
+    private displayLyric(time: number, text: string, timelineEvent: TimelineEvent): void {
         if (text && this.listener) {
             this.listener(time, text, timelineEvent);
         }
@@ -98,7 +98,7 @@ export class Timeline {
         return this.lyrics;
     }
 
-    public update():void {
+    public update(): void {
         const currentTime = this.audioManager.currentTime;
         // console.error("timeline.update: currentTime = ", currentTime);
         this.dispatchLyrics(this.lastTime, currentTime);

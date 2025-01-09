@@ -102,9 +102,9 @@ function seekerUpdate(game, delta) {
             let aim = this.object.rotation.z;
             let dif = targetAim - aim;
             if (dif > Math.PI) {
-                dif = -Math.PI*2 + dif;
+                dif = -Math.PI * 2 + dif;
             } else if (dif < -Math.PI) {
-                dif = Math.PI*2 + dif;
+                dif = Math.PI * 2 + dif;
             }
 
             aim += dif / 15;
@@ -183,9 +183,9 @@ function flameUpdate(game, delta) {
         this.time = Math.max(FLAME_TIME - 6, this.time);
     }
 
-    this.object.scale.x = this.object.scale.y = (5 + this.time/FLAME_TIME * (42 - 5)) / 42;
+    this.object.scale.x = this.object.scale.y = (5 + this.time / FLAME_TIME * (42 - 5)) / 42;
     if (this.time >= FLAME_TIME - FLAME_FADE_TIME) {
-        this.material.opacity = 1-Math.min((this.time - (FLAME_TIME - FLAME_FADE_TIME)) / FLAME_FADE_TIME, 1)
+        this.material.opacity = 1 - Math.min((this.time - (FLAME_TIME - FLAME_FADE_TIME)) / FLAME_FADE_TIME, 1)
     }
     if (this.time > FLAME_TIME) {
         return true;
@@ -199,7 +199,7 @@ function flameUpdate(game, delta) {
         bbox.min.z = enemyBbox.min.z = -5;
         bbox.max.z = enemyBbox.max.z = 5;
         if (bbox.intersectsBox(enemyBbox)) {
-            game.enemy.damage(this.damage*(1-Math.min(this.time / FLAME_TIME, 1))*game.timeScale, game);
+            game.enemy.damage(this.damage * (1 - Math.min(this.time / FLAME_TIME, 1)) * game.timeScale, game);
             this.time = Math.max(FLAME_TIME - 8, this.time);
             return false;
         }
@@ -261,10 +261,6 @@ function grenadeUpdate(game, delta) {
 const FIRE_TIME = 80;
 
 function fireMinesUpdate(game, delta) {
-    if (this.time == 0) {
-        this.object.rotation.z = 0;
-    }
-
     this.tick += game.timeScale;
     if (this.tick >= 1) {
         this.tick %= 1;
@@ -278,16 +274,16 @@ function fireMinesUpdate(game, delta) {
 
     if (this.triggered) {
         if (this.time <= 10) {
-            setOpacity(this.pillar, this.time/10);
-            this.pillar.scale.x = this.time/10;
-        } else if (this.time >= FIRE_TIME-10) {
+            setOpacity(this.pillar, this.time / 10);
+            this.pillar.scale.x = this.time / 10;
+        } else if (this.time >= FIRE_TIME - 10) {
             const perc = 1 - (this.time - (FIRE_TIME - 10)) / 10;
-            setOpacity(this.pillar, perc );
+            setOpacity(this.pillar, perc);
             this.pillar.scale.x = perc;
         }
 
         for (const flame of this.flames) {
-            flame.flame.scale.x = flame.flame.scale.y += getScaleDelta(FIRE_TIME, this.time, flame.flameScale, flame.flameScale * 1.25 ) * game.timeScale;
+            flame.flame.scale.x = flame.flame.scale.y += getScaleDelta(FIRE_TIME, this.time, flame.flameScale, flame.flameScale * 1.25) * game.timeScale;
         }
 
         if (game.enemy) {
@@ -332,18 +328,18 @@ function fireMinesUpdate(game, delta) {
 function constructFirePillarSegment(game, heightOffset) {
     const texture = game.textures['./images/flamepillar.png'];
     const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
-    const material = new MeshBasicMaterial({ 
+    const material = new MeshBasicMaterial({
         map: texture,
         transparent: true
     });
-    geometry.translate(0, texture.image.height / 2 + heightOffset * texture.image.height, 0); 
+    geometry.translate(0, texture.image.height / 2 + heightOffset * texture.image.height, 0);
     return new Mesh(geometry, material);
 }
 
 function constructFlame(game) {
     const texture = game.textures['./images/flame.png'];
     const geometry = new PlaneGeometry(texture.image.width, texture.image.height);
-    const material = new MeshBasicMaterial({ 
+    const material = new MeshBasicMaterial({
         map: texture,
         transparent: true
     });
@@ -355,7 +351,7 @@ const PILLAR_FLAMES = 15;
 function constructFirePillar(game) {
     const object = new Object3D();
 
-    
+
     object.add(constructFirePillarSegment(game, 0));
     object.add(constructFirePillarSegment(game, 0.95));
 
@@ -363,13 +359,13 @@ function constructFirePillar(game) {
     const width = bbox.max.x - bbox.min.x;
     const height = bbox.max.y - bbox.min.y
 
-    const flames: {flame: Mesh, flameScale: number}[] = [];
+    const flames: { flame: Mesh, flameScale: number }[] = [];
 
     for (let i = 1; i < PILLAR_FLAMES; i++) {
         const flame = constructFlame(game)
         const flameScale = 0.25 + Math.random() * 0.5;
-        flame.position.y = i * height/PILLAR_FLAMES;
-        flame.position.x = width * (-0.5 + Math.random()); 
+        flame.position.y = i * height / PILLAR_FLAMES;
+        flame.position.x = width * (-0.5 + Math.random());
         flame.rotation.z = (95 + Math.random() * 10) * Math.PI / 180;
 
         if (i == 7) {
@@ -382,22 +378,27 @@ function constructFirePillar(game) {
         }
         object.add(flame);
 
-        flames.push({flame: flame, flameScale: flameScale});
+        flames.push({ flame: flame, flameScale: flameScale });
     }
 
     return [object, flames];
 }
 
 function railUpdate(game, delta) {
-    if (this.time == 0) {
-        this.object.geometry.translate(this.material.map.image.width/2, 0, 0);
+    if (this.time == 0) {        
+        this.object.geometry.translate(this.material.map.image.width / 2, 0, 0);
+
         let pos = this.object.position.clone();
-        while(game.enemy) {
+
+        this.object.position.x += this.velocity.x;
+        this.object.position.y += this.velocity.y;
+
+        while (game.enemy) {
             if (checkPointCollisionWithBoxes(pos, game.enemy, heliBoxes)) {
                 game.enemy.damage(this.damage, game);
                 break;
             }
-        
+
             if (!game.mapBox.containsPoint(pos)) {
                 break
             }
@@ -431,14 +432,14 @@ function grappleUpdate(game, delta) {
     if (this.time == 0) {
         this.time = 1;
 
-        const lineMaterial = new LineBasicMaterial( { color: 0x000000, linewidth: 4 } );
+        const lineMaterial = new LineBasicMaterial({ color: 0x000000, linewidth: 4 });
 
         const points: Vector3[] = [];
-        points.push( this.object.position );
-        points.push( game.player.group.position.clone().add(game.player.weaponObject.position) );
+        points.push(this.object.position);
+        points.push(game.player.group.position.clone().add(game.player.weaponObject.position));
 
-        const lineGeometry = new BufferGeometry().setFromPoints( points );
-        
+        const lineGeometry = new BufferGeometry().setFromPoints(points);
+
         const line = new Line(lineGeometry, lineMaterial);
         this.line = line;
         game.world.add(line);
@@ -468,7 +469,7 @@ function grappleUpdate(game, delta) {
     pos.x += this.velocity.x * game.timeScale;
     pos.y += this.velocity.y * game.timeScale;
 
-    
+
     updateGrappleLine.apply(this, [game]);
 
     if (isTileCollision(pos.x, -pos.y, game.map, game.tileSize)) {
@@ -483,8 +484,8 @@ function grappleUpdate(game, delta) {
         this.grappled = game.enemy;
         this.grappleOffset = this.object.position.clone().sub(game.enemy.group.position);
 
-        
-        for(var i = 0; i < 2; i++) {
+
+        for (var i = 0; i < 2; i++) {
             const p = this.object.position.clone()
             //p.x += -40 + Math.random() * 80;
             p.y *= -1;
