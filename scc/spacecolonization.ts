@@ -1,14 +1,14 @@
 // Space Colonization Algorithm for a 3D Sphere
 import * as THREE from 'three';
 
-type Branch = {
+export type Branch = {
   position: THREE.Vector3;
   parent: Branch | null;
   growDirection: THREE.Vector3;
   growCount: number;
 };
 
-type Options = {
+export type Options = {
   attractors?: THREE.Vector3[];
   radius?: number;
   killDistance?: number;
@@ -115,6 +115,9 @@ class SpaceColonization {
     const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
 
     return new THREE.LineSegments(geometry, material);
+  }
+  getBranches(): Branch[] {
+    return this.branches;
   }
 }
 
