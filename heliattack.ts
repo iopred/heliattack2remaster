@@ -180,8 +180,7 @@ class HeliAttack {
         this.game.init(this.textures, this.weapons);
 
         this.vhsPass.uniforms.enabled.value = 1.0;
-        this.vhsPass.uniforms.distortion.value = 0.1;
-        this.vhsPass.uniforms.animatedColorShift.value = 0.005;
+        this.vhsPass.uniforms.frameWarp.value = 0.0;
     }
 
     start() {
@@ -206,6 +205,7 @@ class HeliAttack {
         this.game.restart();
 
         this.vhsPass.uniforms.enabled.value = 0.0;
+        this.vhsPass.uniforms.frameWarp.value = 0.7;
     }
 
     initVideoGestures(videoGestures) {
@@ -264,7 +264,7 @@ class HeliAttack {
 
                 this.lightHelper?.update();
             }
-            this.vhsPass.material.uniforms.time.value += this.game.clock.getDelta();
+            this.vhsPass.material.uniforms.time.value = this.game.clock.elapsedTime * 0.33;
             return true;
         }
 
@@ -415,6 +415,8 @@ class HeliAttack {
         this.scene.position.x = -0.2
 
         this.resizeMenu();
+
+        this.vhsPass.uniforms.enabled.value = 1.0;
     }
 
     resizeMenu() {

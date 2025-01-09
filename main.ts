@@ -97,6 +97,7 @@ const VHSEffectShader = {
         colorShift: { value: 0.2 }, // Amount of RGB color shift
         largeLineAberration: { value: 0.6 }, // Toggle large VHS line aberration
         animatedColorShift: { value: 0.005 }, // Animatable color shift amount
+        frameWarp: { value: 0.8 },
         enabled: { value: 0.0 }, // Overall strength of the effect.
     },
 
@@ -118,6 +119,7 @@ const VHSEffectShader = {
     uniform float enabled;
     uniform float largeLineAberration;
     uniform float animatedColorShift;
+    uniform float frameWarp;
 
     varying vec2 vUv;
 
@@ -189,7 +191,7 @@ const VHSEffectShader = {
         float combinedWarp = bottomWarp + topWarp;
 
         // Apply combined warp effect
-        uv.x += combinedWarp * enabled;
+        uv.x += combinedWarp * enabled * frameWarp;
 
         return uv;
     }
@@ -1118,7 +1120,6 @@ function showMainMenu() {
     setVisible(mainMenu, true);
     heliattack.showMainMenu();
 
-    vhsPass.uniforms.enabled.value = 1.0;
 }
 
 async function createHeliAttack() {

@@ -1,5 +1,5 @@
 import AudioManager from '../audiomanager';
-import { Camera, Clock, Color, DOMElement, Scene, Vector3 } from 'three';
+import { Camera, Clock, Color, DOMElement, Scene, Vector3, SphereGeometry, MeshBasicMaterial, Mesh } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import TouchVisualizer from './touchvisualizer';
@@ -215,6 +215,9 @@ class SquareCircleCo {
 
         this.targetCameraPosition = cameraPositions[4].position;
 
+
+        return;
+
         const sphereRadius = this.sphereRadius = 100;
 
         const sc = this.sc = new SpaceColonization({ radius: sphereRadius });
@@ -241,12 +244,10 @@ class SquareCircleCo {
             sc.addAttractor(randomPoint);
         }
 
-
-        sc.grow();
-        const mesh = sc.generateMesh();
-        this.scene.add(mesh);
-
-        this.camera.lookAt(mesh.position);
+        const sphereGeometry = new SphereGeometry(sphereRadius, 32, 32);
+        const sphereMaterial = new MeshBasicMaterial({ color: 0xaaaaaa, wireframe: true });
+        const sphere = new Mesh(sphereGeometry, sphereMaterial);
+        this.scene.add(sphere);
 
         this.colonize = true;
 
@@ -301,10 +302,10 @@ class SquareCircleCo {
 
                 this.targetCameraPosition = { x: group.position.x, y: group.position.y, z: group.position.z};
                 this.camera.position.copy(group.position);
-                this.camera.position.z += 10;
+                this.camera.position.z += this.sphereRadius * 2;
                 // this.controls.target = group.position;
 
-                this.camera.lookAt(group.position);
+                // this.camera.lookAt(group.position);
 
                 if (group.children.length > 1000) {
                     const previousNodes = this.scene.getObjectByName('nodes');
