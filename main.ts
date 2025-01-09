@@ -818,6 +818,9 @@ const settings = {
         setVisible(mainMenu, false);
         if (heliattack) {
             heliattack.playing = !value;
+            if (heliattack.playing) {
+                vhsPass.uniforms.enabled.value = 0.0;
+            }
         }
         if (value) {
             document.getElementById('ui')?.removeAttribute('playing'); 
@@ -900,6 +903,8 @@ async function init() {
 
     setMessage('Loading...');
 
+    vhsPass.uniforms.enabled.value = 2.0;
+
     if (!SKIP_INTRO) {
         await createNaamba();
         await createSquareCircleCo();
@@ -933,7 +938,7 @@ let squarecircleco: SquareCircleCo | null = null;
 async function createSquareCircleCo() {
     setMessage('Loading...');
 
-    squarecircleco = new SquareCircleCo(window, renderer.domElement, scene, camera, audioManager);
+    squarecircleco = new SquareCircleCo(window, renderer.domElement, scene, camera, audioManager, vhsPass);
     await squarecircleco.preload();
 
     setMessageColor('black');
@@ -1011,8 +1016,6 @@ async function createHeliAttack() {
     if (videoGestures) {
         heliattack.initVideoGestures(videoGestures);
     }
-
-    
 }
 
 setMessage('Tap to continue');

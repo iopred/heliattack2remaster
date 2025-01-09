@@ -1,5 +1,5 @@
 import AudioManager from '../audiomanager';
-import { Camera, Clock, Color, DOMElement, MathUtils, Scene } from 'three';
+import { Camera, Clock, Color, DOMElement, Scene, Vector3 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import TouchVisualizer from './touchvisualizer';
@@ -7,6 +7,7 @@ import { timeout } from '../utils';
 import Tween from '../tween';
 
 import {DampedSpringMotionParams, calcDampedSpringMotionParams, updateDampedSpringMotion } from '../spring';
+import SpaceColonization from './spacecolonization';
 
 const UPDATE_FREQUENCY = 1 / 60;
 
@@ -32,7 +33,7 @@ class SquareCircleCo {
 
     private started:boolean = false;
 
-    constructor(private window: Window, private domElement:DOMElement, private scene: Scene, private camera: Camera, private audioManager: AudioManager) {
+    constructor(private window: Window, private domElement:DOMElement, private scene: Scene, private camera: Camera, private audioManager: AudioManager, private vhsPass: ShaderPass) {
         this.clock = new Clock();
 
         const angularFrequency = 14.0;
@@ -212,6 +213,14 @@ class SquareCircleCo {
         await timeout(300);
         
         this.targetCameraPosition = cameraPositions[4].position;
+
+        const sc = new SpaceColonization({});
+        sc.addAttractor(new Vector3(107.0, 105.0, 115.0))
+        sc.grow();
+        const mesh = sc.generateMesh();
+        this.scene.add(mesh);
+
+        
     }
 
     get(shape) {
@@ -259,6 +268,9 @@ class SquareCircleCo {
 
             // this.camera.rotation.y = (this.camera.position.z - 10) / 100;
             this.camera.lookAt(this.targetCameraPosition.x, this.targetCameraPosition.y, 0);
+
+            this.vhsPass.material.uniforms.time.value += 0.01;
+    
 
             this.accumulator %= UPDATE_FREQUENCY;
 

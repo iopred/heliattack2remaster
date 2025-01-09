@@ -93,7 +93,7 @@ class HeliAttack {
     private gltfPreload: Promise<any>;
     private texturePreload: Promise<any>;
 
-    constructor(window: Window, mouse: Object, keyIsPressed: {[key: string]: boolean}, private scene: Scene, private camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, private audioManager: AudioManager, private settings: Object) {
+    constructor(window: Window, mouse: Object, keyIsPressed: {[key: string]: boolean}, private scene: Scene, private camera: Camera, shaderPass: ShaderPass, private vhsPass: ShaderPass, private audioManager: AudioManager, private settings: Object) {
         this.game = new Game(window, mouse, keyIsPressed, scene, camera, shaderPass, vhsPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
     }
 
@@ -179,6 +179,10 @@ class HeliAttack {
         this.audioManager.playLoop('helicopter', 0.0, 0, false);
 
         this.game.init(this.textures, this.weapons);
+
+        this.vhsPass.uniforms.enabled.value = 1.0;
+        this.vhsPass.uniforms.distortion.value = 0.1;
+        this.vhsPass.uniforms.animatedColorShift.value = 0.005;
     }
 
     start() {
@@ -200,6 +204,8 @@ class HeliAttack {
 
         this.audioManager.currentTime = 0;
         this.game.restart();
+
+        this.vhsPass.uniforms.enabled.value = 0.0;
     }
 
     initVideoGestures(videoGestures) {
@@ -248,6 +254,7 @@ class HeliAttack {
 
                 this.lightHelper?.update();
             }
+            this.vhsPass.material.uniforms.time.value += this.game.clock.getDelta();
             return true;
         }
 
