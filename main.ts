@@ -1006,6 +1006,8 @@ let squarecircleco: SquareCircleCo | null = null;
 async function createSquareCircleCo() {
     setMessage('Loading...');
 
+    vhsPass.uniforms.enabled.value = 2.0;
+
     squarecircleco = new SquareCircleCo(window, renderer.domElement, scene, camera, audioManager, vhsPass);
     await squarecircleco.preload();
 
