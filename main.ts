@@ -996,6 +996,8 @@ function resetMainMenu() {
     heliattack?.showMainMenu();
 
     audioManager.timeScale = 1.0;
+
+    vhsPass.uniforms.enabled.value = 1.0;
 }
 
 async function createHeliAttack() {
