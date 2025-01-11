@@ -25,20 +25,13 @@ Have you beaten the game yet? If you haven't beaten the game, you can only do 1/
 
 ** TODO **
 
-While in Time Distort and Hyperjumping, game is in bullet hell mode.
-While in Time Distort and Full Health, game has infinite time distort.
 
 Integrate with b3.fun
-    Design smart contract
-        Design b3 integration.
+- Design b3 integration.
 
 Convert to Progressive Web App (application, install on mobile): https://vite-pwa-org.netlify.app/guide/
 
 Convert to Discord Activite: https://discord.com/developers/docs/activities/building-an-activity
-
-Design highscores
-
-Die screen needs highscores
 
 Add Asset switching (a)
     HA3 mode 
@@ -48,6 +41,7 @@ Add level editing - (Kit data store)
 Bullet Surfing /* Get to this! The game isn't fun enough yet in slomo */
 
 Hyperjump takes you off the stage and into space (HA4 graphics?)
+- While in Time Distort and Hyperjumping, game is in bullet hell mode.
 
 Max 30 minutes a day for pay to play earning.
 
