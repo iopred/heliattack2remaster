@@ -1054,9 +1054,17 @@ function createCreditsMenu() {
     });
 }
 
-function showCredits() {
-    setVisible(creditsMenu, true);
+function hideAllMenus() {
     setVisible(mainMenu, false);
+    setVisible(gameOverMenu, false);
+    setVisible(creditsMenu, false);
+    setVisible(highScoresMenu, false);
+}
+
+function showCredits() {
+    hideAllMenus();
+    heliattack?.hideMainMenu();
+    setVisible(creditsMenu, true);
 }
 
 function createGameOverMenu() {
@@ -1130,12 +1138,9 @@ function resetMainMenu() {
 }
 
 function showMainMenu() {
-    setVisible(highScoresMenu, false);
-    setVisible(gameOverMenu, false);
-    setVisible(creditsMenu, false);
+    hideAllMenus();
     setVisible(mainMenu, true);
-    heliattack.showMainMenu();
-
+    heliattack?.showMainMenu();
 }
 
 async function createHeliAttack() {
@@ -1208,8 +1213,7 @@ function showHighScoresList(scores) {
 
 function showHighScores() {
     heliattack.hideMainMenu();
-    setVisible(mainMenu, false);
-    setVisible(gameOverMenu, false);
+    hideAllMenus();
     setVisible(highScoresMenu, true);
 
     if (!highScoresLoading) {
