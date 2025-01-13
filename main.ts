@@ -244,6 +244,8 @@ function createVHSEffectPass(): ShaderPass {
     return shaderPass;
 }
 const vhsPass = createVHSEffectPass();
+
+window.a = vhsPass;
 composer.addPass(vhsPass);
 
 document.getElementById('game')!.appendChild(renderer.domElement);
@@ -873,9 +875,6 @@ const settings = {
         setVisible(mainMenu, false);
         if (heliattack) {
             heliattack.playing = !value;
-            if (heliattack.playing) {
-                vhsPass.uniforms.enabled.value = 0.0;
-            }
         }
         renderer.shadowMap.enabled = value;
         if (ignoreDocumentMouseMove) {
@@ -947,7 +946,7 @@ let initialized = false;
 const mainMenu = document.getElementById('main-menu')!;
 const gameOverMenu = document.getElementById('game-over-menu')!;
 const highScoresMenu = document.getElementById('high-scores-menu')!;
-
+const creditsMenu = document.getElementById('credits-menu')!;
 const SKIP_INTRO = false;
 
 async function init() {
@@ -971,6 +970,7 @@ async function init() {
     await createGameOverMenu();
     await createHighScoresMenu();
     await createPausedMenu();
+    await createCreditsMenu();
     
     audioManager.playMusic('menu', 0.4);
 
@@ -1004,11 +1004,11 @@ function createMainMenu() {
     const startButton = document.getElementById('start-game-button')!;
 
     startButton.addEventListener('click', () => {
-        heliattack?.start();
+        startGame();
     });
 
     startButton.addEventListener('touch', () => {
-        heliattack?.start();
+        startGame();
     });
 
     const highScoresButton = document.getElementById('high-scores-button')!;
@@ -1042,8 +1042,21 @@ function createMainMenu() {
     });
 }
 
+function createCreditsMenu() {
+    const back = document.getElementById('credits-back-button')!;
+
+    back.addEventListener('click', () => {
+        showMainMenu();
+    });
+
+    back.addEventListener('touch', () => {
+        showMainMenu();
+    });
+}
+
 function showCredits() {
-    loadGame('credits.glsb');
+    setVisible(creditsMenu, true);
+    setVisible(mainMenu, false);
 }
 
 function createGameOverMenu() {
@@ -1102,6 +1115,8 @@ function createPausedMenu() {
 function resetMainMenu() {
     shaderPass.uniforms.invertEnabled.value = 0.0;
     shaderPass.uniforms.tintEnabled.value = 0.0;
+    vhsPass.uniforms.enabled.value = 1.0;
+
     heliattack?.destroy();
     heliattack?.showMainMenu();
 
@@ -1117,6 +1132,7 @@ function resetMainMenu() {
 function showMainMenu() {
     setVisible(highScoresMenu, false);
     setVisible(gameOverMenu, false);
+    setVisible(creditsMenu, false);
     setVisible(mainMenu, true);
     heliattack.showMainMenu();
 
@@ -1142,6 +1158,11 @@ async function createHeliAttack() {
     }
 
 
+}
+
+function startGame() {
+    heliattack?.start();
+    vhsPass.uniforms.enabled.value = 0.0;
 }
 
 

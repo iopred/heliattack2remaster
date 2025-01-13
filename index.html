@@ -62,7 +62,8 @@
 			#main-menu,
 			#game-over-menu,
 			#high-scores-menu,
-			#paused-menu-menu {
+			#paused-menu-menu,
+			#credits-menu {
 				position: absolute;
 				display: flex;
 				align-items: center;
@@ -76,6 +77,7 @@
 			#main-menu[hidden],
 			#game-over-menu[hidden],
 			#high-scores-menu[hidden],
+			#credits-menu[hidden],
 			#ui[playing] #main-menu,
 			#ui[playing] #game-over-menu,
 			#ui[playing] #high-scores-menu {
@@ -587,6 +589,28 @@
 				<button id="resume-game">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M320-200v-560l440 280-440 280Zm80-280Zm0 134 210-134-210-134v268Z"/></svg>
 				</button>
+			</div>
+			<div id="credits-menu" hidden>
+				<div class="menu-background">
+					<div id="credits">
+						Heli Attack 2000
+						<br>A game by squarecircleco.
+						<br>
+						<br>Design & Programming:
+						<br>Kit "iopred" Rhodes
+						<br>
+						<br>Art:
+						<br>Christopher "DayDream" Hildenbrand
+						<br>
+						<br>Music:
+						<br>Adam "Dangerbeard" Robertson
+						<br>David "Psychopig" Desi
+						<br>
+						<br>Special Thanks:
+						<br>Gabriel Aronovich
+					</div>
+					<button id="credits-back-button">Back</button>
+				</div>
 			</div>
 			<div id="error-container" hidden>
 				<div id="webcam-ui" hidden>

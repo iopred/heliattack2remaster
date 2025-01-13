@@ -178,11 +178,6 @@ class HeliAttack {
         this.audioManager.playLoop('helicopter', 0.0, 0, false);
 
         this.game.init(this.textures, this.weapons);
-
-        this.vhsPass.uniforms.enabled.value = 0.1;
-        this.vhsPass.uniforms.frameWarp.value = 0.0;
-        this.vhsPass.uniforms.animatedColorShift.value = 0.001;
-        this.vhsPass.uniforms.largeLineAberration.value = 0.2;
     }
 
     start() {
@@ -208,6 +203,8 @@ class HeliAttack {
 
         this.vhsPass.uniforms.enabled.value = 0.0;
         this.vhsPass.uniforms.frameWarp.value = 0.7;
+        this.vhsPass.uniforms.animatedColorShift.value = 0.001;
+        this.vhsPass.uniforms.largeLineAberration.value = 0.2;
     }
 
     initVideoGestures(videoGestures) {
@@ -419,6 +416,7 @@ class HeliAttack {
         this.resizeMenu();
 
         this.vhsPass.uniforms.enabled.value = 1.0;
+        this.vhsPass.uniforms.frameWarp.value = 0.0;
     }
 
     resizeMenu() {
