@@ -335,7 +335,7 @@ function sayMessage(text) {
         text = text.split(']')[0].substring(1);
     }
 
-    if (window.audioManager.effectVolume != 0.0) {
+    if (window.audioManager?.effectVolume != 0.0) {
         let utterance = new SpeechSynthesisUtterance(text);
         speechSynthesis.speak(utterance);
     }

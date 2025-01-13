@@ -10,10 +10,11 @@ import HeliAttack from './heliattack';
 import TouchInputHandler from './touchinputhandler';
 import { getDurationMiliseconds, sayMessage, setMessage, setVisible, timeout } from './utils';
 import SquareCircleCo from './scc/squarecircleco';
-import Naamba from './naamba'
+import Naamba from './naamba/naamba'
 import SmoothScrollHandler from './smoothscrollhandler';
 import { LocalStorageWrapper } from './localstoragewrapper';
 import { Basement, NotificationType } from './basement';
+import { IGame } from './game';
 
 const gestureCanvas = document.getElementById('gesture-canvas')! as HTMLCanvasElement;
 gestureCanvas.width = window.innerWidth;
@@ -251,18 +252,6 @@ const dirLight = new DirectionalLight(0xffffff, 0.4);
 dirLight.position.set(0, 0, 1).normalize();
 scene.add(dirLight);
 
-function createBlueLine(x, y, object) {
-    const material = new LineBasicMaterial({ color: 0x0000ff });
-
-    const points: Vector3[] = [];
-    points.push(new Vector3(x - 10, y - 10, -0));
-    points.push(new Vector3(x, y, -0));
-    points.push(new Vector3(x + 10, y - 10, -0));
-
-    const geometry = new BufferGeometry().setFromPoints(points);
-    const line = new Line(geometry, material);
-    object.add(line);
-}
 
 function resetScene(scene) {
     while (scene.children.length > 0) {
@@ -289,6 +278,12 @@ function resetScene(scene) {
 }
 
 let wasRendering = false;
+
+const audioManager = new AudioManager();
+window.audioManager = audioManager;
+
+let naamba: IGame = new Naamba(window, renderer.domElement, scene, camera, audioManager, vhsPass);
+
 let heliattack: HeliAttack;
 function render() {
     let rendered = false;
@@ -303,7 +298,7 @@ function render() {
         } else {
             wasRendering = true;
         }
-        composer.render();
+        composer.render()
     }
 }
 
@@ -498,17 +493,17 @@ function onMouseWheel(event) {
 
 const touchInputHandler = new TouchInputHandler(document.body, gestureCanvas);
 let ignoreDocumentMouseMove = false;
-touchInputHandler.onStart((event) => {
+touchInputHandler.onStart(() => {
     ignoreDocumentMouseMove = true;
 
     init();
 });
 
-touchInputHandler.onEnd((event) => {
+touchInputHandler.onEnd(() => {
 
 })
 
-touchInputHandler.onMove((event) => {
+touchInputHandler.onMove(() => {
 
 })
 
@@ -564,14 +559,14 @@ if (videoGestures) {
 }
 
 const k = new WordListener('k');
-k.onWordDetected((word) => {
+k.onWordDetected(() => {
     abandonGame();
 });
 
 let showErrors = false;
 const history: string[] = [];
 const i = new WordListener('i');
-i.onWordDetected((word) => {
+i.onWordDetected(() => {
     showErrors = !showErrors;
 
     setVisible(document.getElementById('error-container'), showErrors);
@@ -580,7 +575,7 @@ i.onWordDetected((word) => {
 });
 
 const t = new WordListener('t');
-t.onWordDetected((word) => {
+t.onWordDetected(() => {
     heliattack?.start();
 });
 
@@ -588,7 +583,7 @@ t.onWordDetected((word) => {
 
 let showWebcam = false;
 const o = new WordListener('o');
-o.onWordDetected(async (word) => {
+o.onWordDetected(async () => {
     showWebcam = !showWebcam;
 
     setVisible(document.getElementById('webcam'), showWebcam);
@@ -597,7 +592,7 @@ o.onWordDetected(async (word) => {
 
 let lastMessage = 0;
 const l = new WordListener('l');
-l.onWordDetected(async (word) => {
+l.onWordDetected(async () => {
     if (heliattack?.game?.lastTimelineEvent) {
         const thisMessage = ++lastMessage;
 
@@ -638,14 +633,14 @@ function togglePause() {
 }
 
 const m = new WordListener('m');
-m.onWordDetected((word) => {
+m.onWordDetected(() => {
     toggleMusic();
 
     showCheat(audioManager.musicVolume === 0.0 ? 'music off' : 'music on');
 });
 
 const n = new WordListener('n');
-n.onWordDetected((word) => {
+n.onWordDetected(() => {
     toggleEffects();
 
     showCheat(audioManager.effectVolume === 0.0 ? 'sound off' : 'sound on');
@@ -653,7 +648,7 @@ n.onWordDetected((word) => {
 
 
 const io = new WordListener('io');
-io.onWordDetected((word) => {
+io.onWordDetected(() => {
     history.splice(0, history.length);
 
     if (!videoGestures) {
@@ -667,7 +662,7 @@ io.onWordDetected((word) => {
 });
 
 const retro = new WordListener('retro');
-retro.onWordDetected((word) => {
+retro.onWordDetected(() => {
     history.splice(0, history.length);
 
     heliattack?.start();
@@ -678,7 +673,7 @@ retro.onWordDetected((word) => {
 });
 
 const xylander = new WordListener('xylander');
-xylander.onWordDetected((word) => {
+xylander.onWordDetected(() => {
     debugger;
     history.splice(0, history.length);
 
@@ -688,7 +683,7 @@ xylander.onWordDetected((word) => {
 });
 
 const kit = new WordListener('kit');
-kit.onWordDetected((word) => {
+kit.onWordDetected(() => {
     history.splice(0, history.length);
 
     heliattack?.playSong('ror');
@@ -697,7 +692,7 @@ kit.onWordDetected((word) => {
 });
 
 const pred = new WordListener('pred');
-pred.onWordDetected((word) => {
+pred.onWordDetected(() => {
     history.splice(0, history.length);
 
     heliattack?.pred();
@@ -746,7 +741,6 @@ function setPlaying(value) {
     }
 }
 
-let inGame = false;
 
 window.addEventListener('wheel', onMouseWheel, { passive: false });
 
@@ -783,7 +777,6 @@ window.addEventListener('keyup', (e) => {
 });
 
 let wasPlaying = false;
-let paused = false;
 window.addEventListener('blur', () => {
     for (const key in keyIsPressed) {
         keyIsPressed[key] = false;
@@ -809,35 +802,35 @@ window.addEventListener('focus', () => {
     }
 });
 
-document.getElementById('music-enable')?.addEventListener('touch', event => {
+document.getElementById('music-enable')?.addEventListener('touch', () => {
     toggleMusic();
 });
 
-document.getElementById('music-enable')?.addEventListener('click', event => {
+document.getElementById('music-enable')?.addEventListener('click', () => {
     toggleMusic();
 });
 
-document.getElementById('effects-enable')?.addEventListener('touch', event => {
+document.getElementById('effects-enable')?.addEventListener('touch', () => {
     toggleEffects();
 });
 
-document.getElementById('effects-enable')?.addEventListener('click', event => {
+document.getElementById('effects-enable')?.addEventListener('click', () => {
     toggleEffects();
 });
 
-document.getElementById('pause-game')?.addEventListener('click', event => {
+document.getElementById('pause-game')?.addEventListener('click', () => {
     togglePause();
 });
 
-document.getElementById('pause-game')?.addEventListener('touch', event => {
+document.getElementById('pause-game')?.addEventListener('touch', () => {
     togglePause();
 });
 
-document.getElementById('resume-game')?.addEventListener('click', event => {
+document.getElementById('resume-game')?.addEventListener('click', () => {
     togglePause();
 });
 
-document.getElementById('resume-game')?.addEventListener('touch', event => {
+document.getElementById('resume-game')?.addEventListener('touch', () => {
     togglePause();
 });
 
@@ -853,12 +846,9 @@ if (WebGL.isWebGL2Available()) {
     document.getElementById('error-container')!.appendChild(warning);
 }
 
-const audioManager = new AudioManager();
-window.audioManager = audioManager;
-
 const settings = {
     set over(value: boolean) {
-        if (value && heliattack?.game?.score) {
+        if (value) {
             const score = heliattack?.game?.score;
             const gameOverMessage = document.getElementById('game-over-message')!;
             gameOverMessage.textContent = '';
@@ -970,10 +960,10 @@ async function init() {
 
     setMessage('Loading...');
 
-    vhsPass.uniforms.enabled.value = 2.0;
+    await naamba.start();
+    await timeout(getDurationMiliseconds(BPM) * 4);
 
     if (!SKIP_INTRO) {
-        await createNaamba();
         await createSquareCircleCo();
     }
     await createHeliAttack();
@@ -991,26 +981,12 @@ function setMessageColor(color) {
     document.getElementById('message')!.style.color = color;
 }
 
-let naamba: Naamba | null = null;
-
-async function createNaamba() {
-    setMessage('Loading...');
-
-    naamba = new Naamba(window, renderer.domElement, scene, camera);
-    await naamba.preload();
-
-    setMessage('');
-    await naamba.begin();
-    await timeout(getDurationMiliseconds(BPM) * 6);
-}
-
 let squarecircleco: SquareCircleCo | null = null;
 async function createSquareCircleCo() {
     setMessage('Loading...');
 
-    vhsPass.uniforms.enabled.value = 2.0;
-
     squarecircleco = new SquareCircleCo(window, renderer.domElement, scene, camera, audioManager, vhsPass);
+
     await squarecircleco.preload();
 
     setMessageColor('black');
@@ -1019,7 +995,7 @@ async function createSquareCircleCo() {
     naamba = null;
     resetScene(scene);
 
-    await squarecircleco.begin();
+    await squarecircleco.start();
 
     await timeout(getDurationMiliseconds(BPM) * 2);
 }
@@ -1044,6 +1020,30 @@ function createMainMenu() {
     highScoresButton.addEventListener('touch', () => {
         showHighScores();
     });
+
+    // const signInButton = document.getElementById('sign-in-button')!;
+
+    // signInButton.addEventListener('click', () => {
+    //     getAvatar().signIn();
+    // });
+
+    // signInButton.addEventListener('touch', () => {
+    //     getAvatar().signIn();
+    // });
+
+    const creditsButton = document.getElementById('credits-button')!;
+
+    creditsButton.addEventListener('click', () => {
+        showCredits();
+    });
+
+    creditsButton.addEventListener('touch', () => {
+        showCredits();
+    });
+}
+
+function showCredits() {
+    loadGame('credits.glsb');
 }
 
 function createGameOverMenu() {
@@ -1083,8 +1083,8 @@ function createHighScoresMenu() {
 function abandonGame() {
     if (heliattack?.playing) {
         setPlaying(true);
+        heliattack?.suicide();
     }
-    heliattack?.suicide();
 }
 
 function createPausedMenu() {
@@ -1127,7 +1127,7 @@ async function createHeliAttack() {
 
     heliattack?.destroy();
 
-    heliattack = new HeliAttack(window, mouse, joystick, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, settings);
+    heliattack = new HeliAttack(window, renderer.domElement, mouse, joystick, keyIsPressed, scene, camera, shaderPass, vhsPass, audioManager, settings);
     await heliattack.preload();
 
     setMessageColor('white');
@@ -1167,7 +1167,7 @@ function showHighScoresList(scores) {
 
     const tbody = document.createElement('tbody');
 
-    scores.forEach((score, index) => {
+    scores.forEach((score) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><img src="${score.avatar}" /></td>
@@ -1198,7 +1198,7 @@ function showHighScores() {
                 highScoresLoading = false;
                 showHighScoresList(result.leaderboard);
             })
-            .catch(error => {
+            .catch(() => {
                 highScoresLoading = false;
                 setHighScoresMessage('Could not load high scores. Please try again later.');
             });
@@ -1210,7 +1210,7 @@ function showHighScores() {
 let basementAvailable = true;
 
 basement.sendNotification('Connected to Basement', NotificationType.Success)
-    .catch(error => {
+    .catch(() => {
         console.error("Error connecting to Basement.");
         basementAvailable = false;
         setVisible(document.getElementById('high-scores-button')!, false);

@@ -92,8 +92,8 @@ class HeliAttack {
     private gltfPreload: Promise<any>;
     private texturePreload: Promise<any>;
 
-    constructor(window: Window, mouse: Object, joystick: Object, keyIsPressed: { [key: string]: boolean }, private scene: Scene, private camera: Camera, shaderPass: ShaderPass, private vhsPass: ShaderPass, private audioManager: AudioManager, private settings: Object) {
-        this.game = new Game(window, mouse, joystick, keyIsPressed, scene, camera, shaderPass, vhsPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
+    constructor(private window: Window, domElement:HTMLElement, mouse: Object, joystick: Object, keyIsPressed: { [key: string]: boolean }, private scene: Scene, private camera: Camera, shaderPass: ShaderPass, private vhsPass: ShaderPass, private audioManager: AudioManager, private settings: Object) {
+        this.game = new Game(window, domElement, mouse, joystick, keyIsPressed, scene, camera, shaderPass, vhsPass, this.textures, audioManager, this.weapons, (value) => { this.settings.over = value; }, () => { this.settings.update() });
     }
 
     async preload(): Promise<any> {
@@ -179,8 +179,10 @@ class HeliAttack {
 
         this.game.init(this.textures, this.weapons);
 
-        this.vhsPass.uniforms.enabled.value = 1.0;
+        this.vhsPass.uniforms.enabled.value = 0.1;
         this.vhsPass.uniforms.frameWarp.value = 0.0;
+        this.vhsPass.uniforms.animatedColorShift.value = 0.001;
+        this.vhsPass.uniforms.largeLineAberration.value = 0.2;
     }
 
     start() {

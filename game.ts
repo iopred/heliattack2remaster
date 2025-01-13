@@ -29,6 +29,17 @@ const UPDATE_FREQUENCY = 1 / 60;
 
 let playEnemyHit = true;
 
+export type IGame = {
+    preload: Function;
+    start: Function;
+    destroy: Function;
+}
+
+export interface ISettings {
+    over: boolean;
+    update: Function;
+}
+
 class Enemy {
     public position: Vector3;
     public velocity: Vector2;
@@ -59,7 +70,6 @@ class Enemy {
     public mesh: Mesh;
     public enemyMesh: Mesh;
     public enemyWeapon: Object3D;
-
 
     constructor() {
         this.position = new Vector3(0, 0);
@@ -453,6 +463,7 @@ const PREDATOR_MODE = 3;
 const TIME_RIFT = 4;
 const JETPACK = 5;
 const MINI_PREDATOR_MODE = 6;
+const TRI_VALUE = 7;
 
 const POWERUP_TIME = 1000;
 const MAX_BULLET_TIME = 120;
@@ -994,6 +1005,12 @@ class Player {
             game.audioManager.playEffect('announcerTridamage');
             powerupText.innerHTML = 'Tri Damage';
             new TextOverlay(game, 'Tri Damage');
+        } else if (type == TRI_VALUE) {
+            this.setTint(true, new Color(0, 0, 1));
+            game.audioManager.playEffect('announcerTrivalue');
+            sayMessage('Tri Value');
+            powerupText.innerHTML = 'Tri Value';
+            new TextOverlay(game, 'Tri Value');
         } else if (type == INVULNERABILITY) {
             this.ignoreNextDamage = true;
             this.setTint(true, new Color(1, 0, 0));
@@ -1093,17 +1110,8 @@ const bg1 = [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0
 
 const zero = new Vector3();
 
-export class Game {
-    public window: Window;
-    public mouse: any;
-    public joystick: any;
-    public keyIsPressed: { [key: string]: boolean };
-    public scene: Scene;
-    public camera: Camera;
-    public shaderPass: ShaderPass;
-    public vhsPass: ShaderPass;
-    public textures: Texture[];
-    public audioManager: AudioManager;
+export class Game implements IGame {
+    private window: Window;
     public weapons: Weapon[];
     private overSetter: Function;
     private updateFunction: Function;
@@ -1137,6 +1145,13 @@ export class Game {
 
     public shotsFired: number;
     public spidersAttacked: boolean;
+    public set spidersAttacked_(value: boolean) {
+        this.spidersAttacked = value;
+        if (value) {
+            this.enemy = null;
+        }
+        this.updateFunction();
+    }
 
     public timelineEventDeadline: number;
 
@@ -1158,7 +1173,7 @@ export class Game {
     public hideWeaponName: number;
 
 
-    constructor(windowOrGame: Window | Game, mouse: Object, joystick: Object, keyIsPressed: { [key: string]: boolean }, scene: Scene, camera: Camera, shaderPass: ShaderPass, vhsPass: ShaderPass, textures, audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
+    constructor(windowOrGame:Window | Game, private domElement:HTMLElement, public mouse: Object, public joystick: Object, public keyIsPressed: { [key: string]: boolean }, public scene: Scene, public camera: Camera, public shaderPass: ShaderPass, public vhsPass: ShaderPass, public textures:Texture[], public audioManager: AudioManager, weapons: Weapon[], overSetter, updateFunction) {
         this.bpm = 200;
 
         this.paused = false;
@@ -1187,17 +1202,11 @@ export class Game {
                 this[key] = windowOrGame[key];
             }
             this.init(windowOrGame.textures, windowOrGame.weapons);
+            this.window = windowOrGame['window'];
         } else {
             this.window = window;
-            this.mouse = mouse;
-            this.joystick = joystick;
-            this.keyIsPressed = keyIsPressed;
-            this.scene = scene;
-            this.camera = camera;
             this.shaderPass = shaderPass;
-            this.vhsPass = vhsPass;
             this.textures = textures;
-            this.audioManager = audioManager;
             this.weapons = weapons;
             this.overSetter = overSetter;
             this.updateFunction = updateFunction;

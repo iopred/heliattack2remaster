@@ -1,4 +1,4 @@
-
+Heli Attack comin' at you [boy|girl] 
 
 **Sales pitch**
 
@@ -60,3 +60,26 @@ Changed right click, it now selects an alternate weapon which you can change whi
 ** Update for basement
 
 GetLeaderBoard returns empty response when no scores (should return `{"success": true, "leaderboard": []}`)
+
+
+Script:
+
+[Announcer Voice]
+
+RailGun
+
+Machine Gun
+
+Shotgun
+
+Grapple Cannon
+
+A-Bomb Launcher
+
+
+
+Invulnerability [kit:Rise from your grave]
+
+Deflect [kit:Rise from your grave]
+
+Heli-Attack [naamba:]

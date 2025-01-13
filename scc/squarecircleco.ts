@@ -1,5 +1,5 @@
 import AudioManager from '../audiomanager';
-import { Camera, Clock, Color, DOMElement, Scene, Vector3, SphereGeometry, MeshBasicMaterial, Mesh } from 'three';
+import { Camera, Clock, Color, DOMElement, Scene, Vector3, ShaderPass, SphereGeometry, MeshBasicMaterial, Mesh } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import TouchVisualizer from './touchvisualizer';
@@ -8,7 +8,7 @@ import Tween from '../tween';
 
 import { DampedSpringMotionParams, calcDampedSpringMotionParams, updateDampedSpringMotion } from '../spring';
 import SpaceColonization from './spacecolonization';
-import { renderBranchesAsNodes } from './renderBranchesAsNodes';
+import { renderBranchesAsNodes } from './renderbranchesasnodes';
 
 const UPDATE_FREQUENCY = 1 / 60;
 
@@ -73,8 +73,11 @@ class SquareCircleCo {
         return Promise.all([this.audioPreload, this.gltfPreload]);
     }
 
-    async begin() {
+    async start() {
         await this.preload();
+
+        this.vhsPass.uniforms.enabled.value = 2.0;
+
 
         this.scene.background = new Color(0xffffff);
         this.camera.position.z = 10;
